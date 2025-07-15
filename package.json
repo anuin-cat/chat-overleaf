@@ -10,14 +10,19 @@
     "package": "plasmo package"
   },
   "dependencies": {
+    "@plasmohq/redux-persist": "^6.1.0",
+    "@plasmohq/storage": "^1.15.0",
     "@radix-ui/react-label": "2.1.2",
     "@radix-ui/react-slot": "1.1.2",
+    "@reduxjs/toolkit": "^2.8.2",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "lucide-react": "0.474.0",
     "plasmo": "0.90.5",
     "react": "18.2.0",
     "react-dom": "18.2.0",
+    "react-redux": "^9.2.0",
+    "redux-persist-webextension-storage": "^1.0.2",
     "tailwind-merge": "3.0.1",
     "tailwindcss-animate": "1.0.7"
   },

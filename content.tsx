@@ -1,7 +1,10 @@
 import cssText from "data-text:~globals.css"
 import type { PlasmoCSConfig } from "plasmo"
+import { Provider } from "react-redux"
+import { PersistGate } from "@plasmohq/redux-persist/integration/react"
 
 import { LoginForm } from "~components/login-form"
+import { store, persistor } from "~store"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"]
@@ -26,7 +29,7 @@ export const getStyle = (): HTMLStyleElement => {
 
   let updatedCssText = cssText.replaceAll(":root", ":host(plasmo-csui)")
   const remRegex = /([\d.]+)rem/g
-  updatedCssText = updatedCssText.replace(remRegex, (match, remValue) => {
+  updatedCssText = updatedCssText.replace(remRegex, (_, remValue) => {
     const pixelsValue = parseFloat(remValue) * baseFontSize
 
     return `${pixelsValue}px`
@@ -39,9 +42,13 @@ export const getStyle = (): HTMLStyleElement => {
 
 const CSUIExample = () => {
   return (
-    <div className="flex w-[400px] flex-col border-2 bg-yellow-50">
-      <LoginForm />
-    </div>
+    <Provider store={store}>
+      <PersistGate loading={<div>加载中...</div>} persistor={persistor}>
+        <div className="flex w-[400px] flex-col border-2 bg-yellow-50">
+          <LoginForm />
+        </div>
+      </PersistGate>
+    </Provider>
   )
 }
 
