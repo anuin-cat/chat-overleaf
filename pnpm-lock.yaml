@@ -35,9 +35,18 @@ importers:
       clsx:
         specifier: 2.1.1
         version: 2.1.1
+      katex:
+        specifier: ^0.16.22
+        version: 0.16.22
       lucide-react:
         specifier: 0.474.0
         version: 0.474.0(react@18.2.0)
+      marked:
+        specifier: ^16.0.0
+        version: 16.0.0
+      marked-katex-extension:
+        specifier: ^5.1.5
+        version: 5.1.5(katex@0.16.22)(marked@16.0.0)
       openai:
         specifier: ^5.9.1
         version: 5.9.1
@@ -69,6 +78,9 @@ importers:
       '@types/chrome':
         specifier: 0.0.258
         version: 0.0.258
+      '@types/marked':
+        specifier: ^6.0.0
+        version: 6.0.0
       '@types/node':
         specifier: 20.11.5
         version: 20.11.5
@@ -1963,6 +1975,10 @@ packages:
   '@types/http-cache-semantics@4.0.4':
     resolution: {integrity: sha512-1m0bIFVc7eJWyve9S0RnuRgcQqF/Xd5QsUZAZeQFr1Q3/p9JWoQQEqmVy+DPTNpGXwhgIetAoYF8JSc33q29QA==}
 
+  '@types/marked@6.0.0':
+    resolution: {integrity: sha512-jmjpa4BwUsmhxcfsgUit/7A9KbrC48Q0q8KvnY107ogcjGgTFDlIL3RpihNpx2Mu1hM4mdFQjoVc4O6JoGKHsA==}
+    deprecated: This is a stub types definition. marked provides its own type definitions, so you do not need this installed.
+
   '@types/node@20.11.5':
     resolution: {integrity: sha512-g557vgQjUUfN76MZAN/dt1z3dzcUsimuysco0KeluHgrPdJXkP/XdAURgyO2W9fZWHRtRBiVKzKn8vyOAwlG+w==}
 
@@ -2224,6 +2240,10 @@ packages:
   commander@7.2.0:
     resolution: {integrity: sha512-QrWXB+ZQSVPmIWIhtEO9H+gwHaMGYiF5ChvoJ+K9ZGHG/sVsa6yiesAD1GC/x46sET00Xlwo1u49RVVVzvcSkw==}
     engines: {node: '>= 10'}
+
+  commander@8.3.0:
+    resolution: {integrity: sha512-OkTL9umf+He2DZkUq8f8J9of7yL6RJKI24dVITBmNfZBmri9zYZQrKkuXiKhyfPSu8tUhnVBB1iKXevvnlR4Ww==}
+    engines: {node: '>= 12'}
 
   config-chain@1.1.13:
     resolution: {integrity: sha512-qj+f8APARXHrM0hraqXYb2/bOVSV4PvJQlNZ/DVj0QrmNM2q2euizkeuVckQ57J+W0mRH6Hvi+k50M4Jul2VRQ==}
@@ -2728,6 +2748,10 @@ packages:
   jsonfile@6.1.0:
     resolution: {integrity: sha512-5dgndWOriYSm5cnYaJNhalLNDKOqFwyDB/rr1E9ZsGciGvKPs8R2xYGCacuf3z6K1YKDz182fd+fY3cn3pMqXQ==}
 
+  katex@0.16.22:
+    resolution: {integrity: sha512-XCHRdUw4lf3SKBaJe4EvgqIuWwkPSo9XoeO8GjQW94Bp7TWv9hNhzZjZ+OH9yf1UmLygb7DIT5GSFQiyt16zYg==}
+    hasBin: true
+
   keyv@4.5.4:
     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}
 
@@ -2927,6 +2951,17 @@ packages:
   make-dir@2.1.0:
     resolution: {integrity: sha512-LS9X+dc8KLxXCb8dni79fLIIUA5VyZoyjSMCwTluaXA0o27cCK0bhXkpgw+sTXVpPy/lSO57ilRixqk0vDmtRA==}
     engines: {node: '>=6'}
+
+  marked-katex-extension@5.1.5:
+    resolution: {integrity: sha512-AAlfnpi3ivBWt4Paqb8YW2R7eq2ESJ+AtrgJU1jImUwnxHJAhPkZ5MsR3POnWV9HKwlBLZTVGC5I5+I2xWRiFg==}
+    peerDependencies:
+      katex: '>=0.16 <0.17'
+      marked: '>=4 <17'
+
+  marked@16.0.0:
+    resolution: {integrity: sha512-MUKMXDjsD/eptB7GPzxo4xcnLS6oo7/RHimUMHEDRhUooPwmN9BEpMl7AEOJv3bmso169wHI2wUF9VQgL7zfmA==}
+    engines: {node: '>= 20'}
+    hasBin: true
 
   mdn-data@2.0.14:
     resolution: {integrity: sha512-dn6wd0uw5GsdswPFfsgMp5NSB0/aDe6fK94YJV/AJDYXL6HVLWBsxeq7js7Ad+mU2K9LAlwpk6kN2D5mwCPVow==}
@@ -5841,6 +5876,10 @@ snapshots:
 
   '@types/http-cache-semantics@4.0.4': {}
 
+  '@types/marked@6.0.0':
+    dependencies:
+      marked: 16.0.0
+
   '@types/node@20.11.5':
     dependencies:
       undici-types: 5.26.5
@@ -6119,6 +6158,8 @@ snapshots:
   commander@4.1.1: {}
 
   commander@7.2.0: {}
+
+  commander@8.3.0: {}
 
   config-chain@1.1.13:
     dependencies:
@@ -6601,6 +6642,10 @@ snapshots:
     optionalDependencies:
       graceful-fs: 4.2.11
 
+  katex@0.16.22:
+    dependencies:
+      commander: 8.3.0
+
   keyv@4.5.4:
     dependencies:
       json-buffer: 3.0.1
@@ -6778,6 +6823,13 @@ snapshots:
       pify: 4.0.1
       semver: 5.7.2
     optional: true
+
+  marked-katex-extension@5.1.5(katex@0.16.22)(marked@16.0.0):
+    dependencies:
+      katex: 0.16.22
+      marked: 16.0.0
+
+  marked@16.0.0: {}
 
   mdn-data@2.0.14: {}
 

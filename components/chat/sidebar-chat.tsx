@@ -10,6 +10,7 @@ import { LLMService, type ChatMessage } from "~lib/llm-service"
 import { allModels, defaultModel, type ModelConfig } from "~lib/models"
 import { useSettings } from "~hooks/useSettings"
 import { SettingsPanel } from "./settings-panel"
+import { MarkdownMessage } from "./markdown-message"
 
 interface Message {
   id: string
@@ -28,7 +29,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      content: "你好！我是你的AI助手，有什么可以帮助你的吗？",
+      content: "你好！我是你的AI助手，有什么可以帮助你的吗？\n\n⚠️ **首次使用提示**：请先在设置中配置您的 API Key 才能开始对话。\n\n我支持 **Markdown** 格式，可以显示：\n- 列表项\n- `代码`\n- **粗体** 和 *斜体*\n- 行内数学公式：$E = mc^2$\n- 块级数学公式：\n\n$$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$\n\n```javascript\nconsole.log('Hello World!');\n```",
       isUser: false,
       timestamp: new Date()
     }
@@ -411,21 +412,35 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
               className={`flex ${message.isUser ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[70%] rounded-lg px-3 py-2 ${
+                className={`max-w-[70%] rounded-lg px-3 py-2 relative group ${
                   message.isUser
                     ? "bg-blue-500 text-white"
                     : "bg-gray-100 text-gray-800"
                 }`}
               >
-                <div className="text-sm">
-                  {message.content}
-                  {message.isStreaming && (
-                    <span className="inline-block w-2 h-4 bg-current opacity-75 animate-pulse ml-1">|</span>
+                <MarkdownMessage
+                  content={message.content}
+                  isUser={message.isUser}
+                  isStreaming={message.isStreaming}
+                  className={message.isUser ? "text-white" : "text-gray-800"}
+                />
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-xs opacity-70">
+                    {message.timestamp.toLocaleTimeString()}
+                  </p>
+                  {!message.isUser && !message.isStreaming && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-gray-200"
+                      onClick={() => {
+                        navigator.clipboard.writeText(message.content)
+                      }}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
                   )}
                 </div>
-                <p className="text-xs mt-1 opacity-70">
-                  {message.timestamp.toLocaleTimeString()}
-                </p>
               </div>
             </div>
           ))}
