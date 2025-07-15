@@ -73,7 +73,9 @@ export const useSettings = () => {
   // 检查模型是否可用（有 API key 和 base URL）
   const isModelAvailable = (model: ModelConfig): boolean => {
     const config = getModelConfig(model)
-    return !!(config.api_key && config.base_url)
+    const available = !!(config.api_key && config.base_url)
+
+    return available
   }
 
   return {

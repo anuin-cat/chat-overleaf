@@ -33,25 +33,11 @@ const providers: ProviderConfig[] = [
     description: "DeepSeek 官方 API"
   },
   {
-    name: "云雾_GPT",
-    displayName: "云雾 (GPT)",
+    name: "云雾",
+    displayName: "云雾",
     apiKeyLabel: "API Key",
     baseUrlLabel: "Base URL",
-    description: "云雾平台 GPT 系列模型"
-  },
-  {
-    name: "云雾_Claude",
-    displayName: "云雾 (Claude)",
-    apiKeyLabel: "API Key",
-    baseUrlLabel: "Base URL",
-    description: "云雾平台 Claude 系列模型"
-  },
-  {
-    name: "云雾_GEMINI",
-    displayName: "云雾 (Gemini)",
-    apiKeyLabel: "API Key",
-    baseUrlLabel: "Base URL",
-    description: "云雾平台 Gemini 系列模型"
+    description: "云雾平台提供 GPT、Claude、Gemini 等多种模型"
   },
   {
     name: "阿里云",
