@@ -8,6 +8,8 @@ import { LoginForm } from "~components/login-form"
 import { ChatContainer } from "~components/chat"
 import { store, persistor } from "~store"
 
+// 调试工具将在开发环境中自动可用
+
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"]
 }
