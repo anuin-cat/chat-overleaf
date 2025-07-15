@@ -60,11 +60,7 @@ const CSUIExample = () => {
     <Provider store={store}>
       <PersistGate loading={<div>加载中...</div>} persistor={persistor}>
         {/* 非 Overleaf 页面显示原有的登录表单 */}
-        {!isOverleaf && (
-          <div className="flex w-[400px] flex-col border-2 bg-yellow-50">
-            <LoginForm />
-          </div>
-        )}
+        {!isOverleaf && (null)}
 
         {/* 聊天容器组件 */}
         <ChatContainer isOverleaf={isOverleaf} />
