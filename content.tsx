@@ -2,8 +2,10 @@ import cssText from "data-text:~globals.css"
 import type { PlasmoCSConfig } from "plasmo"
 import { Provider } from "react-redux"
 import { PersistGate } from "@plasmohq/redux-persist/integration/react"
+import { useEffect, useState } from "react"
 
 import { LoginForm } from "~components/login-form"
+import { ChatContainer } from "~components/chat"
 import { store, persistor } from "~store"
 
 export const config: PlasmoCSConfig = {
@@ -41,12 +43,31 @@ export const getStyle = (): HTMLStyleElement => {
 }
 
 const CSUIExample = () => {
+  const [isOverleaf, setIsOverleaf] = useState(false)
+
+  useEffect(() => {
+    // 检测是否是 Overleaf 网页
+    const checkOverleaf = () => {
+      const hostname = window.location.hostname
+      const isOverleafSite = hostname.includes('overleaf.com') || hostname.includes('overleaf')
+      setIsOverleaf(isOverleafSite)
+    }
+
+    checkOverleaf()
+  }, [])
+
   return (
     <Provider store={store}>
       <PersistGate loading={<div>加载中...</div>} persistor={persistor}>
-        <div className="flex w-[400px] flex-col border-2 bg-yellow-50">
-          <LoginForm />
-        </div>
+        {/* 非 Overleaf 页面显示原有的登录表单 */}
+        {!isOverleaf && (
+          <div className="flex w-[400px] flex-col border-2 bg-yellow-50">
+            <LoginForm />
+          </div>
+        )}
+
+        {/* 聊天容器组件 */}
+        <ChatContainer isOverleaf={isOverleaf} />
       </PersistGate>
     </Provider>
   )
