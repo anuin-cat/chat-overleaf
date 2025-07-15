@@ -22,6 +22,22 @@ export interface UIState {
   theme: 'light' | 'dark'
 }
 
+export interface ModelConfig {
+  model_name: string
+  base_url: string
+  api_key: string
+  display_name: string
+  provider: string
+  free?: boolean
+}
+
+export interface SettingsState {
+  apiKeys: Record<string, string>
+  baseUrls: Record<string, string>
+  selectedModel: ModelConfig | null
+  initialized: boolean
+}
+
 // 登录凭据类型
 export interface LoginCredentials {
   username: string

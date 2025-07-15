@@ -2,3 +2,4 @@
 export { useAuth } from "./useAuth"
 export { useApp } from "./useApp"
 export { useUI } from "./useUI"
+export { useSettings } from "./useSettings"

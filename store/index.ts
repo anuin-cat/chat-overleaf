@@ -20,7 +20,7 @@ const persistConfig = {
   version: 1,
   storage: localStorage,
   // 只持久化这些切片
-  whitelist: ['auth', 'app']
+  whitelist: ['auth', 'app', 'settings']
 }
 
 const persistedReducer = persistReducer(persistConfig, rootReducer)

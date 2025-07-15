@@ -8,6 +8,8 @@ import { Send, X, FileText, Files, Copy, Trash2, ChevronDown, ChevronUp, Square,
 import { useFileExtraction, type FileInfo } from "./file-extraction"
 import { LLMService, type ChatMessage } from "~lib/llm-service"
 import { allModels, defaultModel, type ModelConfig } from "~lib/models"
+import { useSettings } from "~hooks/useSettings"
+import { SettingsPanel } from "./settings-panel"
 
 interface Message {
   id: string
@@ -40,7 +42,11 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
   const [isStreaming, setIsStreaming] = useState(false)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
+  const [showSettings, setShowSettings] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
+
+  // 使用设置 hook
+  const { initializeSettings, getModelConfig, isModelAvailable } = useSettings()
 
   // 使用文件提取 hook
   const {
@@ -52,6 +58,11 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
     handleDeleteFile,
     handleClearAllFiles
   } = useFileExtraction()
+
+  // 初始化设置
+  useEffect(() => {
+    initializeSettings()
+  }, [initializeSettings])
 
 
 
@@ -170,8 +181,15 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
   const handleModelChange = (modelName: string) => {
     const model = allModels.find(m => m.model_name === modelName)
     if (model) {
-      setSelectedModel(model)
-      llmService.updateModel(model)
+      // 使用设置系统获取完整的模型配置
+      const modelConfig = getModelConfig(model)
+      setSelectedModel(modelConfig)
+      llmService.updateModel(modelConfig)
+
+      // 调试信息
+      console.log('Model changed to:', modelConfig.display_name)
+      console.log('API Key available:', !!modelConfig.api_key)
+      console.log('Base URL:', modelConfig.base_url)
     }
   }
 
@@ -215,6 +233,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
   }, [width, onWidthChange])
 
   return (
+    <>
     <div
       ref={sidebarRef}
       className="flex h-screen flex-col bg-white border-l border-gray-200 shadow-lg relative"
@@ -232,16 +251,27 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-gray-800">AI 助手</h2>
-          {onClose && (
+          <div className="flex items-center space-x-1">
             <Button
               variant="ghost"
               size="sm"
-              onClick={onClose}
+              onClick={() => setShowSettings(true)}
               className="h-8 w-8 p-0"
+              title="设置"
             >
-              <X className="h-4 w-4" />
+              <Settings className="h-4 w-4" />
             </Button>
-          )}
+            {onClose && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* 模型选择 */}
@@ -251,13 +281,23 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
             value={selectedModel.model_name}
             onValueChange={handleModelChange}
             placeholder="选择模型"
-            options={allModels.map((model) => ({
-              value: model.model_name,
-              label: model.display_name,
-              extra: model.free ? (
-                <span className="text-xs text-green-600 ml-2">免费</span>
-              ) : undefined
-            }))}
+            options={allModels.map((model) => {
+              const available = isModelAvailable(model)
+              return {
+                value: model.model_name,
+                label: model.display_name,
+                extra: (
+                  <div className="flex items-center space-x-1">
+                    {model.free && (
+                      <span className="text-xs text-green-600">免费</span>
+                    )}
+                    {!available && (
+                      <span className="text-xs text-red-600">未配置</span>
+                    )}
+                  </div>
+                )
+              }
+            })}
           />
         </div>
 
@@ -396,12 +436,15 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
       <div className="p-4 border-t border-gray-200">
         <div className="flex space-x-2">
           <Input
+            type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="输入消息..."
             className="flex-1"
             disabled={isStreaming}
+            autoComplete="off"
+            data-form-type="other"
           />
           <Button
             onClick={isStreaming ? handleStopStreaming : handleSendMessage}
@@ -415,5 +458,11 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
 
 
     </div>
+
+    {/* 设置面板 */}
+    {showSettings && (
+      <SettingsPanel onClose={() => setShowSettings(false)} />
+    )}
+  </>
   )
 }
