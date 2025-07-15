@@ -1,15 +1,20 @@
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { Button } from "~components/ui/button"
 import { Input } from "~components/ui/input"
 import { ScrollArea } from "~components/ui/scroll-area"
-import { Send, X, FileText, Files, Copy, Trash2, ChevronDown, ChevronUp } from "lucide-react"
+import { SimpleSelect } from "~components/ui/simple-select"
+import { Checkbox } from "~components/ui/checkbox"
+import { Send, X, FileText, Files, Copy, Trash2, ChevronDown, ChevronUp, Square, Settings } from "lucide-react"
 import { useFileExtraction, type FileInfo } from "./file-extraction"
+import { LLMService, type ChatMessage } from "~lib/llm-service"
+import { allModels, defaultModel, type ModelConfig } from "~lib/models"
 
 interface Message {
   id: string
   content: string
   isUser: boolean
   timestamp: Date
+  isStreaming?: boolean
 }
 
 interface SidebarChatProps {
@@ -30,6 +35,11 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
   const [width, setWidth] = useState(320) // 默认宽度 320px
   const [isResizing, setIsResizing] = useState(false)
   const [showFileList, setShowFileList] = useState(true)
+  const [selectedModel, setSelectedModel] = useState<ModelConfig>(defaultModel)
+  const [llmService, setLlmService] = useState<LLMService>(new LLMService(defaultModel))
+  const [isStreaming, setIsStreaming] = useState(false)
+  const [abortController, setAbortController] = useState<AbortController | null>(null)
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
   const sidebarRef = useRef<HTMLDivElement>(null)
 
   // 使用文件提取 hook
@@ -45,36 +55,136 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
 
 
 
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || isStreaming) return
 
-    const newMessage: Message = {
+    const userMessage: Message = {
       id: Date.now().toString(),
       content: inputValue,
       isUser: true,
       timestamp: new Date()
     }
 
-    setMessages(prev => [...prev, newMessage])
+    // 添加用户消息
+    setMessages(prev => [...prev, userMessage])
+    const currentInput = inputValue
     setInputValue("")
+    setIsStreaming(true)
 
-    // 模拟AI回复
-    setTimeout(() => {
-      const aiReply: Message = {
-        id: (Date.now() + 1).toString(),
-        content: `我收到了你的消息："${inputValue}"。这是一个简单的演示回复。`,
-        isUser: false,
-        timestamp: new Date()
+    // 创建 AI 回复消息
+    const aiMessageId = (Date.now() + 1).toString()
+    const aiMessage: Message = {
+      id: aiMessageId,
+      content: "",
+      isUser: false,
+      timestamp: new Date(),
+      isStreaming: true
+    }
+    setMessages(prev => [...prev, aiMessage])
+
+    try {
+      // 准备聊天历史
+      const chatHistory: ChatMessage[] = []
+
+      // 添加选中的文件内容作为上下文
+      const selectedFileContents = extractedFiles
+        .filter(file => selectedFiles.has(file.name))
+        .map(file => `文件 ${file.name}:\n${file.content}`)
+        .join('\n\n')
+
+      if (selectedFileContents) {
+        chatHistory.push({
+          role: 'system',
+          content: `以下是用户提供的文件内容作为上下文：\n\n${selectedFileContents}`
+        })
       }
-      setMessages(prev => [...prev, aiReply])
-    }, 1000)
+
+      // 添加最近的对话历史（最多10条）
+      const recentMessages = messages.slice(-10).filter(msg => !msg.isStreaming)
+      recentMessages.forEach(msg => {
+        chatHistory.push({
+          role: msg.isUser ? 'user' : 'assistant',
+          content: msg.content
+        })
+      })
+
+      // 添加当前用户消息
+      chatHistory.push({
+        role: 'user',
+        content: currentInput
+      })
+
+      // 创建 AbortController
+      const controller = new AbortController()
+      setAbortController(controller)
+
+      // 开始流式对话
+      let fullContent = ""
+      for await (const response of llmService.streamChat(chatHistory, controller.signal)) {
+        if (controller.signal.aborted) break
+
+        fullContent = response.content
+
+        setMessages(prev => prev.map(msg =>
+          msg.id === aiMessageId
+            ? { ...msg, content: fullContent, isStreaming: !response.finished }
+            : msg
+        ))
+
+        if (response.finished) {
+          break
+        }
+      }
+    } catch (error) {
+      console.error('Chat error:', error)
+      setMessages(prev => prev.map(msg =>
+        msg.id === aiMessageId
+          ? { ...msg, content: "抱歉，发生了错误，请稍后重试。", isStreaming: false }
+          : msg
+      ))
+    } finally {
+      setIsStreaming(false)
+      setAbortController(null)
+    }
+  }
+
+  const handleStopStreaming = () => {
+    if (abortController) {
+      abortController.abort()
+      setIsStreaming(false)
+      setAbortController(null)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
-      handleSendMessage()
+      if (isStreaming) {
+        handleStopStreaming()
+      } else {
+        handleSendMessage()
+      }
     }
+  }
+
+  const handleModelChange = (modelName: string) => {
+    const model = allModels.find(m => m.model_name === modelName)
+    if (model) {
+      setSelectedModel(model)
+      llmService.updateModel(model)
+    }
+  }
+
+  const handleFileSelection = (fileName: string, checked: boolean) => {
+    setSelectedFiles(prev => {
+      const newSet = new Set(prev)
+      if (checked) {
+        newSet.add(fileName)
+      } else {
+        newSet.delete(fileName)
+      }
+      return newSet
+    })
   }
 
 
@@ -132,6 +242,23 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
               <X className="h-4 w-4" />
             </Button>
           )}
+        </div>
+
+        {/* 模型选择 */}
+        <div className="mb-3">
+          <label className="text-sm font-medium text-gray-700 mb-1 block">选择模型</label>
+          <SimpleSelect
+            value={selectedModel.model_name}
+            onValueChange={handleModelChange}
+            placeholder="选择模型"
+            options={allModels.map((model) => ({
+              value: model.model_name,
+              label: model.display_name,
+              extra: model.free ? (
+                <span className="text-xs text-green-600 ml-2">免费</span>
+              ) : undefined
+            }))}
+          />
         </div>
 
         {/* 内容提取按钮 */}
@@ -192,12 +319,19 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
               <div className="max-h-32 overflow-y-auto">
                 {extractedFiles.map((file, index) => (
                   <div key={`${file.name}-${index}`} className="flex items-center justify-between p-2 border-b last:border-b-0 hover:bg-gray-50">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-medium text-gray-800 truncate">
-                        {file.name}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {file.length} 字符
+                    <div className="flex items-center space-x-2 flex-1 min-w-0">
+                      <Checkbox
+                        checked={selectedFiles.has(file.name)}
+                        onCheckedChange={(checked) => handleFileSelection(file.name, checked as boolean)}
+                        className="flex-shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium text-gray-800 truncate">
+                          {file.name}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {file.length} 字符
+                        </div>
                       </div>
                     </div>
                     <div className="flex gap-1 ml-2">
@@ -243,7 +377,12 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
                     : "bg-gray-100 text-gray-800"
                 }`}
               >
-                <p className="text-sm">{message.content}</p>
+                <div className="text-sm">
+                  {message.content}
+                  {message.isStreaming && (
+                    <span className="inline-block w-2 h-4 bg-current opacity-75 animate-pulse ml-1">|</span>
+                  )}
+                </div>
                 <p className="text-xs mt-1 opacity-70">
                   {message.timestamp.toLocaleTimeString()}
                 </p>
@@ -262,12 +401,19 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
             onKeyDown={handleKeyDown}
             placeholder="输入消息..."
             className="flex-1"
+            disabled={isStreaming}
           />
-          <Button onClick={handleSendMessage} size="sm">
-            <Send className="h-4 w-4" />
+          <Button
+            onClick={isStreaming ? handleStopStreaming : handleSendMessage}
+            size="sm"
+            variant={isStreaming ? "destructive" : "default"}
+          >
+            {isStreaming ? <Square className="h-4 w-4" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>
       </div>
+
+
     </div>
   )
 }
