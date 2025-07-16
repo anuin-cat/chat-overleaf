@@ -4,9 +4,9 @@
 
 <h1 align="center">Chat Overleaf ✨</h1>
 
-<p align="center"><b>Overleaf AI 助手 | 一个基础的 Overleaf 谷歌插件脚手架</b></p>
+<p align="center"><b>Overleaf AI 助手 | 基于 Plasmo 的 Overleaf 谷歌插件脚手架</b></p>
 
-<!-- --- -->
+---
 
 ## 🚀 基本功能
 
@@ -62,6 +62,20 @@ pnpm build
 
 ---
 
+## 📦 直接加载 zip
+
+1. 下载本项目的 zip 文件并解压
+
+2. 在 Chrome 浏览器中加载插件
+   - 打开 Chrome 扩展管理页面（`chrome://extensions/`）
+   - 开启右上角的「开发者模式」
+   - 点击「加载已解压的扩展程序」
+   - 选择解压目录下的 `chrome-mv3-prod` 文件夹
+
+3. 完成加载后，访问 Overleaf 网站点击右下角图标即可（注意先添加秘钥）
+
+---
+
 ## 📋 TODO
 
 - [ ] ✍️ 支持添加编辑器选中内容对话
@@ -70,3 +84,10 @@ pnpm build
 - [ ] 🧩 优化上下文选中逻辑
 - [ ] 📝 支持自定义 prompt 模板
 - [ ] 🛠️ 支持自定义添加模型
+
+---
+
+### ⚡️ 基于 [Plasmo](https://github.com/PlasmoHQ/plasmo) 构建
+
+
+
