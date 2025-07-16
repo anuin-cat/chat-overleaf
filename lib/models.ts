@@ -34,26 +34,18 @@ const getEnvVar = (key: string): string => {
 // 硅基流动模型配置
 export const siliconFlowModels: ModelConfig[] = [
   {
-    model_name: "THUDM/GLM-4-32B-0414",
+    model_name: "moonshotai/Kimi-K2-Instruct",
     base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_SC"),
     api_key: "",
-    display_name: "GLM-4-32B",
-    provider: "硅基流动"
-  },
-  {
-    model_name: "THUDM/GLM-Z1-32B-0414",
-    base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_SC"),
-    api_key: "",
-    display_name: "GLM-Z1-32B",
-    provider: "硅基流动"
-  },
-  {
-    model_name: "Qwen/Qwen3-30B-A3B",
-    base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_SC"),
-    api_key: "",
-    display_name: "Qwen3-30B-A3B",
+    display_name: "Kimi-K2",
     provider: "硅基流动",
-    free: true
+  },
+  {
+    model_name: "deepseek-ai/DeepSeek-V3",
+    base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_SC"),
+    api_key: "",
+    display_name: "DeepSeek-V3",
+    provider: "硅基流动",
   },
   {
     model_name: "Qwen/Qwen3-235B-A22B",
@@ -61,24 +53,7 @@ export const siliconFlowModels: ModelConfig[] = [
     api_key: "",
     display_name: "Qwen3-235B-A22B",
     provider: "硅基流动",
-    free: true
   },
-  {
-    model_name: "Qwen/Qwen3-14B",
-    base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_SC"),
-    api_key: "",
-    display_name: "Qwen3-14B",
-    provider: "硅基流动",
-    free: true
-  },
-  {
-    model_name: "Qwen/Qwen3-32B",
-    base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_SC"),
-    api_key: "",
-    display_name: "Qwen3-32B",
-    provider: "硅基流动",
-    free: true
-  }
 ]
 
 // DeepSeek 模型配置
@@ -95,73 +70,27 @@ export const deepSeekModels: ModelConfig[] = [
 // 云雾模型配置
 export const yunwuModels: ModelConfig[] = [
   {
-    model_name: "gpt-4o-mini",
+    model_name: "gpt-4.1-2025-04-14",
     base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_YW"),
     api_key: "",
-    display_name: "GPT-4o Mini",
+    display_name: "gpt-4.1",
     provider: "云雾"
   },
   {
-    model_name: "claude-3-5-sonnet-20241022",
+    model_name: "gpt-4.1-mini-2025-04-14",
     base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_YW"),
     api_key: "",
-    display_name: "Claude-3.5 Sonnet",
+    display_name: "gpt-4.1-mini",
     provider: "云雾"
   },
-  {
-    model_name: "gemini-1.5-pro",
-    base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_YW"),
-    api_key: "",
-    display_name: "Gemini-1.5 Pro",
-    provider: "云雾"
-  }
-]
-
-// 通义千问模型配置
-export const qwenModels: ModelConfig[] = [
-  {
-    model_name: "qwen-turbo",
-    base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_AL"),
-    api_key: "",
-    display_name: "通义千问 Turbo",
-    provider: "阿里云"
-  },
-  {
-    model_name: "qwen-plus",
-    base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_AL"),
-    api_key: "",
-    display_name: "通义千问 Plus",
-    provider: "阿里云"
-  }
-]
-
-// 智谱模型配置
-export const glmModels: ModelConfig[] = [
-  {
-    model_name: "glm-4-flash",
-    base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_GLM"),
-    api_key: "",
-    display_name: "GLM-4 Flash",
-    provider: "智谱AI",
-    free: true
-  },
-  {
-    model_name: "glm-4-plus",
-    base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_GLM"),
-    api_key: "",
-    display_name: "GLM-4 Plus",
-    provider: "智谱AI"
-  }
 ]
 
 // 所有可用模型
 export const allModels: ModelConfig[] = [
+  ...yunwuModels,
   ...siliconFlowModels,
   ...deepSeekModels,
-  ...yunwuModels,
-  ...qwenModels,
-  ...glmModels
 ]
 
 // 默认模型
-export const defaultModel = siliconFlowModels[2] // Qwen3-30B-A3B (免费)
+export const defaultModel = yunwuModels[1] // gpt-4.1
