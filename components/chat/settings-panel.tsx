@@ -23,36 +23,22 @@ const providers: ProviderConfig[] = [
     displayName: "硅基流动",
     apiKeyLabel: "API Key",
     baseUrlLabel: "Base URL",
-    description: "硅基流动提供多种开源模型"
+    description: "https://cloud.siliconflow.cn/"
   },
   {
     name: "DeepSeek",
     displayName: "DeepSeek",
     apiKeyLabel: "API Key",
     baseUrlLabel: "Base URL",
-    description: "DeepSeek 官方 API"
+    description: "https://platform.deepseek.com/api_keys"
   },
   {
     name: "云雾",
     displayName: "云雾",
     apiKeyLabel: "API Key",
     baseUrlLabel: "Base URL",
-    description: "云雾平台提供 GPT、Claude、Gemini 等多种模型"
+    description: "https://yunwu.ai/"
   },
-  {
-    name: "阿里云",
-    displayName: "阿里云",
-    apiKeyLabel: "API Key",
-    baseUrlLabel: "Base URL",
-    description: "通义千问系列模型"
-  },
-  {
-    name: "智谱AI",
-    displayName: "智谱AI",
-    apiKeyLabel: "API Key",
-    baseUrlLabel: "Base URL",
-    description: "GLM 系列模型"
-  }
 ]
 
 export const SettingsPanel = ({ onClose }: SettingsPanelProps) => {
@@ -107,7 +93,7 @@ export const SettingsPanel = ({ onClose }: SettingsPanelProps) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 z-[10000] flex items-center justify-center">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
         {/* Header */}
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+        <div className="p-4 border-b border-gray-200 shadow-md flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-800">API 设置</h2>
           <div className="flex items-center space-x-2">
             <Button

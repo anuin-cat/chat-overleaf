@@ -276,8 +276,36 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
 
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-gray-800">AI 助手</h2>
+        {/* 关闭按钮 + 设置按钮 + 模型选择 */}
+        <div className="flex items-center justify-between mb-3 gap-2">
+          {/* 模型选择 */}
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <SimpleSelect
+              value={selectedModel.model_name}
+              onValueChange={handleModelChange}
+              placeholder="选择模型"
+              className="min-w-[120px]"
+              options={allModels.map((model) => {
+                const available = isModelAvailable(model)
+                return {
+                  value: model.model_name,
+                  label: model.display_name,
+                  extra: (
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {model.free && (
+                        <span className="text-xs text-green-600 whitespace-nowrap">免费</span>
+                      )}
+                      {!available && (
+                        <span className="text-xs text-red-600 whitespace-nowrap">未配置</span>
+                      )}
+                    </div>
+                  )
+                }
+              })}
+            />
+            {/* <h2 className="text-lg font-semibold text-gray-800 whitespace-nowrap">Chat Overleaf</h2> */}
+          </div>
+          {/* 设置按钮 + 关闭按钮 */}
           <div className="flex items-center space-x-1">
             <Button
               variant="ghost"
@@ -301,34 +329,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
           </div>
         </div>
 
-        {/* 模型选择 */}
-        <div className="mb-3">
-          <label className="text-sm font-medium text-gray-700 mb-1 block">选择模型</label>
-          <SimpleSelect
-            value={selectedModel.model_name}
-            onValueChange={handleModelChange}
-            placeholder="选择模型"
-            options={allModels.map((model) => {
-              const available = isModelAvailable(model)
-              return {
-                value: model.model_name,
-                label: model.display_name,
-                extra: (
-                  <div className="flex items-center space-x-1">
-                    {model.free && (
-                      <span className="text-xs text-green-600">免费</span>
-                    )}
-                    {!available && (
-                      <span className="text-xs text-red-600">未配置</span>
-                    )}
-                  </div>
-                )
-              }
-            })}
-          />
-        </div>
-
-        {/* 内容提取按钮 */}
+        {/* 文件提取按钮 */}
         <div className="flex gap-2 mb-3">
           <Button
             onClick={() => handleExtractCurrent(setMessages)}
@@ -436,7 +437,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
             <div
               key={message.id}
               className={`flex ${message.isUser ? "justify-end" : "justify-start"}`}
-            >
+            > 
               <div
                 className={`max-w-[70%] rounded-lg px-3 py-2 relative group ${
                   message.isUser

@@ -47,13 +47,6 @@ export const ChatContainer = ({ isOverleaf }: ChatContainerProps) => {
 
   const handleWidthChange = (width: number) => {
     setSidebarWidth(width)
-    // // 立即更新页面 margin
-    // if (isOverleaf && showChat) {
-    //   const body = document.body
-    //   if (body) {
-    //     body.style.marginRight = `${width}px`
-    //   }
-    // }
   }
 
   if (!isOverleaf) {
@@ -66,7 +59,13 @@ export const ChatContainer = ({ isOverleaf }: ChatContainerProps) => {
       {!showChat && (
         <Button
           onClick={handleToggleChat}
-          className="fixed bottom-6 right-6 z-[9999] h-14 w-14 rounded-full bg-green-600 p-0 shadow-lg hover:bg-green-700 hover:shadow-xl transition-all duration-200"
+          className="
+          fixed bottom-6 right-8 z-[9999] h-12 w-12
+          rounded-full 
+          bg-white p-0 shadow-lg 
+          hover:bg-gray-100 
+          hover:shadow-xl 
+          transition-all duration-200"
         >
           <img 
             src={iconUrl} 
