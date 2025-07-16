@@ -29,7 +29,8 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      content: "你好！我是你的AI助手，有什么可以帮助你的吗？\n\n⚠️ **首次使用提示**：请先在设置中配置您的 API Key 才能开始对话。\n\n我支持 **Markdown** 格式，可以显示：\n- 列表项\n- `代码`\n- **粗体** 和 *斜体*\n- 行内数学公式：$E = mc^2$\n- 块级数学公式：\n\n$$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$\n\n```javascript\nconsole.log('Hello World!');\n```",
+      content: "你好！我是你 Overleaf 助手，有什么可以帮助你的吗？\n\n⚠️ **首次使用提示**：请先在设置中配置您的 API Key 才能开始对话。",
+      // \n\n我支持 **Markdown** 格式，可以显示：\n- 列表项\n- `代码`\n- **粗体** 和 *斜体*\n- 行内数学公式：$E = mc^2$\n- 块级数学公式：\n\n$$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$\n\n```javascript\nconsole.log('Hello World!');\n```",
       isUser: false,
       timestamp: new Date()
     }
