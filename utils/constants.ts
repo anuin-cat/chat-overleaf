@@ -2,7 +2,7 @@
 
 // 应用信息
 export const APP_INFO = {
-  NAME: 'Chat Plasmo',
+  NAME: 'Chat Overleaf',
   VERSION: '0.0.1',
   DESCRIPTION: '使用 plasmo 构建的 chat-overleaf 浏览器插件'
 } as const
@@ -15,9 +15,9 @@ export const API_CONFIG = {
 
 // 存储相关常量
 export const STORAGE_CONFIG = {
-  PREFIX: 'chat-plasmo',
+  PREFIX: 'chat-overleaf',
   VERSION: 1,
-  PERSIST_KEY: 'chat-plasmo'
+  PERSIST_KEY: 'chat-overleaf'
 } as const
 
 // UI相关常量

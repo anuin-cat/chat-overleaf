@@ -16,7 +16,7 @@ import { Storage } from "@plasmohq/storage"
 import rootReducer from "./slices"
 
 const persistConfig = {
-  key: "chat-plasmo",
+  key: "chat-overleaf",
   version: 1,
   storage: localStorage,
   // 只持久化这些切片
