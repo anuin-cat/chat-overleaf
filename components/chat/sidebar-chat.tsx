@@ -29,7 +29,8 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      content: "你好！我是你 Overleaf 助手，有什么可以帮助你的吗？\n\n⚠️ **首次使用提示**：请先在设置中配置您的 API Key 才能开始对话。",
+      content: "你好！我是你 Overleaf 助手，有什么可以帮助你的吗？",
+      // \n\n⚠️ **首次使用提示**：请先在设置中配置您的 API Key 才能开始对话。",
       // \n\n我支持 **Markdown** 格式，可以显示：\n- 列表项\n- `代码`\n- **粗体** 和 *斜体*\n- 行内数学公式：$E = mc^2$\n- 块级数学公式：\n\n$$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$\n\n```javascript\nconsole.log('Hello World!');\n```",
       isUser: false,
       timestamp: new Date()
@@ -39,7 +40,6 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
   const [width, setWidth] = useState(320) // 默认宽度 320px
   const [isResizing, setIsResizing] = useState(false)
   const [showFileList, setShowFileList] = useState(true)
-  const [selectedModel, setSelectedModel] = useState<ModelConfig>(defaultModel)
   const [llmService] = useState<LLMService>(new LLMService(defaultModel))
   const [isStreaming, setIsStreaming] = useState(false)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
@@ -48,7 +48,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
   const sidebarRef = useRef<HTMLDivElement>(null)
 
   // 使用设置 hook
-  const { initializeSettings, getModelConfig, isModelAvailable } = useSettings()
+  const { initializeSettings, getModelConfig, isModelAvailable, selectedModel, setSelectedModel } = useSettings()
 
   // 使用文件提取 hook
   const {
@@ -66,6 +66,13 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
     initializeSettings()
   }, [initializeSettings])
 
+  // 初始化选中的模型（如果还没有选择的话）
+  useEffect(() => {
+    if (!selectedModel) {
+      setSelectedModel(defaultModel)
+    }
+  }, [selectedModel, setSelectedModel])
+
   // 初始化时同步宽度
   useEffect(() => {
     onWidthChange?.(width)
@@ -75,14 +82,17 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isStreaming) return
 
+    // 确保有选中的模型
+    const currentModel = selectedModel || defaultModel
+
     // 每次发送消息时重新获取最新的模型配置（包含最新的 API key 和 base URL）
-    const currentModelConfig = getModelConfig(selectedModel)
+    const currentModelConfig = getModelConfig(currentModel)
 
     // 检查当前模型是否可用（有 API key）
     if (!currentModelConfig.api_key || !currentModelConfig.base_url) {
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
-        content: `当前模型 ${selectedModel.display_name} 未配置 API Key 或 Base URL，请在设置中配置后再使用。`,
+        content: `当前模型 ${currentModel.display_name} 未配置 API Key 或 Base URL，请在设置中配置后再使用。`,
         isUser: false,
         timestamp: new Date()
       }])
@@ -282,7 +292,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
           {/* 模型选择 */}
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <SimpleSelect
-              value={selectedModel.model_name}
+              value={selectedModel?.model_name || defaultModel.model_name}
               onValueChange={handleModelChange}
               placeholder="选择模型"
               className="min-w-[120px]"
