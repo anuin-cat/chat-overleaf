@@ -93,4 +93,4 @@ export const allModels: ModelConfig[] = [
 ]
 
 // 默认模型
-export const defaultModel = yunwuModels[1] // gpt-4.1
+export const defaultModel = yunwuModels[1] // gpt-4.1-mini

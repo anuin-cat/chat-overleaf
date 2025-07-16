@@ -39,7 +39,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
   const [isResizing, setIsResizing] = useState(false)
   const [showFileList, setShowFileList] = useState(true)
   const [selectedModel, setSelectedModel] = useState<ModelConfig>(defaultModel)
-  const [llmService, setLlmService] = useState<LLMService>(new LLMService(defaultModel))
+  const [llmService] = useState<LLMService>(new LLMService(defaultModel))
   const [isStreaming, setIsStreaming] = useState(false)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
@@ -65,10 +65,36 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
     initializeSettings()
   }, [initializeSettings])
 
+  // 初始化时同步宽度
+  useEffect(() => {
+    onWidthChange?.(width)
+  }, []) // 只在组件挂载时执行一次
 
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isStreaming) return
+
+    // 每次发送消息时重新获取最新的模型配置（包含最新的 API key 和 base URL）
+    const currentModelConfig = getModelConfig(selectedModel)
+
+    // 检查当前模型是否可用（有 API key）
+    if (!currentModelConfig.api_key || !currentModelConfig.base_url) {
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        content: `当前模型 ${selectedModel.display_name} 未配置 API Key 或 Base URL，请在设置中配置后再使用。`,
+        isUser: false,
+        timestamp: new Date()
+      }])
+      return
+    }
+
+    // 使用最新的模型配置更新 LLM 服务
+    llmService.updateModel(currentModelConfig)
+
+    // 调试信息
+    console.log('Sending message with model:', currentModelConfig.display_name)
+    console.log('API Key available:', !!currentModelConfig.api_key)
+    console.log('Base URL:', currentModelConfig.base_url)
 
     const userMessage: Message = {
       id: Date.now().toString(),

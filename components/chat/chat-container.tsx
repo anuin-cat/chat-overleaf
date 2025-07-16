@@ -47,6 +47,13 @@ export const ChatContainer = ({ isOverleaf }: ChatContainerProps) => {
 
   const handleWidthChange = (width: number) => {
     setSidebarWidth(width)
+    // // 立即更新页面 margin
+    // if (isOverleaf && showChat) {
+    //   const body = document.body
+    //   if (body) {
+    //     body.style.marginRight = `${width}px`
+    //   }
+    // }
   }
 
   if (!isOverleaf) {
