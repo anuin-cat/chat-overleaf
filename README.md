@@ -1,33 +1,72 @@
-This is a [Plasmo extension](https://docs.plasmo.com/) project bootstrapped with [`plasmo init`](https://www.npmjs.com/package/plasmo).
+<p align="center">
+  <img src="./assets/icon.png" alt="Chat Overleaf Logo" width="96" />
+</p>
 
-## Getting Started
+<h1 align="center">Chat Overleaf ✨</h1>
 
-First, run the development server:
+<p align="center"><b>Overleaf AI 助手 | 一个基础的 Overleaf 谷歌插件脚手架</b></p>
 
-```bash
-pnpm dev
-# or
-npm run dev
-```
+<!-- --- -->
 
-Open your browser and load the appropriate development build. For example, if you are developing for the chrome browser, using manifest v3, use: `build/chrome-mv3-dev`.
+## 🚀 基本功能
 
-You can start editing the popup by modifying `popup.tsx`. It should auto-update as you make changes. To add an options page, simply add a `options.tsx` file to the root of the project, with a react component default exported. Likewise to add a content page, add a `content.ts` file to the root of the project, importing some module and do some logic, then reload the extension on your browser.
+- 🤖 <b>智能对话</b>：在 Overleaf 页面右侧添加 AI 聊天面板，支持 LaTeX 相关问题咨询
+- 📄 <b>内容提取</b>：可选择提取当前文件或整个项目的 LaTeX 内容，作为上下文提供给 AI
+- 👥 <b>低耦合性</b>：无缝集成到 Overleaf 界面，不影响正常编辑体验
+- 🧠 <b>多模型支持</b>：均为国内供应商，只需按照网址获取 API Key 即可使用
 
-For further guidance, [visit our Documentation](https://docs.plasmo.com/)
+---
 
-## Making production build
+## 🛠️ 本地开发
 
-Run the following:
+### 环境要求
+- Node.js 16+
+- pnpm
+
+### 开发步骤
+
+1. 克隆项目
+
+   ```bash
+   git clone <your-repo-url>
+   cd chat-overleaf
+   ```
+
+2. 安装依赖
+
+   ```bash
+   pnpm install
+   ```
+
+3. 启动开发服务器
+
+   ```bash
+   pnpm dev
+   ```
+
+4. 加载插件到浏览器
+   - 打开 Chrome 扩展管理页面（`chrome://extensions/`）
+   - 开启开发者模式
+   - 点击「加载已解压的扩展程序」
+   - 选择 `build/chrome-mv3-dev` 文件夹
+
+5. 访问 Overleaf 网站测试功能
+
+---
+
+## 📦 构建生产版本
 
 ```bash
 pnpm build
-# or
-npm run build
 ```
 
-This should create a production bundle for your extension, ready to be zipped and published to the stores.
+---
 
-## Submit to the webstores
+## 📋 TODO
 
-The easiest way to deploy your Plasmo extension is to use the built-in [bpp](https://bpp.browser.market) GitHub action. Prior to using this action however, make sure to build your extension and upload the first version to the store to establish the basic credentials. Then, simply follow [this setup instruction](https://docs.plasmo.com/framework/workflows/submit) and you should be on your way for automated submission!
+- [ ] ✍️ 支持添加编辑器选中内容对话
+- [ ] 💾 添加对话历史持久化
+- [ ] 🔄 支持当前编辑器内容自动更新
+- [ ] 🧩 优化上下文选中逻辑
+- [ ] 📝 支持自定义 prompt 模板
+- [ ] 🛠️ 支持自定义添加模型
