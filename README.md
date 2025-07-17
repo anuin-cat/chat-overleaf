@@ -64,7 +64,7 @@ pnpm build
 
 ## 📦 直接加载 zip
 
-1. 下载本项目的 zip 文件并解压
+1. 下载 github Releases 中的 zip 文件并解压
 
 2. 在 Chrome 浏览器中加载插件
    - 打开 Chrome 扩展管理页面（`chrome://extensions/`）
@@ -72,7 +72,7 @@ pnpm build
    - 点击「加载已解压的扩展程序」
    - 选择解压目录下的 `chrome-mv3-prod` 文件夹
 
-3. 完成加载后，访问 Overleaf 网站点击右下角图标即可（注意先添加秘钥）
+3. 完成加载后，访问 Overleaf 网站点击右下角图标即可（注意先添加模型秘钥）
 
 ---
 
