@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useToast } from "~components/ui/sonner"
 
 export interface FileInfo {
   name: string
@@ -16,6 +17,9 @@ export interface ExtractionResult {
 export const useFileExtraction = () => {
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractedFiles, setExtractedFiles] = useState<FileInfo[]>([])
+
+  // 直接在 hook 内部使用 toast
+  const { success, error, info } = useToast()
 
   // 简化的内容提取函数
   const extractContent = async (mode: 'current' | 'all'): Promise<ExtractionResult> => {
@@ -124,10 +128,14 @@ export const useFileExtraction = () => {
         if (result.files[0] && onFileSelected) {
           onFileSelected(result.files[0].name)
         }
+        success(`已提取文件: ${result.files[0]?.name}`, { title: '提取成功' })
       } else {
         // 所有文件模式：替换整个列表，不自动选中
         setExtractedFiles(result.files)
+        success(`已提取 ${result.files.length} 个文件`, { title: '提取成功' })
       }
+    } else {
+      error(result.error || '提取失败', { title: '提取失败' })
     }
   }
 
@@ -161,19 +169,23 @@ export const useFileExtraction = () => {
   const handleCopyFile = async (file: FileInfo) => {
     try {
       await navigator.clipboard.writeText(file.content)
+      success(`已复制 ${file.name} 到剪贴板`, { title: '复制成功' })
     } catch (error) {
       console.error('Failed to copy to clipboard:', error)
+      error('复制到剪贴板失败', { title: '复制失败' })
     }
   }
 
   // 删除文件
   const handleDeleteFile = (fileName: string) => {
     setExtractedFiles(prev => prev.filter(file => file.name !== fileName))
+    info(`已删除文件: ${fileName}`, { title: '删除文件' })
   }
 
   // 清空所有文件
   const handleClearAllFiles = () => {
     setExtractedFiles([])
+    info('已清空所有文件', { title: '清空完成' })
   }
 
   return {

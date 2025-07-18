@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 
 import { LoginForm } from "~components/login-form"
 import { ChatContainer } from "~components/chat"
+import { ToastProvider } from "~components/ui/sonner"
 import { store, persistor } from "~store"
 
 // 调试工具将在开发环境中自动可用
@@ -61,11 +62,13 @@ const CSUIExample = () => {
   return (
     <Provider store={store}>
       <PersistGate loading={<div>加载中...</div>} persistor={persistor}>
-        {/* 非 Overleaf 页面显示原有的登录表单 */}
-        {!isOverleaf && (null)}
+        <ToastProvider>
+          {/* 非 Overleaf 页面显示原有的登录表单 */}
+          {!isOverleaf && (null)}
 
-        {/* 聊天容器组件 */}
-        <ChatContainer isOverleaf={isOverleaf} />
+          {/* 聊天容器组件 */}
+          <ChatContainer isOverleaf={isOverleaf} />
+        </ToastProvider>
       </PersistGate>
     </Provider>
   )

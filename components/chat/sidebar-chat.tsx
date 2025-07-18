@@ -11,6 +11,7 @@ import { allModels, defaultModel, type ModelConfig } from "~lib/models"
 import { useSettings } from "~hooks/useSettings"
 import { SettingsPanel } from "./settings-panel"
 import { MarkdownMessage } from "./markdown-message"
+import { useToast } from "~components/ui/sonner"
 
 interface Message {
   id: string
@@ -49,6 +50,9 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
 
   // 使用设置 hook
   const { initializeSettings, getModelConfig, isModelAvailable, selectedModel, setSelectedModel } = useSettings()
+
+  // 使用 toast hook
+  const { success, error, info } = useToast()
 
   // 使用文件提取 hook
   const {
@@ -90,12 +94,9 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
 
     // 检查当前模型是否可用（有 API key）
     if (!currentModelConfig.api_key || !currentModelConfig.base_url) {
-      setMessages(prev => [...prev, {
-        id: Date.now().toString(),
-        content: `当前模型 ${currentModel.display_name} 未配置 API Key 或 Base URL，请在设置中配置后再使用。`,
-        isUser: false,
-        timestamp: new Date()
-      }])
+      error(`当前模型 ${currentModel.display_name} 未配置 API Key 或 Base URL，请在设置中配置后再使用。`, {
+        title: '配置错误'
+      })
       return
     }
 
@@ -186,6 +187,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
       }
     } catch (error) {
       console.error('Chat error:', error)
+      error('发生了错误，请稍后重试', { title: '请求失败' })
       setMessages(prev => prev.map(msg =>
         msg.id === aiMessageId
           ? { ...msg, content: "抱歉，发生了错误，请稍后重试。", isStreaming: false }
@@ -223,6 +225,8 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
       const modelConfig = getModelConfig(model)
       setSelectedModel(modelConfig)
       llmService.updateModel(modelConfig)
+
+      success(`已切换到 ${modelConfig.display_name}`, { title: '模型切换' })
 
       // 调试信息
       console.log('Model changed to:', modelConfig.display_name)
@@ -263,6 +267,18 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
       }
     ])
     setInputValue("")
+    info('对话记录已清空', { title: '清空完成' })
+  }
+
+  // 复制消息内容
+  const handleCopyMessage = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content)
+      success('消息已复制到剪贴板', { title: '复制成功' })
+    } catch (error) {
+      console.error('Failed to copy message:', error)
+      error('复制消息失败', { title: '复制失败' })
+    }
   }
 
 
@@ -493,9 +509,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
                       variant="ghost"
                       size="sm"
                       className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-gray-200"
-                      onClick={() => {
-                        navigator.clipboard.writeText(message.content)
-                      }}
+                      onClick={() => handleCopyMessage(message.content)}
                     >
                       <Copy className="h-3 w-3" />
                     </Button>
