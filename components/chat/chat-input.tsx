@@ -1,7 +1,7 @@
-import React, { useState } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import { Button } from "~components/ui/button"
-import { Input } from "~components/ui/input"
-import { Send, Square, RotateCcw } from "lucide-react"
+import { Textarea } from "~components/ui/textarea"
+import { Send, Square, Eraser } from "lucide-react"
 import { LLMService, type ChatMessage } from "~lib/llm-service"
 import { useSettings } from "~hooks/useSettings"
 import { useToast } from "~components/ui/sonner"
@@ -40,12 +40,38 @@ export const ChatInput = ({
   const [inputValue, setInputValue] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // 使用设置 hook
   const { getModelConfig, selectedModel } = useSettings()
 
   // 使用 toast hook
   const { success, error, info } = useToast()
+
+  // 自适应高度函数
+  const adjustTextareaHeight = () => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    // 重置高度以获取正确的 scrollHeight
+    textarea.style.height = 'auto'
+
+    // 获取内容高度
+    const scrollHeight = textarea.scrollHeight
+
+    // 设置最小和最大高度（基于 CSS 中的设置）
+    const minHeight = 36 // min-h-[36px]
+    const maxHeight = 240 // max-h-[240px]
+
+    // 设置高度，限制在最小和最大高度之间
+    const newHeight = Math.min(Math.max(scrollHeight, minHeight), maxHeight)
+    textarea.style.height = `${newHeight}px`
+  }
+
+  // 监听输入值变化，自动调整高度
+  useEffect(() => {
+    adjustTextareaHeight()
+  }, [inputValue])
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isStreaming) return
@@ -83,6 +109,8 @@ export const ChatInput = ({
     onMessagesChange([...messages, userMessage])
     const currentInput = inputValue
     setInputValue("")
+    // 重置 textarea 高度
+    setTimeout(() => adjustTextareaHeight(), 0)
     setIsStreaming(true)
 
     // 创建 AI 回复消息
@@ -182,6 +210,8 @@ export const ChatInput = ({
       }
     ])
     setInputValue("")
+    // 重置 textarea 高度
+    setTimeout(() => adjustTextareaHeight(), 0)
     info('对话记录已清空', { title: '清空完成' })
   }
 
@@ -196,37 +226,45 @@ export const ChatInput = ({
     }
   }
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputValue(e.target.value)
+  }
+
   return (
     <div className="p-4 border-t border-gray-200">
-      <div className="flex space-x-2">
-        <Input
-          type="text"
+      <div className="flex items-end space-x-2">
+        <Textarea
+          ref={textareaRef}
           value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
+          onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          placeholder="输入消息..."
-          className="flex-1"
+          placeholder="Shift + Enter 换行，Enter 发送"
+          className="flex-1 min-h-[72px] max-h-[240px] overflow-y-auto text-sm resize-none"
           disabled={isStreaming || disabled}
           autoComplete="off"
           data-form-type="other"
+          rows={1}
         />
-        <Button
-          onClick={handleClearChat}
-          size="sm"
-          variant="outline"
-          title="清理对话"
-          disabled={isStreaming || disabled}
-        >
-          <RotateCcw className="h-4 w-4" />
-        </Button>
-        <Button
-          onClick={isStreaming ? handleStopStreaming : handleSendMessage}
-          size="sm"
-          variant={isStreaming ? "destructive" : "default"}
-          disabled={disabled}
-        >
-          {isStreaming ? <Square className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-        </Button>
+        <div className="flex flex-col space-y-2">
+          <Button
+            onClick={handleClearChat}
+            size="sm"
+            variant="outline"
+            title="清理对话"
+            disabled={isStreaming || disabled}
+          >
+            <Eraser className="h-4 w-4" />
+          </Button>
+          <Button
+            onClick={isStreaming ? handleStopStreaming : handleSendMessage}
+            size="sm"
+            variant={isStreaming ? "destructive" : "default"}
+            title="发送消息"
+            disabled={disabled}
+          >
+            {isStreaming ? <Square className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+          </Button>
+        </div>
       </div>
     </div>
   )
