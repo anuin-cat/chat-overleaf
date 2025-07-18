@@ -3,7 +3,7 @@
 // 应用信息
 export const APP_INFO = {
   NAME: 'Chat Overleaf',
-  VERSION: '0.0.1',
+  VERSION: '0.0.2',
   DESCRIPTION: '使用 plasmo 构建的 chat-overleaf 浏览器插件'
 } as const
 
