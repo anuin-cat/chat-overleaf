@@ -29,5 +29,9 @@ dist/
 # plasmo
 .plasmo
 
+.augment
+.github
+.trae
+
 # typescript
 .tsbuildinfo
