@@ -343,7 +343,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
         {/* 文件提取按钮 */}
         <div className="flex gap-2 mb-3">
           <Button
-            onClick={() => handleExtractCurrent(setMessages)}
+            onClick={() => handleExtractCurrent()}
             disabled={isExtracting}
             variant="outline"
             size="sm"
@@ -354,7 +354,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
           </Button>
 
           <Button
-            onClick={() => handleExtractAll(setMessages)}
+            onClick={() => handleExtractAll()}
             disabled={isExtracting}
             variant="outline"
             size="sm"
@@ -386,7 +386,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleClearAllFiles(setMessages)}
+                onClick={() => handleClearAllFiles()}
                 className="h-6 px-2 text-xs text-red-600 hover:text-red-700"
               >
                 清空
@@ -417,7 +417,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleCopyFile(file, setMessages)}
+                        onClick={() => handleCopyFile(file)}
                         className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700"
                         title="复制内容"
                       >
@@ -426,7 +426,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDeleteFile(file.name, setMessages)}
+                        onClick={() => handleDeleteFile(file.name)}
                         className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
                         title="删除文件"
                       >
