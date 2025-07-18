@@ -105,7 +105,7 @@ export const useFileExtraction = () => {
   }
 
   // 处理内容提取结果
-  const handleContentExtracted = (result: ExtractionResult) => {
+  const handleContentExtracted = (result: ExtractionResult, onFileSelected?: (fileName: string) => void) => {
     if (result.success) {
       // 更新提取的文件列表
       if (result.mode === 'current') {
@@ -120,19 +120,23 @@ export const useFileExtraction = () => {
             return [...prev, ...result.files]
           }
         })
+        // 自动选中当前文件
+        if (result.files[0] && onFileSelected) {
+          onFileSelected(result.files[0].name)
+        }
       } else {
-        // 所有文件模式：替换整个列表
+        // 所有文件模式：替换整个列表，不自动选中
         setExtractedFiles(result.files)
       }
     }
   }
 
   // 提取当前文件
-  const handleExtractCurrent = async () => {
+  const handleExtractCurrent = async (onFileSelected?: (fileName: string) => void) => {
     setIsExtracting(true)
     try {
       const result = await extractContent('current')
-      handleContentExtracted(result)
+      handleContentExtracted(result, onFileSelected)
     } catch (error) {
       console.error('Failed to extract current file:', error)
     } finally {
@@ -145,7 +149,7 @@ export const useFileExtraction = () => {
     setIsExtracting(true)
     try {
       const result = await extractContent('all')
-      handleContentExtracted(result)
+      handleContentExtracted(result) // 不传递 onFileSelected，所以不会自动选中
     } catch (error) {
       console.error('Failed to extract all files:', error)
     } finally {

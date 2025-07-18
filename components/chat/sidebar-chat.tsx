@@ -4,7 +4,7 @@ import { Input } from "~components/ui/input"
 import { ScrollArea } from "~components/ui/scroll-area"
 import { SimpleSelect } from "~components/ui/simple-select"
 import { Checkbox } from "~components/ui/checkbox"
-import { Send, X, FileText, Files, Copy, Trash2, ChevronDown, ChevronUp, Square, Settings } from "lucide-react"
+import { Send, X, FileText, Files, Copy, Trash2, ChevronDown, ChevronUp, Square, Settings, RotateCcw } from "lucide-react"
 import { useFileExtraction, type FileInfo } from "./file-extraction"
 import { LLMService, type ChatMessage } from "~lib/llm-service"
 import { allModels, defaultModel, type ModelConfig } from "~lib/models"
@@ -243,6 +243,28 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
     })
   }
 
+  // 自动选中文件的回调函数
+  const handleAutoSelectFile = (fileName: string) => {
+    setSelectedFiles(prev => {
+      const newSet = new Set(prev)
+      newSet.add(fileName)
+      return newSet
+    })
+  }
+
+  // 清理所有对话内容
+  const handleClearChat = () => {
+    setMessages([
+      {
+        id: "1",
+        content: "你好！我是你 Overleaf 助手，有什么可以帮助你的吗？",
+        isUser: false,
+        timestamp: new Date()
+      }
+    ])
+    setInputValue("")
+  }
+
 
 
   // 拖拽调整大小的处理函数
@@ -343,7 +365,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
         {/* 文件提取按钮 */}
         <div className="flex gap-2 mb-3">
           <Button
-            onClick={() => handleExtractCurrent()}
+            onClick={() => handleExtractCurrent(handleAutoSelectFile)}
             disabled={isExtracting}
             variant="outline"
             size="sm"
@@ -499,6 +521,15 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
             autoComplete="off"
             data-form-type="other"
           />
+          <Button
+            onClick={handleClearChat}
+            size="sm"
+            variant="outline"
+            title="清理对话"
+            disabled={isStreaming}
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
           <Button
             onClick={isStreaming ? handleStopStreaming : handleSendMessage}
             size="sm"
