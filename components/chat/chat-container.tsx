@@ -75,12 +75,14 @@ export const ChatContainer = ({ isOverleaf }: ChatContainerProps) => {
         </Button>
       )}
       
-      {/* 侧边栏 - 只在打开时显示 */}
-      {showChat && (
-        <div className="fixed top-0 right-0 z-[9999] h-full">
-          <SidebarChat onClose={handleCloseChat} onWidthChange={handleWidthChange} />
-        </div>
-      )}
+      {/* 侧边栏 - 通过CSS控制显示/隐藏，避免组件销毁 */}
+      <div
+        className={`fixed top-0 right-0 z-[9999] h-full transition-transform duration-300 ease-in-out ${
+          showChat ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <SidebarChat onClose={handleCloseChat} onWidthChange={handleWidthChange} />
+      </div>
     </>
   )
 }
