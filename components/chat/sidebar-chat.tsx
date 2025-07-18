@@ -3,11 +3,11 @@ import { Button } from "~components/ui/button"
 import { Input } from "~components/ui/input"
 import { ScrollArea } from "~components/ui/scroll-area"
 import { SimpleSelect } from "~components/ui/simple-select"
-import { Checkbox } from "~components/ui/checkbox"
-import { Send, X, FileText, Files, Copy, Trash2, ChevronDown, ChevronUp, Square, Settings, RotateCcw } from "lucide-react"
-import { useFileExtraction, type FileInfo } from "./file-extraction"
+import { Send, X, Square, Settings, RotateCcw, Copy } from "lucide-react"
+import { FileExtractionPanel } from "./file/file-extraction-panel"
+import { useFileExtraction } from "./file/use-file-extraction"
 import { LLMService, type ChatMessage } from "~lib/llm-service"
-import { allModels, defaultModel, type ModelConfig } from "~lib/models"
+import { allModels, defaultModel } from "~lib/models"
 import { useSettings } from "~hooks/useSettings"
 import { SettingsPanel } from "./settings-panel"
 import { MarkdownMessage } from "./markdown-message"
@@ -40,7 +40,6 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
   const [inputValue, setInputValue] = useState("")
   const [width, setWidth] = useState(320) // 默认宽度 320px
   const [isResizing, setIsResizing] = useState(false)
-  const [showFileList, setShowFileList] = useState(true)
   const [llmService] = useState<LLMService>(new LLMService(defaultModel))
   const [isStreaming, setIsStreaming] = useState(false)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
@@ -54,16 +53,8 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
   // 使用 toast hook
   const { success, error, info } = useToast()
 
-  // 使用文件提取 hook
-  const {
-    isExtracting,
-    extractedFiles,
-    handleExtractCurrent,
-    handleExtractAll,
-    handleCopyFile,
-    handleDeleteFile,
-    handleClearAllFiles
-  } = useFileExtraction()
+  // 使用文件提取 hook（用于获取提取的文件信息）
+  const { extractedFiles } = useFileExtraction()
 
   // 初始化设置
   useEffect(() => {
@@ -235,26 +226,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
     }
   }
 
-  const handleFileSelection = (fileName: string, checked: boolean) => {
-    setSelectedFiles(prev => {
-      const newSet = new Set(prev)
-      if (checked) {
-        newSet.add(fileName)
-      } else {
-        newSet.delete(fileName)
-      }
-      return newSet
-    })
-  }
 
-  // 自动选中文件的回调函数
-  const handleAutoSelectFile = (fileName: string) => {
-    setSelectedFiles(prev => {
-      const newSet = new Set(prev)
-      newSet.add(fileName)
-      return newSet
-    })
-  }
 
   // 清理所有对话内容
   const handleClearChat = () => {
@@ -280,8 +252,6 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
       error('复制消息失败', { title: '复制失败' })
     }
   }
-
-
 
   // 拖拽调整大小的处理函数
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -378,105 +348,8 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
           </div>
         </div>
 
-        {/* 文件提取按钮 */}
-        <div className="flex gap-2 mb-3">
-          <Button
-            onClick={() => handleExtractCurrent(handleAutoSelectFile)}
-            disabled={isExtracting}
-            variant="outline"
-            size="sm"
-            className="flex-1 text-xs"
-          >
-            <FileText className="h-3 w-3 mr-1" />
-            {isExtracting ? '提取中...' : '当前文件'}
-          </Button>
-
-          <Button
-            onClick={() => handleExtractAll()}
-            disabled={isExtracting}
-            variant="outline"
-            size="sm"
-            className="flex-1 text-xs"
-          >
-            <Files className="h-3 w-3 mr-1" />
-            {isExtracting ? '提取中...' : '所有文件'}
-          </Button>
-        </div>
-
-        {/* 已提取文件列表 */}
-        {extractedFiles.length > 0 && (
-          <div className="border rounded-lg">
-            {/* 文件列表头部 */}
-            <div className="flex items-center justify-between p-2 bg-gray-50 border-b">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowFileList(!showFileList)}
-                  className="h-6 w-6 p-0"
-                >
-                  {showFileList ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                </Button>
-                <span className="text-xs font-medium text-gray-600">
-                  已提取文件 ({extractedFiles.length})
-                </span>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleClearAllFiles()}
-                className="h-6 px-2 text-xs text-red-600 hover:text-red-700"
-              >
-                清空
-              </Button>
-            </div>
-
-            {/* 文件列表内容 */}
-            {showFileList && (
-              <div className="max-h-32 overflow-y-auto">
-                {extractedFiles.map((file, index) => (
-                  <div key={`${file.name}-${index}`} className="flex items-center justify-between p-2 border-b last:border-b-0 hover:bg-gray-50">
-                    <div className="flex items-center space-x-2 flex-1 min-w-0">
-                      <Checkbox
-                        checked={selectedFiles.has(file.name)}
-                        onCheckedChange={(checked) => handleFileSelection(file.name, checked as boolean)}
-                        className="flex-shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium text-gray-800 truncate">
-                          {file.name}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {file.length} 字符
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-1 ml-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleCopyFile(file)}
-                        className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700"
-                        title="复制内容"
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteFile(file.name)}
-                        className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
-                        title="删除文件"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        {/* 文件提取面板 */}
+        <FileExtractionPanel onFileSelectionChange={setSelectedFiles} />
       </div>
 
       {/* Messages */}
@@ -553,8 +426,6 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
           </Button>
         </div>
       </div>
-
-
     </div>
 
     {/* 设置面板 */}
