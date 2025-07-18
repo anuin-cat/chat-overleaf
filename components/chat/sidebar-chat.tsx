@@ -1,17 +1,17 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { Button } from "~components/ui/button"
-import { Input } from "~components/ui/input"
 import { ScrollArea } from "~components/ui/scroll-area"
 import { SimpleSelect } from "~components/ui/simple-select"
-import { Send, X, Square, Settings, RotateCcw, Copy } from "lucide-react"
+import { X, Settings, Copy } from "lucide-react"
 import { FileExtractionPanel } from "./file/file-extraction-panel"
 import { useFileExtraction } from "./file/use-file-extraction"
-import { LLMService, type ChatMessage } from "~lib/llm-service"
+import { LLMService } from "~lib/llm-service"
 import { allModels, defaultModel } from "~lib/models"
 import { useSettings } from "~hooks/useSettings"
 import { SettingsPanel } from "./settings-panel"
 import { MarkdownMessage } from "./markdown-message"
 import { useToast } from "~components/ui/sonner"
+import { ChatInput } from "./chat-input"
 
 interface Message {
   id: string
@@ -37,12 +37,9 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
       timestamp: new Date()
     }
   ])
-  const [inputValue, setInputValue] = useState("")
   const [width, setWidth] = useState(320) // 默认宽度 320px
   const [isResizing, setIsResizing] = useState(false)
   const [llmService] = useState<LLMService>(new LLMService(defaultModel))
-  const [isStreaming, setIsStreaming] = useState(false)
-  const [abortController, setAbortController] = useState<AbortController | null>(null)
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
   const [showSettings, setShowSettings] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
@@ -73,142 +70,6 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
     onWidthChange?.(width)
   }, []) // 只在组件挂载时执行一次
 
-
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isStreaming) return
-
-    // 确保有选中的模型
-    const currentModel = selectedModel || defaultModel
-
-    // 每次发送消息时重新获取最新的模型配置（包含最新的 API key 和 base URL）
-    const currentModelConfig = getModelConfig(currentModel)
-
-    // 检查当前模型是否可用（有 API key）
-    if (!currentModelConfig.api_key || !currentModelConfig.base_url) {
-      error(`当前模型 ${currentModel.display_name} 未配置 API Key 或 Base URL，请在设置中配置后再使用。`, {
-        title: '配置错误'
-      })
-      return
-    }
-
-    // 使用最新的模型配置更新 LLM 服务
-    llmService.updateModel(currentModelConfig)
-
-    // 调试信息
-    console.log('Sending message with model:', currentModelConfig.display_name)
-    console.log('API Key available:', !!currentModelConfig.api_key)
-    console.log('Base URL:', currentModelConfig.base_url)
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: inputValue,
-      isUser: true,
-      timestamp: new Date()
-    }
-
-    // 添加用户消息
-    setMessages(prev => [...prev, userMessage])
-    const currentInput = inputValue
-    setInputValue("")
-    setIsStreaming(true)
-
-    // 创建 AI 回复消息
-    const aiMessageId = (Date.now() + 1).toString()
-    const aiMessage: Message = {
-      id: aiMessageId,
-      content: "",
-      isUser: false,
-      timestamp: new Date(),
-      isStreaming: true
-    }
-    setMessages(prev => [...prev, aiMessage])
-
-    try {
-      // 准备聊天历史
-      const chatHistory: ChatMessage[] = []
-
-      // 添加选中的文件内容作为上下文
-      const selectedFileContents = extractedFiles
-        .filter(file => selectedFiles.has(file.name))
-        .map(file => `文件 ${file.name}:\n${file.content}`)
-        .join('\n\n')
-
-      if (selectedFileContents) {
-        chatHistory.push({
-          role: 'system',
-          content: `以下是用户提供的文件内容作为上下文：\n\n${selectedFileContents}`
-        })
-      }
-
-      // 添加最近的对话历史（最多10条）
-      const recentMessages = messages.slice(-10).filter(msg => !msg.isStreaming)
-      recentMessages.forEach(msg => {
-        chatHistory.push({
-          role: msg.isUser ? 'user' : 'assistant',
-          content: msg.content
-        })
-      })
-
-      // 添加当前用户消息
-      chatHistory.push({
-        role: 'user',
-        content: currentInput
-      })
-
-      // 创建 AbortController
-      const controller = new AbortController()
-      setAbortController(controller)
-
-      // 开始流式对话
-      let fullContent = ""
-      for await (const response of llmService.streamChat(chatHistory, controller.signal)) {
-        if (controller.signal.aborted) break
-
-        fullContent = response.content
-
-        setMessages(prev => prev.map(msg =>
-          msg.id === aiMessageId
-            ? { ...msg, content: fullContent, isStreaming: !response.finished }
-            : msg
-        ))
-
-        if (response.finished) {
-          break
-        }
-      }
-    } catch (error) {
-      console.error('Chat error:', error)
-      error('发生了错误，请稍后重试', { title: '请求失败' })
-      setMessages(prev => prev.map(msg =>
-        msg.id === aiMessageId
-          ? { ...msg, content: "抱歉，发生了错误，请稍后重试。", isStreaming: false }
-          : msg
-      ))
-    } finally {
-      setIsStreaming(false)
-      setAbortController(null)
-    }
-  }
-
-  const handleStopStreaming = () => {
-    if (abortController) {
-      abortController.abort()
-      setIsStreaming(false)
-      setAbortController(null)
-    }
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      if (isStreaming) {
-        handleStopStreaming()
-      } else {
-        handleSendMessage()
-      }
-    }
-  }
-
   const handleModelChange = (modelName: string) => {
     const model = allModels.find(m => m.model_name === modelName)
     if (model) {
@@ -224,22 +85,6 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
       console.log('API Key available:', !!modelConfig.api_key)
       console.log('Base URL:', modelConfig.base_url)
     }
-  }
-
-
-
-  // 清理所有对话内容
-  const handleClearChat = () => {
-    setMessages([
-      {
-        id: "1",
-        content: "你好！我是你 Overleaf 助手，有什么可以帮助你的吗？",
-        isUser: false,
-        timestamp: new Date()
-      }
-    ])
-    setInputValue("")
-    info('对话记录已清空', { title: '清空完成' })
   }
 
   // 复制消息内容
@@ -395,37 +240,13 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
       </ScrollArea>
 
       {/* Input */}
-      <div className="p-4 border-t border-gray-200">
-        <div className="flex space-x-2">
-          <Input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="输入消息..."
-            className="flex-1"
-            disabled={isStreaming}
-            autoComplete="off"
-            data-form-type="other"
-          />
-          <Button
-            onClick={handleClearChat}
-            size="sm"
-            variant="outline"
-            title="清理对话"
-            disabled={isStreaming}
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
-          <Button
-            onClick={isStreaming ? handleStopStreaming : handleSendMessage}
-            size="sm"
-            variant={isStreaming ? "destructive" : "default"}
-          >
-            {isStreaming ? <Square className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-          </Button>
-        </div>
-      </div>
+      <ChatInput
+        messages={messages}
+        onMessagesChange={setMessages}
+        selectedFiles={selectedFiles}
+        extractedFiles={extractedFiles}
+        llmService={llmService}
+      />
     </div>
 
     {/* 设置面板 */}
