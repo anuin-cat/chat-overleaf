@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react"
 import { Button } from "~components/ui/button"
 import { ScrollArea } from "~components/ui/scroll-area"
 import { SimpleSelect } from "~components/ui/simple-select"
+import { MessageContextTags } from "./context-tags"
 import { X, Settings, Copy } from "lucide-react"
 import { FileExtractionPanel } from "./file/file-extraction-panel"
 import { useFileExtraction } from "./file/use-file-extraction"
@@ -19,6 +20,7 @@ interface Message {
   isUser: boolean
   timestamp: Date
   isStreaming?: boolean
+  selectedText?: string // 添加选中文本字段
 }
 
 interface SidebarChatProps {
@@ -194,7 +196,10 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
         </div>
 
         {/* 文件提取面板 */}
-        <FileExtractionPanel onFileSelectionChange={setSelectedFiles} />
+        <FileExtractionPanel
+          selectedFiles={selectedFiles}
+          onFileSelectionChange={setSelectedFiles}
+        />
       </div>
 
       {/* Messages */}
@@ -219,9 +224,18 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
                   className={message.isUser ? "text-white" : "text-gray-800"}
                 />
                 <div className="flex items-center justify-between mt-1">
-                  <p className="text-xs opacity-70">
-                    {message.timestamp.toLocaleTimeString()}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs opacity-70">
+                      {message.timestamp.toLocaleTimeString()}
+                    </p>
+                    {/* 显示选中文本标签（仅用户消息且有选中文本时） */}
+                    {message.isUser && message.selectedText && (
+                      <MessageContextTags
+                        selectedText={message.selectedText}
+                        className="text-xs"
+                      />
+                    )}
+                  </div>
                   {!message.isUser && !message.isStreaming && (
                     <Button
                       variant="ghost"
@@ -246,6 +260,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
         selectedFiles={selectedFiles}
         extractedFiles={extractedFiles}
         llmService={llmService}
+        onFileSelectionChange={setSelectedFiles}
       />
     </div>
 

@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from "react"
 import { Button } from "~components/ui/button"
 import { Textarea } from "~components/ui/textarea"
+import { ContextTags } from "./context-tags"
 import { Send, Square, Eraser } from "lucide-react"
 import { LLMService, type ChatMessage } from "~lib/llm-service"
 import { useSettings } from "~hooks/useSettings"
 import { useToast } from "~components/ui/sonner"
+import { useSelectedText } from "~hooks/useSelectedText"
 import { defaultModel } from "~lib/models"
 
 interface Message {
@@ -13,6 +15,7 @@ interface Message {
   isUser: boolean
   timestamp: Date
   isStreaming?: boolean
+  selectedText?: string // 添加选中文本字段
 }
 
 interface ExtractedFile {
@@ -27,6 +30,7 @@ interface ChatInputProps {
   extractedFiles: ExtractedFile[]
   llmService: LLMService
   disabled?: boolean
+  onFileSelectionChange?: (selectedFiles: Set<string>) => void
 }
 
 export const ChatInput = ({
@@ -35,11 +39,13 @@ export const ChatInput = ({
   selectedFiles,
   extractedFiles,
   llmService,
-  disabled = false
+  disabled = false,
+  onFileSelectionChange
 }: ChatInputProps) => {
   const [inputValue, setInputValue] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
+  const [currentSelectedText, setCurrentSelectedText] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // 使用设置 hook
@@ -47,6 +53,9 @@ export const ChatInput = ({
 
   // 使用 toast hook
   const { success, error, info } = useToast()
+
+  // 使用选中文本 hook
+  const { selectedText, clearSelectedText, hasSelection } = useSelectedText()
 
   // 自适应高度函数
   const adjustTextareaHeight = () => {
@@ -98,11 +107,15 @@ export const ChatInput = ({
     console.log('API Key available:', !!currentModelConfig.api_key)
     console.log('Base URL:', currentModelConfig.base_url)
 
+    // 保存当前选中的文本（如果有的话）
+    const messageSelectedText = hasSelection ? selectedText.text : undefined
+
     const userMessage: Message = {
       id: Date.now().toString(),
       content: inputValue,
       isUser: true,
-      timestamp: new Date()
+      timestamp: new Date(),
+      selectedText: messageSelectedText
     }
 
     // 添加用户消息
@@ -128,7 +141,7 @@ export const ChatInput = ({
       // 准备聊天历史
       const chatHistory: ChatMessage[] = []
 
-      // 添加选中的文件内容作为上下文
+      // 添加选中的文件内容作为上下文（持续提供）
       const selectedFileContents = extractedFiles
         .filter(file => selectedFiles.has(file.name))
         .map(file => `文件 ${file.name}:\n${file.content}`)
@@ -138,6 +151,14 @@ export const ChatInput = ({
         chatHistory.push({
           role: 'system',
           content: `以下是用户提供的文件内容作为上下文：\n\n${selectedFileContents}`
+        })
+      }
+
+      // 添加选中文本内容（仅本次消息）
+      if (messageSelectedText) {
+        chatHistory.push({
+          role: 'system',
+          content: `用户在编辑器中选中了以下内容：\n\n${messageSelectedText}`
         })
       }
 
@@ -230,8 +251,26 @@ export const ChatInput = ({
     setInputValue(e.target.value)
   }
 
+  // 处理文件删除
+  const handleRemoveFile = (fileName: string) => {
+    if (onFileSelectionChange) {
+      const newSelectedFiles = new Set(selectedFiles)
+      newSelectedFiles.delete(fileName)
+      onFileSelectionChange(newSelectedFiles)
+    }
+  }
+
   return (
     <div className="p-4 border-t border-gray-200">
+      {/* 标签区域 */}
+      <ContextTags
+        selectedFiles={selectedFiles}
+        selectedText={selectedText}
+        onRemoveFile={handleRemoveFile}
+        onRemoveSelectedText={clearSelectedText}
+        className="mb-3"
+      />
+
       <div className="flex items-end space-x-2">
         <Textarea
           ref={textareaRef}

@@ -1,11 +1,12 @@
 import { useEffect } from "react"
 import { Button } from "~components/ui/button"
 import { Checkbox } from "~components/ui/checkbox"
-import { FileText, Files, Copy, Trash2, ChevronDown, ChevronUp } from "lucide-react"
+import { Files, Copy, Trash2, ChevronDown, ChevronUp } from "lucide-react"
 import { useFileExtraction } from "./use-file-extraction"
 
 export interface FileExtractionPanelProps {
   onFileSelectionChange?: (selectedFiles: Set<string>) => void
+  selectedFiles?: Set<string>
   className?: string
 }
 
@@ -13,9 +14,10 @@ export interface FileExtractionPanelProps {
  * 文件提取面板组件
  * 纯UI组件，通过props接收配置，通过hook获取状态和操作
  */
-export const FileExtractionPanel = ({ 
-  onFileSelectionChange, 
-  className = "" 
+export const FileExtractionPanel = ({
+  onFileSelectionChange,
+  selectedFiles: externalSelectedFiles,
+  className = ""
 }: FileExtractionPanelProps) => {
   const {
     // 状态
@@ -23,17 +25,15 @@ export const FileExtractionPanel = ({
     extractedFiles,
     selectedFiles,
     showFileList,
-    
+
     // 操作
-    extractCurrent,
     extractAll,
     copyFile,
     deleteFile,
     clearAllFiles,
     selectFile,
-    autoSelectFile,
     toggleFileList
-  } = useFileExtraction()
+  } = useFileExtraction(externalSelectedFiles, onFileSelectionChange)
 
   // 当选中文件发生变化时通知父组件
   useEffect(() => {
@@ -42,33 +42,8 @@ export const FileExtractionPanel = ({
 
   return (
     <div className={className}>
-      {/* 文件提取按钮 */}
-      <div className="flex gap-2 mb-3">
-        <Button
-          onClick={() => extractCurrent(autoSelectFile)}
-          disabled={isExtracting}
-          variant="outline"
-          size="sm"
-          className="flex-1 text-xs"
-        >
-          <FileText className="h-3 w-3 mr-1" />
-          {isExtracting ? '提取中...' : '当前文件'}
-        </Button>
-
-        <Button
-          onClick={() => extractAll()}
-          disabled={isExtracting}
-          variant="outline"
-          size="sm"
-          className="flex-1 text-xs"
-        >
-          <Files className="h-3 w-3 mr-1" />
-          {isExtracting ? '提取中...' : '所有文件'}
-        </Button>
-      </div>
-
       {/* 已提取文件列表 */}
-      {extractedFiles.length > 0 && (
+      {extractedFiles.length > 0 ? (
         <div className="border rounded-lg">
           {/* 文件列表头部 */}
           <div className="flex items-center justify-between p-2 bg-gray-50 border-b">
@@ -85,14 +60,28 @@ export const FileExtractionPanel = ({
                 已提取文件 ({extractedFiles.length})
               </span>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearAllFiles}
-              className="h-6 px-2 text-xs text-red-600 hover:text-red-700"
-            >
-              清空
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                onClick={() => extractAll()}
+                disabled={isExtracting}
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700"
+                title="获取所有文件"
+              >
+                <Files className="h-3 w-3 mr-1" />
+                {isExtracting ? '提取中...' : '所有文件'}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearAllFiles}
+                className="h-6 px-2 text-xs text-red-600 hover:text-red-700"
+                title="清空所有文件"
+              >
+                清空
+              </Button>
+            </div>
           </div>
 
           {/* 文件列表内容 */}
@@ -139,6 +128,21 @@ export const FileExtractionPanel = ({
               ))}
             </div>
           )}
+        </div>
+      ) : (
+        /* 空状态 - 显示获取所有文件按钮 */
+        <div className="text-center py-4">
+          <p className="text-xs text-gray-500 mb-2">暂无提取的文件</p>
+          <Button
+            onClick={() => extractAll()}
+            disabled={isExtracting}
+            variant="outline"
+            size="sm"
+            className="text-xs"
+          >
+            <Files className="h-3 w-3 mr-1" />
+            {isExtracting ? '提取中...' : '获取所有文件'}
+          </Button>
         </div>
       )}
     </div>

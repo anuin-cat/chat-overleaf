@@ -24,30 +24,53 @@ export interface AllFilesInfo {
   error?: string
 }
 
+export interface SelectedTextInfo {
+  text: string
+  fileName: string
+  success: boolean
+  error?: string
+}
+
+/**
+ * 获取 CodeMirror 编辑器实例
+ */
+function getCodeMirrorEditor(): any | null {
+  try {
+    const editors = document.querySelectorAll('.cm-editor')
+
+    for (let i = 0; i < editors.length; i++) {
+      const editorElement = editors[i]
+      const cmContent = editorElement.querySelector('.cm-content') as any
+
+      if (cmContent?.cmView?.view) {
+        const editorView = cmContent.cmView.view
+        if (editorView.state?.doc) {
+          const content = editorView.state.doc.toString()
+
+          // 检查是否是有效的 LaTeX 内容
+          if (content.includes('\\documentclass') || content.includes('\\begin') || content.length > 200) {
+            return editorView
+          }
+        }
+      }
+    }
+
+    return null
+  } catch (error) {
+    console.error('Error getting CodeMirror editor:', error)
+    return null
+  }
+}
+
 /**
  * 获取 CodeMirror 编辑器内容
  */
 function getCodeMirrorContent(): string | null {
   try {
-    const editors = document.querySelectorAll('.cm-editor')
-    
-    for (let i = 0; i < editors.length; i++) {
-      const editorElement = editors[i]
-      const cmContent = editorElement.querySelector('.cm-content') as any
-      
-      if (cmContent?.cmView?.view) {
-        const editorView = cmContent.cmView.view
-        if (editorView.state?.doc) {
-          const content = editorView.state.doc.toString()
-          
-          // 检查是否是有效的 LaTeX 内容
-          if (content.includes('\\documentclass') || content.includes('\\begin') || content.length > 200) {
-            return content
-          }
-        }
-      }
+    const editorView = getCodeMirrorEditor()
+    if (editorView?.state?.doc) {
+      return editorView.state.doc.toString()
     }
-    
     return null
   } catch (error) {
     console.error('Error getting CodeMirror content:', error)
@@ -78,6 +101,58 @@ function cleanContent(content: string): string {
  */
 function createErrorResponse(error: unknown): string {
   return error instanceof Error ? error.message : 'Unknown error'
+}
+
+/**
+ * 获取编辑器选中的文本
+ */
+function getSelectedText(): SelectedTextInfo {
+  try {
+    const editorView = getCodeMirrorEditor()
+    if (!editorView) {
+      return {
+        text: '',
+        fileName: '',
+        success: false,
+        error: 'No editor found'
+      }
+    }
+
+    const selection = editorView.state.selection
+    if (!selection || selection.ranges.length === 0) {
+      return {
+        text: '',
+        fileName: getCurrentFileName(),
+        success: true
+      }
+    }
+
+    // 获取主选择范围
+    const mainRange = selection.main
+    if (mainRange.empty) {
+      return {
+        text: '',
+        fileName: getCurrentFileName(),
+        success: true
+      }
+    }
+
+    // 提取选中的文本
+    const selectedText = editorView.state.doc.sliceString(mainRange.from, mainRange.to)
+
+    return {
+      text: selectedText,
+      fileName: getCurrentFileName(),
+      success: true
+    }
+  } catch (error) {
+    return {
+      text: '',
+      fileName: '',
+      success: false,
+      error: createErrorResponse(error)
+    }
+  }
 }
 
 /**
@@ -172,6 +247,108 @@ async function getAllFilesContent(): Promise<AllFilesInfo> {
   }
 }
 
+// 存储选中文本的状态
+let currentSelectedText = ''
+let selectionChangeTimeout: NodeJS.Timeout | null = null
+
+// 存储编辑器内容状态
+let currentEditorContent = ''
+let currentFileName = ''
+let contentChangeTimeout: NodeJS.Timeout | null = null
+
+/**
+ * 检查内容变化
+ */
+function checkContentChange() {
+  try {
+    const content = getCodeMirrorContent()
+    const fileName = getCurrentFileName()
+
+    if (content && (content !== currentEditorContent || fileName !== currentFileName)) {
+      currentEditorContent = content
+      currentFileName = fileName
+
+      // 防抖处理，避免频繁更新
+      if (contentChangeTimeout) {
+        clearTimeout(contentChangeTimeout)
+      }
+
+      contentChangeTimeout = setTimeout(() => {
+        const cleanedContent = cleanContent(content)
+
+        // 通知插件内容变化
+        window.postMessage({
+          type: 'OVERLEAF_CONTENT_CHANGED',
+          data: {
+            fileName: fileName,
+            content: cleanedContent,
+            length: cleanedContent.length
+          }
+        }, '*')
+      }, 1000) // 1秒防抖
+    }
+  } catch (error) {
+    console.error('Error checking content change:', error)
+  }
+}
+
+/**
+ * 监听编辑器选择变化
+ */
+function setupSelectionListener() {
+  try {
+    const editorView = getCodeMirrorEditor()
+    if (!editorView) {
+      console.log('No editor found, retrying in 2 seconds...')
+      setTimeout(setupSelectionListener, 2000)
+      return
+    }
+
+    console.log('Setting up selection listener for CodeMirror editor')
+
+    // 使用 document 事件监听作为备选方案
+    let lastSelection = ''
+
+    const checkSelection = () => {
+      const selectedInfo = getSelectedText()
+      if (selectedInfo.success && selectedInfo.text !== lastSelection) {
+        lastSelection = selectedInfo.text
+        currentSelectedText = selectedInfo.text
+
+        // 通知插件选择变化
+        window.postMessage({
+          type: 'OVERLEAF_SELECTION_CHANGED',
+          data: {
+            text: selectedInfo.text,
+            fileName: selectedInfo.fileName,
+            hasSelection: selectedInfo.text.length > 0
+          }
+        }, '*')
+      }
+    }
+
+    // 监听鼠标和键盘事件
+    document.addEventListener('mouseup', () => {
+      setTimeout(checkSelection, 10)
+    })
+
+    document.addEventListener('keyup', () => {
+      setTimeout(checkSelection, 10)
+      // 同时检查内容变化
+      setTimeout(checkContentChange, 10)
+    })
+
+    // 定期检查选择变化和内容变化（作为备选）
+    setInterval(() => {
+      checkSelection()
+      checkContentChange()
+    }, 2000) // 每2秒检查一次
+
+  } catch (error) {
+    console.error('Error setting up selection listener:', error)
+  }
+}
+
 // 监听消息
 window.addEventListener('message', async (event) => {
   if (event.data.type === 'GET_OVERLEAF_CONTENT') {
@@ -199,7 +376,24 @@ window.addEventListener('message', async (event) => {
         data: info
       }, '*')
     }
+  } else if (event.data.type === 'GET_SELECTED_TEXT') {
+    // 获取选中文本
+    const selectedInfo = getSelectedText()
+    window.postMessage({
+      type: 'SELECTED_TEXT_RESPONSE',
+      requestId: event.data.requestId,
+      data: selectedInfo
+    }, '*')
   }
 })
+
+// 页面加载完成后设置选择监听器
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(setupSelectionListener, 1000) // 延迟1秒确保编辑器加载完成
+  })
+} else {
+  setTimeout(setupSelectionListener, 1000)
+}
 
 export {}

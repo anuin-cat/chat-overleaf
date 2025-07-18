@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useToast } from "~components/ui/sonner"
 import { FileExtractionService, type FileInfo, type ExtractionResult } from "./file-extraction-service"
 
@@ -6,11 +6,29 @@ import { FileExtractionService, type FileInfo, type ExtractionResult } from "./f
  * 文件提取Hook - 管理文件提取状态和操作
  * 不依赖UI组件，可以独立测试
  */
-export const useFileExtraction = () => {
+export const useFileExtraction = (
+  externalSelectedFiles?: Set<string>,
+  onSelectedFilesChange?: (selectedFiles: Set<string>) => void
+) => {
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractedFiles, setExtractedFiles] = useState<FileInfo[]>([])
-  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
+  const [internalSelectedFiles, setInternalSelectedFiles] = useState<Set<string>>(new Set())
   const [showFileList, setShowFileList] = useState(true)
+
+  // 使用外部状态或内部状态
+  const selectedFiles = externalSelectedFiles || internalSelectedFiles
+
+  // 更新选中文件的函数
+  const updateSelectedFiles = (updater: (prev: Set<string>) => Set<string>) => {
+    if (onSelectedFilesChange) {
+      // 使用外部状态管理
+      const newSet = updater(selectedFiles)
+      onSelectedFilesChange(newSet)
+    } else {
+      // 使用内部状态管理
+      setInternalSelectedFiles(updater)
+    }
+  }
 
   const { success, error, info } = useToast()
 
@@ -45,18 +63,7 @@ export const useFileExtraction = () => {
     }
   }
 
-  // 提取当前文件
-  const extractCurrent = async (onFileSelected?: (fileName: string) => void) => {
-    setIsExtracting(true)
-    try {
-      const result = await FileExtractionService.extractContent('current')
-      handleContentExtracted(result, onFileSelected)
-    } catch (error) {
-      console.error('Failed to extract current file:', error)
-    } finally {
-      setIsExtracting(false)
-    }
-  }
+
 
   // 提取所有文件
   const extractAll = async () => {
@@ -84,7 +91,7 @@ export const useFileExtraction = () => {
   // 删除文件
   const deleteFile = (fileName: string) => {
     setExtractedFiles(prev => prev.filter(file => file.name !== fileName))
-    setSelectedFiles(prev => {
+    updateSelectedFiles(prev => {
       const newSet = new Set(prev)
       newSet.delete(fileName)
       return newSet
@@ -95,13 +102,17 @@ export const useFileExtraction = () => {
   // 清空所有文件
   const clearAllFiles = () => {
     setExtractedFiles([])
-    setSelectedFiles(new Set())
+    if (onSelectedFilesChange) {
+      onSelectedFilesChange(new Set())
+    } else {
+      setInternalSelectedFiles(new Set())
+    }
     info('已清空所有文件', { title: '清空完成' })
   }
 
   // 处理文件选择
   const selectFile = (fileName: string, selected: boolean) => {
-    setSelectedFiles(prev => {
+    updateSelectedFiles(prev => {
       const newSet = new Set(prev)
       if (selected) {
         newSet.add(fileName)
@@ -114,7 +125,7 @@ export const useFileExtraction = () => {
 
   // 自动选中文件
   const autoSelectFile = (fileName: string) => {
-    setSelectedFiles(prev => {
+    updateSelectedFiles(prev => {
       const newSet = new Set(prev)
       newSet.add(fileName)
       return newSet
@@ -126,15 +137,52 @@ export const useFileExtraction = () => {
     setShowFileList(prev => !prev)
   }
 
+  // 监听编辑器内容变化
+  useEffect(() => {
+    const handleContentChange = (event: MessageEvent) => {
+      if (event.data.type === 'OVERLEAF_CONTENT_CHANGED') {
+        const { fileName, content, length } = event.data.data
+
+        // 自动更新已提取文件列表中的对应文件
+        setExtractedFiles(prev => {
+          const existingIndex = prev.findIndex(file => file.name === fileName)
+          const newFile: FileInfo = { name: fileName, content, length }
+
+          if (existingIndex >= 0) {
+            // 更新现有文件
+            const updated = [...prev]
+            updated[existingIndex] = newFile
+            return updated
+          } else {
+            // 添加新文件
+            return [...prev, newFile]
+          }
+        })
+
+        // 如果文件不在选中列表中，自动选中它
+        updateSelectedFiles(prev => {
+          if (!prev.has(fileName)) {
+            const newSet = new Set(prev)
+            newSet.add(fileName)
+            return newSet
+          }
+          return prev
+        })
+      }
+    }
+
+    window.addEventListener('message', handleContentChange)
+    return () => window.removeEventListener('message', handleContentChange)
+  }, [])
+
   return {
     // 状态
     isExtracting,
     extractedFiles,
     selectedFiles,
     showFileList,
-    
+
     // 操作
-    extractCurrent,
     extractAll,
     copyFile,
     deleteFile,
