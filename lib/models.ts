@@ -44,7 +44,14 @@ export const siliconFlowModels: ModelConfig[] = [
     model_name: "deepseek-ai/DeepSeek-V3",
     base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_SC"),
     api_key: "",
-    display_name: "DeepSeek-V3",
+    display_name: "DeepSeek-V3 (硅基)",
+    provider: "硅基流动",
+  },
+  {
+    model_name: "deepseek-ai/DeepSeek-R1",
+    base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_SC"),
+    api_key: "",
+    display_name: "DeepSeek-R1 (硅基)",
     provider: "硅基流动",
   },
   {
@@ -62,7 +69,14 @@ export const deepSeekModels: ModelConfig[] = [
     model_name: "deepseek-chat",
     base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_DS"),
     api_key: "",
-    display_name: "DeepSeek Chat",
+    display_name: "DeepSeek-V3 (官方)",
+    provider: "DeepSeek"
+  },
+  {
+    model_name: "deepseek-reasoner",
+    base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_DS"),
+    api_key: "",
+    display_name: "DeepSeek-R1 (官方)",
     provider: "DeepSeek"
   }
 ]
@@ -74,6 +88,13 @@ export const yunwuModels: ModelConfig[] = [
     base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_YW"),
     api_key: "",
     display_name: "gpt-4.1",
+    provider: "云雾"
+  },
+  {
+    model_name: "o4-mini",
+    base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_YW"),
+    api_key: "",
+    display_name: "o4-mini",
     provider: "云雾"
   },
   {
