@@ -52,7 +52,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
       timestamp: new Date()
     }
   ])
-  const [width, setWidth] = useState(320) // 默认宽度 320px
+  const [width, setWidth] = useState(420) // 默认宽度 400px
   const [isResizing, setIsResizing] = useState(false)
   const [llmService] = useState<LLMService>(new LLMService(defaultModel))
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
