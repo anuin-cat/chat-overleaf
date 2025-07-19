@@ -1,8 +1,9 @@
 import { useState } from "react"
 import { Button } from "~components/ui/button"
 import { Input } from "~components/ui/input"
-import { History, Trash2, Edit3, MessageCircle } from "lucide-react"
-import type { ChatHistory, Message } from "~hooks/useChatHistory"
+import { Trash2, Edit3, MessageCircle } from "lucide-react"
+import { useDialog } from "~components/ui/dialog"
+import type { ChatHistory } from "~hooks/useChatHistory"
 
 interface ChatHistoryListProps {
   chatHistories: ChatHistory[]
@@ -31,6 +32,7 @@ export const ChatHistoryList = ({
 }: ChatHistoryListProps) => {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState("")
+  const { showDialog } = useDialog()
 
   // 计算页面高度的2/3作为最大限制
   const maxHeight = Math.floor(window.innerHeight * 2 / 3)
@@ -63,6 +65,36 @@ export const ChatHistoryList = ({
       saveEditing()
     } else if (e.key === "Escape") {
       cancelEditing()
+    }
+  }
+
+  // 处理删除单个历史记录的确认
+  const handleDeleteHistory = async (historyId: string, historyName: string) => {
+    const confirmed = await showDialog({
+      title: "删除对话历史",
+      description: `确定要删除对话"${historyName}"吗？此操作无法撤销。`,
+      confirmText: "删除",
+      cancelText: "取消",
+      variant: "destructive"
+    })
+
+    if (confirmed) {
+      onDeleteHistory(historyId)
+    }
+  }
+
+  // 处理清空所有历史记录的确认
+  const handleClearAllHistories = async () => {
+    const confirmed = await showDialog({
+      title: "清空所有历史",
+      description: `确定要清空所有聊天历史吗？这将删除 ${chatHistories.length} 条对话记录，此操作无法撤销。`,
+      confirmText: "清空",
+      cancelText: "取消",
+      variant: "destructive"
+    })
+
+    if (confirmed) {
+      onClearAllHistories()
     }
   }
 
@@ -101,7 +133,7 @@ export const ChatHistoryList = ({
           <Button
             variant="ghost"
             size="sm"
-            onClick={onClearAllHistories}
+            onClick={handleClearAllHistories}
             className="h-6 px-2 text-xs text-red-600 hover:text-red-700"
             title="清空所有历史"
             disabled={chatHistories.length === 0}
@@ -180,7 +212,7 @@ export const ChatHistoryList = ({
                   size="sm"
                   onClick={(e) => {
                     e.stopPropagation()
-                    onDeleteHistory(history.id)
+                    handleDeleteHistory(history.id, history.name)
                   }}
                   className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
                   title="删除历史"
