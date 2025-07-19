@@ -33,6 +33,11 @@ interface ChatInputProps {
   llmService: LLMService
   disabled?: boolean
   onFileSelectionChange?: (selectedFiles: Set<string>) => void
+  onSaveChatHistory?: (messages: Message[]) => Promise<any>
+  isOnlyInitialMessage?: (messages: Message[]) => boolean
+  currentChatId?: string
+  currentChatName?: string
+  onChatNameChange?: (name: string) => void
 }
 
 export const ChatInput = ({
@@ -42,7 +47,12 @@ export const ChatInput = ({
   extractedFiles,
   llmService,
   disabled = false,
-  onFileSelectionChange
+  onFileSelectionChange,
+  onSaveChatHistory,
+  isOnlyInitialMessage,
+  currentChatId,
+  currentChatName,
+  onChatNameChange
 }: ChatInputProps) => {
   const [inputValue, setInputValue] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
@@ -118,6 +128,16 @@ export const ChatInput = ({
       isUser: true,
       timestamp: new Date(),
       selectedText: messageSelectedText
+    }
+
+    // 如果是第一条用户消息且没有设置聊天名称，自动设置名称
+    if (onChatNameChange && (!currentChatName || currentChatName === "")) {
+      const firstUserMessage = messages.find(msg => msg.isUser)
+      if (!firstUserMessage) {
+        // 这是第一条用户消息，设置聊天名称
+        const name = inputValue.length > 20 ? inputValue.substring(0, 20) + "..." : inputValue
+        onChatNameChange(name)
+      }
     }
 
     // 添加用户消息
@@ -240,11 +260,16 @@ export const ChatInput = ({
   }
 
   // 清理所有对话内容
-  const handleClearChat = () => {
+  const handleClearChat = async () => {
+    // 如果当前对话不是只有初始消息，先保存当前对话
+    if (onSaveChatHistory && isOnlyInitialMessage && !isOnlyInitialMessage(messages)) {
+      await onSaveChatHistory(messages)
+    }
+
     onMessagesChange([
       {
         id: "1",
-        content: "你好！我是你 Overleaf 助手，有什么可以帮助你的吗？",
+        content: "你好！我是你的 Overleaf 助手，有什么可以帮助你的吗？",
         isUser: false,
         timestamp: new Date()
       }

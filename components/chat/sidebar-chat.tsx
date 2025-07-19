@@ -3,9 +3,11 @@ import { Button } from "~components/ui/button"
 import { ScrollArea } from "~components/ui/scroll-area"
 import { SimpleSelect } from "~components/ui/simple-select"
 import { MessageContextTags } from "./context-tags"
-import { X, Settings, Copy, ChevronDown, ChevronUp } from "lucide-react"
+import { X, Settings, Copy, ChevronDown, ChevronUp, History } from "lucide-react"
 import { FileExtractionPanel } from "./file/file-extraction-panel"
 import { useFileExtraction } from "./file/use-file-extraction"
+import { ChatHistoryList } from "./history/chat-history-list"
+import { useChatHistory } from "~hooks/useChatHistory"
 import { LLMService } from "~lib/llm-service"
 import { allModels, defaultModel } from "~lib/models"
 import { useSettings } from "~hooks/useSettings"
@@ -25,16 +27,23 @@ interface Message {
   waitingStartTime?: Date // 等待开始时间
 }
 
+
+
 interface SidebarChatProps {
   onClose?: () => void
   onWidthChange?: (width: number) => void
 }
 
 export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
+  // 当前聊天会话状态
+  const [currentChatId, setCurrentChatId] = useState<string>(() =>
+    `chat_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+  )
+  const [currentChatName, setCurrentChatName] = useState<string>("")
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      content: "你好！我是你 Overleaf 助手，有什么可以帮助你的吗？",
+      content: "你好！我是你的 Overleaf 助手，有什么可以帮助你的吗？",
       // \n\n⚠️ **首次使用提示**：请先在设置中配置您的 API Key 才能开始对话。",
       // \n\n我支持 **Markdown** 格式，可以显示：\n- 列表项\n- `代码`\n- **粗体** 和 *斜体*\n- 行内数学公式：$E = mc^2$\n- 块级数学公式：\n\n$$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$\n\n```javascript\nconsole.log('Hello World!');\n```",
       isUser: false,
@@ -55,7 +64,20 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
   const { success, error, info } = useToast()
 
   // 使用文件提取 hook（用于获取提取的文件信息）
-  const { extractedFiles, showFileList, toggleFileList } = useFileExtraction(selectedFiles, setSelectedFiles)
+  const { extractedFiles, showFileList, toggleFileList: originalToggleFileList } = useFileExtraction(selectedFiles, setSelectedFiles)
+
+  // 使用聊天历史 hook
+  const {
+    chatHistories,
+    showHistoryList,
+    isLoading: isHistoryLoading,
+    saveChatHistory,
+    deleteChatHistory,
+    updateHistoryName,
+    clearAllHistories,
+    toggleHistoryList,
+    isOnlyInitialMessage
+  } = useChatHistory()
 
   // 初始化设置
   useEffect(() => {
@@ -98,8 +120,80 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
       success('消息已复制到剪贴板', { title: '复制成功' })
     } catch (error) {
       console.error('Failed to copy message:', error)
-      error('复制消息失败', { title: '复制失败' })
+      // error('复制消息失败', { title: '复制失败' })
     }
+  }
+
+  // 加载历史对话
+  const handleLoadHistory = async (history: any) => {
+    // 如果当前对话不是只有初始消息，先保存当前对话
+    if (!isOnlyInitialMessage(messages)) {
+      await saveChatHistory(messages, currentChatName, currentChatId)
+    }
+
+    // 将 StoredMessage 转换为 Message 格式
+    const convertedMessages: Message[] = history.messages.map((msg: any) => ({
+      id: msg.id,
+      content: msg.content,
+      isUser: msg.isUser,
+      timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp),
+      // 恢复时不需要临时状态
+      isStreaming: false,
+      selectedText: undefined,
+      isWaiting: false,
+      waitingStartTime: undefined
+    }))
+
+    // 设置当前聊天的ID和名称
+    setCurrentChatId(history.id)
+    setCurrentChatName(history.name)
+
+    // 加载历史对话
+    setMessages(convertedMessages)
+
+    // 不再自动收起历史列表，让用户手动控制
+
+    success(`已加载历史对话: ${history.name}`, { title: '加载成功' })
+  }
+
+  // 创建新的聊天会话
+  const handleNewChat = async () => {
+    // 如果当前对话不是只有初始消息，先保存当前对话
+    if (!isOnlyInitialMessage(messages)) {
+      await saveChatHistory(messages, currentChatName, currentChatId)
+    }
+
+    // 创建新的聊天会话
+    const newChatId = `chat_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+    setCurrentChatId(newChatId)
+    setCurrentChatName("")
+
+    // 重置消息列表
+    setMessages([
+      {
+        id: "1",
+        content: "你好！我是你的 Overleaf 助手，有什么可以帮助你的吗？",
+        isUser: false,
+        timestamp: new Date()
+      }
+    ])
+  }
+
+  // 互斥的切换函数
+  const toggleFileList = () => {
+    // 如果聊天历史列表是打开的，先关闭它
+    if (showHistoryList) {
+      toggleHistoryList()
+    }
+    originalToggleFileList()
+  }
+
+  const toggleHistoryListMutex = () => {
+    // 如果文件列表是打开的，先关闭它
+    if (showFileList) {
+      originalToggleFileList()
+    }
+    toggleHistoryList()
   }
 
   // 拖拽调整大小的处理函数
@@ -173,7 +267,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
             />
             {/* <h2 className="text-lg font-semibold text-gray-800 whitespace-nowrap">Chat Overleaf</h2> */}
           </div>
-          {/* 文件列表展开按钮 + 设置按钮 + 关闭按钮 */}
+          {/* 文件列表展开按钮 + 聊天历史按钮 + 设置按钮 + 关闭按钮 */}
           <div className="flex items-center space-x-1">
             {/* 文件列表展开按钮 - 只有当有提取的文件时才显示 */}
             {extractedFiles.length > 0 && (
@@ -192,6 +286,21 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
                 <span className="text-xs font-medium">文件列表</span>
               </Button>
             )}
+            {/* 聊天历史展开按钮 - 始终显示 */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleHistoryListMutex}
+              className={`h-8 px-2 flex items-center gap-1 ${
+                showHistoryList
+                  ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'hover:bg-gray-100'
+              }`}
+              title={showHistoryList ? "收起聊天历史" : "展开聊天历史"}
+            >
+              {showHistoryList ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              <span className="text-xs font-medium">聊天历史</span>
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -229,6 +338,27 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
           selectedFiles={selectedFiles}
           onFileSelectionChange={setSelectedFiles}
         />
+      </div>
+
+      {/* 聊天历史面板 - 始终渲染，通过样式控制显示/隐藏 */}
+      <div className={showHistoryList ? "block" : "hidden"}>
+        <div className="m-4">
+          <ChatHistoryList
+            chatHistories={chatHistories}
+            showHistoryList={showHistoryList}
+            isLoading={isHistoryLoading}
+            onLoadHistory={handleLoadHistory}
+            onDeleteHistory={deleteChatHistory}
+            onUpdateHistoryName={(historyId, newName) => {
+              // 如果更新的是当前聊天的历史记录，同步更新当前聊天名称
+              if (historyId === currentChatId) {
+                setCurrentChatName(newName)
+              }
+              return updateHistoryName(historyId, newName)
+            }}
+            onClearAllHistories={clearAllHistories}
+          />
+        </div>
       </div>
 
       {/* Messages */}
@@ -292,6 +422,11 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
         extractedFiles={extractedFiles}
         llmService={llmService}
         onFileSelectionChange={setSelectedFiles}
+        onSaveChatHistory={(messages) => saveChatHistory(messages, currentChatName, currentChatId)}
+        isOnlyInitialMessage={isOnlyInitialMessage}
+        currentChatId={currentChatId}
+        currentChatName={currentChatName}
+        onChatNameChange={setCurrentChatName}
       />
     </div>
 
