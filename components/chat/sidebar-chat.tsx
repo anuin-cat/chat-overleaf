@@ -3,7 +3,7 @@ import { Button } from "~components/ui/button"
 import { ScrollArea } from "~components/ui/scroll-area"
 import { SimpleSelect } from "~components/ui/simple-select"
 import { MessageContextTags } from "./context-tags"
-import { X, Settings, Copy } from "lucide-react"
+import { X, Settings, Copy, ChevronDown, ChevronUp } from "lucide-react"
 import { FileExtractionPanel } from "./file/file-extraction-panel"
 import { useFileExtraction } from "./file/use-file-extraction"
 import { LLMService } from "~lib/llm-service"
@@ -55,7 +55,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
   const { success, error, info } = useToast()
 
   // 使用文件提取 hook（用于获取提取的文件信息）
-  const { extractedFiles } = useFileExtraction()
+  const { extractedFiles, showFileList, toggleFileList } = useFileExtraction(selectedFiles, setSelectedFiles)
 
   // 初始化设置
   useEffect(() => {
@@ -145,7 +145,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
         {/* 关闭按钮 + 设置按钮 + 模型选择 */}
-        <div className="flex items-center justify-between mb-3 gap-2">
+        <div className="flex items-center justify-between mb-0 gap-2">
           {/* 模型选择 */}
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <SimpleSelect
@@ -173,8 +173,25 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
             />
             {/* <h2 className="text-lg font-semibold text-gray-800 whitespace-nowrap">Chat Overleaf</h2> */}
           </div>
-          {/* 设置按钮 + 关闭按钮 */}
+          {/* 文件列表展开按钮 + 设置按钮 + 关闭按钮 */}
           <div className="flex items-center space-x-1">
+            {/* 文件列表展开按钮 - 只有当有提取的文件时才显示 */}
+            {extractedFiles.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleFileList}
+                className={`h-8 px-2 flex items-center gap-1 ${
+                  showFileList
+                    ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : 'hover:bg-gray-100'
+                }`}
+                title={showFileList ? "收起文件列表" : "展开文件列表"}
+              >
+                {showFileList ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                <span className="text-xs font-medium">文件列表</span>
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -197,7 +214,17 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
           </div>
         </div>
 
-        {/* 文件提取面板 */}
+        {/* 文件提取面板 - 始终渲染，通过样式控制显示/隐藏 */}
+        {/* <div className={showFileList ? "block" : "hidden"}>
+          <FileExtractionPanel
+            selectedFiles={selectedFiles}
+            onFileSelectionChange={setSelectedFiles}
+          />
+        </div> */}
+      </div>
+
+      {/* 文件提取面板 - 始终渲染，通过样式控制显示/隐藏 */}
+      <div className={showFileList ? "block" : "hidden"}>
         <FileExtractionPanel
           selectedFiles={selectedFiles}
           onFileSelectionChange={setSelectedFiles}
