@@ -21,6 +21,8 @@ interface Message {
   timestamp: Date
   isStreaming?: boolean
   selectedText?: string // 添加选中文本字段
+  isWaiting?: boolean // 是否在等待第一个token
+  waitingStartTime?: Date // 等待开始时间
 }
 
 interface SidebarChatProps {
@@ -222,6 +224,8 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
                   isUser={message.isUser}
                   isStreaming={message.isStreaming}
                   className={message.isUser ? "text-white" : "text-gray-800"}
+                  isWaiting={message.isWaiting}
+                  waitingStartTime={message.waitingStartTime}
                 />
                 <div className="flex items-center justify-between mt-1">
                   <div className="flex items-center gap-2">

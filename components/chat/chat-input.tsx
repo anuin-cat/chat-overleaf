@@ -16,6 +16,8 @@ interface Message {
   timestamp: Date
   isStreaming?: boolean
   selectedText?: string // 添加选中文本字段
+  isWaiting?: boolean // 是否在等待第一个token
+  waitingStartTime?: Date // 等待开始时间
 }
 
 interface ExtractedFile {
@@ -133,7 +135,9 @@ export const ChatInput = ({
       content: "",
       isUser: false,
       timestamp: new Date(),
-      isStreaming: true
+      isStreaming: true,
+      isWaiting: true, // 所有模型都显示等待状态
+      waitingStartTime: new Date() // 记录等待开始时间
     }
     onMessagesChange([...messages, userMessage, aiMessage])
 
@@ -183,6 +187,7 @@ export const ChatInput = ({
 
       // 开始流式对话
       let fullContent = ""
+      let isFirstToken = true
       for await (const response of llmService.streamChat(chatHistory, controller.signal)) {
         if (controller.signal.aborted) break
 
@@ -190,9 +195,17 @@ export const ChatInput = ({
 
         onMessagesChange(prev => prev.map(msg =>
           msg.id === aiMessageId
-            ? { ...msg, content: fullContent, isStreaming: !response.finished }
+            ? {
+                ...msg,
+                content: fullContent,
+                isStreaming: !response.finished,
+                isWaiting: false, // 收到第一个token后取消等待状态
+                waitingStartTime: undefined
+              }
             : msg
         ))
+
+        isFirstToken = false
 
         if (response.finished) {
           break
@@ -203,7 +216,13 @@ export const ChatInput = ({
       error('发生了错误，请稍后重试', { title: '请求失败' })
       onMessagesChange(prev => prev.map(msg =>
         msg.id === aiMessageId
-          ? { ...msg, content: "抱歉，发生了错误，请稍后重试。", isStreaming: false }
+          ? {
+              ...msg,
+              content: "抱歉，发生了错误，请稍后重试。",
+              isStreaming: false,
+              isWaiting: false,
+              waitingStartTime: undefined
+            }
           : msg
       ))
     } finally {

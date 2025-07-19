@@ -1,6 +1,6 @@
 import { Marked } from 'marked'
 import markedKatex from 'marked-katex-extension'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { cn } from "~lib/utils"
 
 interface MarkdownMessageProps {
@@ -8,6 +8,8 @@ interface MarkdownMessageProps {
   isUser: boolean
   isStreaming?: boolean
   className?: string
+  isWaiting?: boolean
+  waitingStartTime?: Date
 }
 
 // 创建独立的 marked 实例，避免全局配置冲突
@@ -24,7 +26,24 @@ const markedInstance = new Marked({
   strict: false, // 不严格模式，允许一些便利功能
 } as any))
 
-export const MarkdownMessage = ({ content, isUser, isStreaming, className }: MarkdownMessageProps) => {
+export const MarkdownMessage = ({ content, isUser, isStreaming, className, isWaiting, waitingStartTime }: MarkdownMessageProps) => {
+  // 等待时间计时器
+  const [waitingTime, setWaitingTime] = useState(0)
+
+  // 更新等待时间
+  useEffect(() => {
+    if (isWaiting && waitingStartTime) {
+      const interval = setInterval(() => {
+        const now = new Date()
+        const elapsed = Math.floor((now.getTime() - waitingStartTime.getTime()) / 1000)
+        setWaitingTime(elapsed)
+      }, 1000)
+
+      return () => clearInterval(interval)
+    } else {
+      setWaitingTime(0)
+    }
+  }, [isWaiting, waitingStartTime])
   // 动态加载 KaTeX CSS 到 Shadow DOM
   useEffect(() => {
     const loadKatexCSS = async () => {
@@ -74,6 +93,16 @@ export const MarkdownMessage = ({ content, isUser, isStreaming, className }: Mar
       {isUser ? (
         // 用户消息直接显示文本，保留换行符
         <span className="whitespace-pre-wrap">{content}</span>
+      ) : isWaiting ? (
+        // 等待状态显示等待中
+        <div className="flex items-center space-x-2 text-gray-500">
+          <span>{waitingTime}s 思考中</span>
+          <div className="flex space-x-1">
+            <div className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+            <div className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+            <div className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          </div>
+        </div>
       ) : (
         // AI 消息使用 Markdown 渲染
         <div
@@ -81,7 +110,7 @@ export const MarkdownMessage = ({ content, isUser, isStreaming, className }: Mar
           dangerouslySetInnerHTML={renderMarkdown(content)}
         />
       )}
-      {isStreaming && (
+      {isStreaming && !isWaiting && (
         <span className="inline-block w-2 h-4 bg-current opacity-75 animate-pulse ml-1">|</span>
       )}
     </div>
