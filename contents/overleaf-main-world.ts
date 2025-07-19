@@ -265,27 +265,35 @@ function checkContentChange() {
     const fileName = getCurrentFileName()
 
     if (content && (content !== currentEditorContent || fileName !== currentFileName)) {
-      currentEditorContent = content
-      currentFileName = fileName
+      // 简单验证：确保获取到的文件名和编辑器内容是对应的
+      // 通过检查内容长度和文件名是否有效来判断
+      const isContentValid = content.length > 0
+      const isFileNameValid = fileName && fileName.trim().length > 0
 
-      // 防抖处理，避免频繁更新
-      if (contentChangeTimeout) {
-        clearTimeout(contentChangeTimeout)
+      // 只有当文件名和内容都有效时才更新
+      if (isContentValid && isFileNameValid) {
+        currentEditorContent = content
+        currentFileName = fileName
+
+        // 防抖处理，避免频繁更新
+        if (contentChangeTimeout) {
+          clearTimeout(contentChangeTimeout)
+        }
+
+        contentChangeTimeout = setTimeout(() => {
+          const cleanedContent = cleanContent(content)
+
+          // 通知插件内容变化
+          window.postMessage({
+            type: 'OVERLEAF_CONTENT_CHANGED',
+            data: {
+              fileName: fileName,
+              content: cleanedContent,
+              length: cleanedContent.length
+            }
+          }, '*')
+        }, 300) // 减少防抖时间到300ms，提高响应速度
       }
-
-      contentChangeTimeout = setTimeout(() => {
-        const cleanedContent = cleanContent(content)
-
-        // 通知插件内容变化
-        window.postMessage({
-          type: 'OVERLEAF_CONTENT_CHANGED',
-          data: {
-            fileName: fileName,
-            content: cleanedContent,
-            length: cleanedContent.length
-          }
-        }, '*')
-      }, 1000) // 1秒防抖
     }
   } catch (error) {
     console.error('Error checking content change:', error)
@@ -342,7 +350,7 @@ function setupSelectionListener() {
     setInterval(() => {
       checkSelection()
       checkContentChange()
-    }, 2000) // 每2秒检查一次
+    }, 300) // 每0.5秒检查一次，提高响应速度
 
   } catch (error) {
     console.error('Error setting up selection listener:', error)
