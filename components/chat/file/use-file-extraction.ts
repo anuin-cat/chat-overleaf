@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useToast } from "~components/ui/sonner"
 import { FileExtractionService, type FileInfo, type ExtractionResult } from "./file-extraction-service"
 
@@ -19,7 +19,7 @@ export const useFileExtraction = (
   const selectedFiles = externalSelectedFiles || internalSelectedFiles
 
   // 更新选中文件的函数
-  const updateSelectedFiles = (updater: (prev: Set<string>) => Set<string>) => {
+  const updateSelectedFiles = useCallback((updater: (prev: Set<string>) => Set<string>) => {
     if (onSelectedFilesChange) {
       // 使用外部状态管理
       const newSet = updater(selectedFiles)
@@ -28,7 +28,7 @@ export const useFileExtraction = (
       // 使用内部状态管理
       setInternalSelectedFiles(updater)
     }
-  }
+  }, [selectedFiles, onSelectedFilesChange])
 
   const { success, error, info } = useToast()
 
@@ -173,7 +173,7 @@ export const useFileExtraction = (
 
     window.addEventListener('message', handleContentChange)
     return () => window.removeEventListener('message', handleContentChange)
-  }, [])
+  }, [updateSelectedFiles])
 
   return {
     // 状态

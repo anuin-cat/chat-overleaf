@@ -1,4 +1,3 @@
-import { useEffect } from "react"
 import { Button } from "~components/ui/button"
 import { Checkbox } from "~components/ui/checkbox"
 import { Files, Copy, Trash2, ChevronDown, ChevronUp } from "lucide-react"
@@ -34,11 +33,6 @@ export const FileExtractionPanel = ({
     selectFile,
     toggleFileList
   } = useFileExtraction(externalSelectedFiles, onFileSelectionChange)
-
-  // 当选中文件发生变化时通知父组件
-  useEffect(() => {
-    onFileSelectionChange?.(selectedFiles)
-  }, [selectedFiles, onFileSelectionChange])
 
   return (
     <div className={className}>
