@@ -38,6 +38,7 @@ interface ChatInputProps {
   currentChatId?: string
   currentChatName?: string
   onChatNameChange?: (name: string) => void
+  onChatIdChange?: (id: string) => void
 }
 
 export const ChatInput = ({
@@ -52,7 +53,8 @@ export const ChatInput = ({
   isOnlyInitialMessage,
   currentChatId,
   currentChatName,
-  onChatNameChange
+  onChatNameChange,
+  onChatIdChange
 }: ChatInputProps) => {
   const [inputValue, setInputValue] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
@@ -262,10 +264,11 @@ export const ChatInput = ({
   // 清理所有对话内容
   const handleClearChat = async () => {
     // 如果当前对话不是只有初始消息，先保存当前对话
-    if (onSaveChatHistory && isOnlyInitialMessage && !isOnlyInitialMessage(messages)) {
+    if (onSaveChatHistory && !isOnlyInitialMessage(messages)) {
       await onSaveChatHistory(messages)
     }
 
+    // 重置消息列表
     onMessagesChange([
       {
         id: "1",
@@ -274,6 +277,16 @@ export const ChatInput = ({
         timestamp: new Date()
       }
     ])
+
+    // 重置聊天ID和名称，创建新的聊天会话
+    if (onChatIdChange) {
+      const newChatId = `chat_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      onChatIdChange(newChatId)
+    }
+    if (onChatNameChange) {
+      onChatNameChange("")
+    }
+
     setInputValue("")
     // 重置 textarea 高度
     setTimeout(() => adjustTextareaHeight(), 0)

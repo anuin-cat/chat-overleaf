@@ -2,8 +2,10 @@ import { useState, useRef, useCallback, useEffect } from "react"
 import { Button } from "~components/ui/button"
 import { ScrollArea } from "~components/ui/scroll-area"
 import { SimpleSelect } from "~components/ui/simple-select"
+import { DialogProvider } from "~components/ui/dialog"
 import { MessageContextTags } from "./context-tags"
-import { X, Settings, Copy, ChevronDown, ChevronUp, History } from "lucide-react"
+import { MessageActions } from "./message-actions"
+import { X, Settings, ChevronDown, ChevronUp, History } from "lucide-react"
 import { FileExtractionPanel } from "./file/file-extraction-panel"
 import { useFileExtraction } from "./file/use-file-extraction"
 import { ChatHistoryList } from "./history/chat-history-list"
@@ -76,6 +78,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
     updateHistoryName,
     clearAllHistories,
     toggleHistoryList,
+    createBranchChat,
     isOnlyInitialMessage
   } = useChatHistory()
 
@@ -113,16 +116,32 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
     }
   }
 
-  // 复制消息内容
-  const handleCopyMessage = async (content: string) => {
-    try {
-      await navigator.clipboard.writeText(content)
-      success('消息已复制到剪贴板', { title: '复制成功' })
-    } catch (error) {
-      console.error('Failed to copy message:', error)
-      // error('复制消息失败', { title: '复制失败' })
+  // 删除消息
+  const handleDeleteMessage = useCallback((messageId: string) => {
+    setMessages(prevMessages => prevMessages.filter(msg => msg.id !== messageId))
+  }, [])
+
+  // 从消息创建分支
+  const handleBranchFromMessage = useCallback(async (messageId: string) => {
+    // 找到消息在数组中的索引
+    const messageIndex = messages.findIndex(msg => msg.id === messageId)
+    if (messageIndex === -1) return
+
+    // 先保存当前对话为历史记录
+    if (!isOnlyInitialMessage(messages)) {
+      await saveChatHistory(messages, currentChatName, currentChatId)
     }
-  }
+
+    // 创建分支
+    const branchResult = await createBranchChat(messages, messageIndex, currentChatName || "新对话")
+
+    if (branchResult) {
+      // 更新当前聊天状态为分支状态
+      setCurrentChatId(branchResult.branchId)
+      setCurrentChatName(branchResult.branchName)
+      setMessages(branchResult.branchMessages)
+    }
+  }, [messages, currentChatName, currentChatId, saveChatHistory, createBranchChat, isOnlyInitialMessage])
 
   // 加载历史对话
   const handleLoadHistory = async (history: any) => {
@@ -222,7 +241,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
   }, [width, onWidthChange])
 
   return (
-    <>
+    <DialogProvider>
     <div
       ref={sidebarRef}
       className="flex h-screen flex-col bg-white border-l border-gray-200 shadow-lg relative"
@@ -397,16 +416,15 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
                       />
                     )}
                   </div>
-                  {!message.isUser && !message.isStreaming && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-gray-200"
-                      onClick={() => handleCopyMessage(message.content)}
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  )}
+                  {/* 消息操作按钮 */}
+                  <MessageActions
+                    messageId={message.id}
+                    messageContent={message.content}
+                    isUser={message.isUser}
+                    isStreaming={message.isStreaming}
+                    onDeleteMessage={handleDeleteMessage}
+                    onBranchFromMessage={handleBranchFromMessage}
+                  />
                 </div>
               </div>
             </div>
@@ -427,6 +445,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
         currentChatId={currentChatId}
         currentChatName={currentChatName}
         onChatNameChange={setCurrentChatName}
+        onChatIdChange={setCurrentChatId}
       />
     </div>
 
@@ -434,6 +453,6 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
     {showSettings && (
       <SettingsPanel onClose={() => setShowSettings(false)} />
     )}
-  </>
+  </DialogProvider>
   )
 }

@@ -31,7 +31,7 @@ export interface ChatHistory {
 }
 
 const CHAT_HISTORY_KEY = "chat_history"
-const MAX_HISTORY_COUNT = 50
+const MAX_HISTORY_COUNT = 20  // 减少最大历史记录数量以节省存储空间
 
 // 生成历史记录名称（使用用户第一条消息的前20个字符）
 const generateHistoryName = (messages: Message[]): string => {
@@ -107,7 +107,7 @@ export const useChatHistory = () => {
       // 清理消息数据，只保留聊天气泡信息，移除文件相关数据
       const cleanMessages: StoredMessage[] = messages.map(msg => ({
         id: msg.id,
-        content: msg.content,
+        content: msg.content.length > 1000 ? msg.content.substring(0, 1000) + '...' : msg.content, // 限制消息长度
         isUser: msg.isUser,
         timestamp: msg.timestamp
         // 不保存 selectedText, isStreaming, isWaiting, waitingStartTime 等临时状态
@@ -227,6 +227,37 @@ export const useChatHistory = () => {
     }
   }, [])
 
+  // 创建分支聊天
+  const createBranchChat = useCallback(async (
+    originalMessages: Message[],
+    branchFromIndex: number,
+    originalChatName: string
+  ) => {
+    try {
+      // 获取分支点之前的所有消息（包括分支点消息）
+      const branchMessages = originalMessages.slice(0, branchFromIndex + 1)
+
+      // 生成新的分支ID
+      const branchId = `branch_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+
+      // 创建分支名称（在原名称前加分支表情）
+      const branchName = `🌿 ${originalChatName}`
+
+      // 注意：这里不立即保存分支为历史记录
+      // 分支将作为当前活动的聊天，只有在用户进行其他操作时才会被保存
+
+      return {
+        branchId,
+        branchName,
+        branchMessages,
+        branchHistory: null // 不立即创建历史记录
+      }
+    } catch (error) {
+      console.error("Failed to create branch chat:", error)
+      return null
+    }
+  }, [])
+
   // 切换历史列表显示状态
   const toggleHistoryList = useCallback(() => {
     setShowHistoryList(prev => !prev)
@@ -250,7 +281,8 @@ export const useChatHistory = () => {
     clearAllHistories,
     loadChatHistories,
     toggleHistoryList,
-    
+    createBranchChat,
+
     // 工具函数
     generateHistoryName,
     isOnlyInitialMessage
