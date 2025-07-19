@@ -84,6 +84,20 @@ export const deepSeekModels: ModelConfig[] = [
 // 云雾模型配置
 export const yunwuModels: ModelConfig[] = [
   {
+    model_name: "gemini-2.5-flash",
+    base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_YW"),
+    api_key: "",
+    display_name: "gemini-2.5-flash",
+    provider: "云雾"
+  },
+  {
+    model_name: "gemini-2.5-pro",
+    base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_YW"),
+    api_key: "",
+    display_name: "gemini-2.5-pro",
+    provider: "云雾"
+  },
+  {
     model_name: "gpt-4.1-2025-04-14",
     base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_YW"),
     api_key: "",
@@ -97,19 +111,12 @@ export const yunwuModels: ModelConfig[] = [
     display_name: "o4-mini",
     provider: "云雾"
   },
-  {
-    model_name: "gpt-4.1-mini-2025-04-14",
-    base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_YW"),
-    api_key: "",
-    display_name: "gpt-4.1-mini",
-    provider: "云雾"
-  },
 ]
 
 // 所有可用模型
 export const allModels: ModelConfig[] = [
-  ...yunwuModels,
   ...siliconFlowModels,
+  ...yunwuModels,
   ...deepSeekModels,
 ]
 
