@@ -8,6 +8,7 @@ import { LoginForm } from "~components/login-form"
 import { ChatContainer } from "~components/chat"
 import { ToastProvider } from "~components/ui/sonner"
 import { store, persistor } from "~store"
+import { chatHistoryStorage } from "~utils/indexeddb-storage"
 
 // 调试工具将在开发环境中自动可用
 
@@ -56,7 +57,18 @@ const CSUIExample = () => {
       setIsOverleaf(isOverleafSite)
     }
 
+    // 初始化 IndexedDB（异步，不阻塞界面）
+    const initStorage = async () => {
+      try {
+        await chatHistoryStorage.init()
+        console.log('IndexedDB initialized successfully')
+      } catch (error) {
+        console.error('Failed to initialize IndexedDB:', error)
+      }
+    }
+
     checkOverleaf()
+    initStorage()
   }, [])
 
   return (
