@@ -241,7 +241,7 @@ export const useChatHistory = () => {
       const branchId = `branch_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
 
       // 创建分支名称（在原名称前加分支表情）
-      const branchName = `🌿 ${originalChatName}`
+      const branchName = `分支 ※ ${originalChatName}`
 
       // 注意：这里不立即保存分支为历史记录
       // 分支将作为当前活动的聊天，只有在用户进行其他操作时才会被保存
