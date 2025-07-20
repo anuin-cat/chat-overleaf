@@ -5,6 +5,7 @@ import { useSettings } from "./useSettings"
 import { useToast } from "~components/ui/sonner"
 import { defaultModel } from "~lib/models"
 import { type ImageInfo } from "~lib/image-utils"
+import { generateId, truncateText } from "~utils/helpers"
 
 interface Message {
   id: string
@@ -80,7 +81,7 @@ export const useMessageHandler = ({
     console.log('Base URL:', currentModelConfig.base_url)
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: generateId(),
       content: inputValue,
       isUser: true,
       timestamp: new Date(),
@@ -91,7 +92,7 @@ export const useMessageHandler = ({
     if (onChatNameChange && (!currentChatName || currentChatName === "")) {
       const firstUserMessage = messages.find(msg => msg.isUser)
       if (!firstUserMessage) {
-        const name = inputValue.length > 20 ? inputValue.substring(0, 20) + "..." : inputValue
+        const name = truncateText(inputValue, 20)
         onChatNameChange(name)
       }
     }
@@ -101,7 +102,7 @@ export const useMessageHandler = ({
     setIsStreaming(true)
 
     // 创建 AI 回复消息
-    const aiMessageId = (Date.now() + 1).toString()
+    const aiMessageId = generateId()
     const aiMessage: Message = {
       id: aiMessageId,
       content: "",

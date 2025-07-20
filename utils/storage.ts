@@ -22,12 +22,7 @@ const initIndexedDB = async () => {
   }
 }
 
-// 存储键名常量
-export const STORAGE_KEYS = {
-  USER_PREFERENCES: 'user_preferences',
-  AUTH_TOKEN: 'auth_token',
-  THEME: 'theme'
-} as const
+
 
 // 通用存储操作
 export const storageUtils = {
@@ -110,7 +105,7 @@ export const storageUtils = {
         }
       }
 
-      return value !== undefined ? value : defaultValue
+      return (value !== undefined ? value : defaultValue) as T | undefined
     } catch (error) {
       console.error(`Failed to get storage key ${key}:`, error)
       return defaultValue

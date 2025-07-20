@@ -3,6 +3,7 @@ import { Button } from "~components/ui/button"
 import { Input } from "~components/ui/input"
 import { Trash2, Edit3, MessageCircle } from "lucide-react"
 import { useDialog } from "~components/ui/dialog"
+import { truncateText } from "~utils/helpers"
 import type { ChatHistory } from "~hooks/useChatHistory"
 
 interface ChatHistoryListProps {
@@ -117,7 +118,7 @@ export const ChatHistoryList = ({
   const truncateName = (name: string, maxWidth: number): string => {
     // 简单的字符长度截断，实际应用中可能需要更精确的宽度计算
     const maxChars = Math.floor(maxWidth / 8) // 假设每个字符约8px宽度
-    return name.length > maxChars ? name.substring(0, maxChars) + "..." : name
+    return truncateText(name, maxChars)
   }
 
   // 移除这个条件，让组件始终渲染

@@ -1,7 +1,7 @@
 import { useSelector, useDispatch } from "react-redux"
 import { useEffect } from "react"
 import type { RootState, AppDispatch } from "~store"
-import type { ModelConfig } from "~store/types"
+import type { ModelConfig } from "~lib/models"
 import {
   setApiKey,
   setBaseUrl,

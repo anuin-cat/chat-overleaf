@@ -12,26 +12,7 @@ export interface ModelConfig {
   api_format?: 'openai' | 'gemini' | 'claude'
 }
 
-// 创建模型配置的工厂函数
-export const createModelConfig = (
-  model_name: string,
-  display_name: string,
-  provider: string,
-  envKeyPrefix: string,
-  free?: boolean,
-  multimodalConfig?: {
-    multimodal?: boolean
-    image_resolution_threshold?: number
-  }
-): ModelConfig => ({
-  model_name,
-  display_name,
-  provider,
-  free,
-  base_url: getEnvVar(`PLASMO_PUBLIC_BASE_URL_${envKeyPrefix}`) || "",
-  api_key: "", // 不从环境变量加载 API key，只使用用户输入
-  ...multimodalConfig
-})
+
 
 // 从环境变量获取配置
 // Plasmo 支持 .env.local 文件，但环境变量必须以 PLASMO_PUBLIC_ 前缀

@@ -17,6 +17,7 @@ import { SettingsPanel } from "./settings-panel"
 import { MarkdownMessage } from "./message/markdown-message"
 import { useToast } from "~components/ui/sonner"
 import { ChatInput } from "./chat-input"
+import { generateId } from "~utils/helpers"
 
 interface Message {
   id: string
@@ -37,7 +38,7 @@ interface SidebarChatProps {
 export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
   // 当前聊天会话状态
   const [currentChatId, setCurrentChatId] = useState<string>(() =>
-    `chat_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+    `chat_${generateId()}`
   )
   const [currentChatName, setCurrentChatName] = useState<string>("")
   const [messages, setMessages] = useState<Message[]>([

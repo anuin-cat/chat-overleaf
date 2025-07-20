@@ -2,6 +2,7 @@
  * 图片处理工具类
  * 用于处理用户上传的图片，包括压缩和格式转换
  */
+import { generateId } from '~utils/helpers'
 
 export interface ImageInfo {
   id: string
@@ -62,7 +63,7 @@ export class ImageUtils {
         const fileSize = Math.round((dataUrl.length * 3) / 4)
 
         const imageInfo: ImageInfo = {
-          id: this.generateId(),
+          id: `img_${generateId()}`,
           name: file.name,
           dataUrl,
           originalSize: { width: originalWidth, height: originalHeight },
@@ -178,13 +179,7 @@ export class ImageUtils {
     }
   }
 
-  /**
-   * 生成唯一ID
-   * @returns 唯一ID字符串
-   */
-  private static generateId(): string {
-    return `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-  }
+
 
   /**
    * 验证图片文件

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { X } from 'lucide-react'
+import { generateId } from '~utils/helpers'
 
 // Toast 类型定义
 export type ToastType = 'success' | 'error' | 'warning' | 'info' | 'default'
@@ -179,7 +180,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [toasts, setToasts] = useState<Toast[]>([])
 
   const toast = useCallback((toastData: Omit<Toast, 'id'>) => {
-    const id = Math.random().toString(36).substring(2, 11)
+    const id = generateId()
     const newToast: Toast = {
       id,
       duration: 2000,

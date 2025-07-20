@@ -11,6 +11,7 @@ import { useSelectedText } from "~hooks/useSelectedText"
 import { useMessageHandler } from "~hooks/useMessageHandler"
 import { useImageHandler } from "~hooks/useImageHandler"
 import { useInputHandler } from "~hooks/useInputHandler"
+import { generateId } from "~utils/helpers"
 
 interface Message {
   id: string
@@ -125,7 +126,7 @@ export const ChatInput = ({
 
     // 重置聊天ID和名称，创建新的聊天会话
     if (onChatIdChange) {
-      const newChatId = `chat_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      const newChatId = `chat_${generateId()}`
       onChatIdChange(newChatId)
     }
     if (onChatNameChange) {

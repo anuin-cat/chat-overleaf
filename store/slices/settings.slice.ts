@@ -1,5 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit"
-import type { SettingsState, ModelConfig } from "../types"
+import type { SettingsState } from "../types"
+import type { ModelConfig } from "~lib/models"
 
 const initialState: SettingsState = {
   apiKeys: {},

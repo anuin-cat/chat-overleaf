@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { storageUtils } from "~utils/storage"
+import { generateId, truncateText } from "~utils/helpers"
 
 // 聊天历史记录接口
 export interface Message {
@@ -38,7 +39,7 @@ const generateHistoryName = (messages: Message[]): string => {
   const firstUserMessage = messages.find(msg => msg.isUser)
   if (firstUserMessage) {
     const content = firstUserMessage.content.trim()
-    return content.length > 20 ? content.substring(0, 20) + "..." : content
+    return truncateText(content, 20)
   }
   return "新对话"
 }
@@ -107,13 +108,13 @@ export const useChatHistory = () => {
       // 清理消息数据，只保留聊天气泡信息，移除文件相关数据
       const cleanMessages: StoredMessage[] = messages.map(msg => ({
         id: msg.id,
-        content: msg.content.length > 1000 ? msg.content.substring(0, 1000) + '...' : msg.content, // 限制消息长度
+        content: truncateText(msg.content, 1000), // 限制消息长度
         isUser: msg.isUser,
         timestamp: msg.timestamp
         // 不保存 selectedText, isStreaming, isWaiting, waitingStartTime 等临时状态
       }))
 
-      const finalHistoryId = historyId || `history_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      const finalHistoryId = historyId || `history_${generateId()}`
       const name = customName || generateHistoryName(cleanMessages)
       const messageCount = cleanMessages.length
       const now = new Date()
@@ -238,7 +239,7 @@ export const useChatHistory = () => {
       const branchMessages = originalMessages.slice(0, branchFromIndex + 1)
 
       // 生成新的分支ID
-      const branchId = `branch_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      const branchId = `branch_${generateId()}`
 
       // 创建分支名称（在原名称前加分支表情）
       const branchName = `分支 ※ ${originalChatName}`

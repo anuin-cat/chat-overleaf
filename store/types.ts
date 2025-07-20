@@ -22,36 +22,9 @@ export interface UIState {
   theme: 'light' | 'dark'
 }
 
-export interface ModelConfig {
-  model_name: string
-  base_url: string
-  api_key: string
-  display_name: string
-  provider: string
-  free?: boolean
-  // 多模态相关配置
-  multimodal?: boolean
-  image_resolution_threshold?: number
-  // API格式类型
-  api_format?: 'openai' | 'gemini' | 'claude'
-}
-
 export interface SettingsState {
   apiKeys: Record<string, string>
   baseUrls: Record<string, string>
-  selectedModel: ModelConfig | null
+  selectedModel: any | null // 使用 any 避免循环依赖，实际使用时从 lib/models 导入
   initialized: boolean
-}
-
-// 登录凭据类型
-export interface LoginCredentials {
-  username: string
-  password: string
-}
-
-// API响应类型
-export interface ApiResponse<T> {
-  success: boolean
-  data: T
-  message?: string
 }
