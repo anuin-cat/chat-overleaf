@@ -85,10 +85,37 @@ export class LLMService {
       }
     } catch (error) {
       console.error('LLM Service Error:', error)
+
+      // 提供更详细的错误信息
+      let errorMessage = 'Unknown error'
+      if (error instanceof Error) {
+        errorMessage = error.message
+
+        // 检查是否是网络错误
+        if (error.message.includes('fetch')) {
+          errorMessage += '\n\n这可能是网络连接问题或API服务不可用。'
+        }
+
+        // 检查是否是认证错误
+        if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+          errorMessage += '\n\n请检查API Key是否正确配置。'
+        }
+
+        // 检查是否是余额不足
+        if (error.message.includes('insufficient') || error.message.includes('quota') || error.message.includes('billing')) {
+          errorMessage += '\n\n可能是账户余额不足，请检查账户余额。'
+        }
+
+        // 检查是否是频率限制
+        if (error.message.includes('rate') || error.message.includes('429')) {
+          errorMessage += '\n\n请求频率过高，请稍后重试。'
+        }
+      }
+
       yield {
         content: '',
         finished: true,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: errorMessage
       }
     }
   }
@@ -109,6 +136,37 @@ export class LLMService {
       return response.choices[0]?.message?.content || 'No response'
     } catch (error) {
       console.error('LLM Service Error:', error)
+
+      // 提供更详细的错误信息
+      if (error instanceof Error) {
+        let errorMessage = error.message
+
+        // 检查是否是网络错误
+        if (error.message.includes('fetch')) {
+          errorMessage += '\n\n这可能是网络连接问题或API服务不可用。'
+        }
+
+        // 检查是否是认证错误
+        if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+          errorMessage += '\n\n请检查API Key是否正确配置。'
+        }
+
+        // 检查是否是余额不足
+        if (error.message.includes('insufficient') || error.message.includes('quota') || error.message.includes('billing')) {
+          errorMessage += '\n\n可能是账户余额不足，请检查账户余额。'
+        }
+
+        // 检查是否是频率限制
+        if (error.message.includes('rate') || error.message.includes('429')) {
+          errorMessage += '\n\n请求频率过高，请稍后重试。'
+        }
+
+        // 创建新的错误对象，包含详细信息
+        const detailedError = new Error(errorMessage)
+        detailedError.stack = error.stack
+        throw detailedError
+      }
+
       throw error
     }
   }

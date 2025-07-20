@@ -210,10 +210,18 @@ export const ChatInput = ({
       // 开始流式对话
       let fullContent = ""
       let isFirstToken = true
+      let hasError = false
+
       for await (const response of llmService.streamChat(chatHistory, controller.signal)) {
         if (controller.signal.aborted) break
 
-        fullContent = response.content
+        // 检查是否有错误
+        if (response.error) {
+          hasError = true
+          fullContent = `❌ **API 调用出错**\n\n**错误信息：**\n${response.error}`
+        } else {
+          fullContent = response.content
+        }
 
         onMessagesChange(prev => prev.map(msg =>
           msg.id === aiMessageId
@@ -233,14 +241,23 @@ export const ChatInput = ({
           break
         }
       }
+
+      // 如果有错误，不显示toast提示，因为错误信息已经在消息中显示了
+      if (hasError) {
+        console.error('LLM API Error displayed in chat')
+      }
     } catch (error) {
       console.error('Chat error:', error)
-      error('发生了错误，请稍后重试', { title: '请求失败' })
+
+      // 将详细错误信息作为AI消息显示
+      const errorMessage = error instanceof Error ? error.message : '未知错误'
+      const detailedErrorContent = `❌ **请求处理出错**\n\n**错误信息：**\n${errorMessage}\n\n**可能的原因：**\n- 网络连接中断\n- 服务器响应超时\n- API 服务暂时不可用\n- 请求被中止\n\n**建议解决方案：**\n1. 检查网络连接\n2. 稍后重试\n3. 尝试切换其他模型\n4. 如果问题持续，请联系技术支持`
+
       onMessagesChange(prev => prev.map(msg =>
         msg.id === aiMessageId
           ? {
               ...msg,
-              content: "抱歉，发生了错误，请稍后重试。",
+              content: detailedErrorContent,
               isStreaming: false,
               isWaiting: false,
               waitingStartTime: undefined
