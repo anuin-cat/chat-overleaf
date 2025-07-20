@@ -5,32 +5,55 @@ import { cn } from "~lib/utils"
 interface TagProps {
   children: React.ReactNode
   onRemove?: () => void
-  variant?: "default" | "file" | "selection"
+  onClick?: () => void
+  variant?: "default" | "file" | "selection" | "image"
   className?: string
   removable?: boolean
+  clickable?: boolean
 }
 
-export const Tag = ({ 
-  children, 
-  onRemove, 
-  variant = "default", 
+export const Tag = ({
+  children,
+  onRemove,
+  onClick,
+  variant = "default",
   className,
-  removable = true 
+  removable = true,
+  clickable = false
 }: TagProps) => {
   const baseClasses = "inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md font-medium"
-  
+
   const variantClasses = {
     default: "bg-gray-100 text-gray-700 border border-gray-200",
     file: "bg-blue-50 text-blue-700 border border-blue-200",
-    selection: "bg-green-50 text-green-700 border border-green-200"
+    selection: "bg-green-50 text-green-700 border border-green-200",
+    image: "bg-purple-50 text-purple-700 border border-purple-200"
+  }
+
+  const clickableClasses = clickable ? "cursor-pointer hover:opacity-80 transition-opacity" : ""
+
+  const handleTagClick = (e: React.MouseEvent) => {
+    // 如果点击的是删除按钮，不触发标签点击
+    if ((e.target as HTMLElement).closest('button')) {
+      return
+    }
+    if (onClick) {
+      onClick()
+    }
   }
 
   return (
-    <span className={cn(baseClasses, variantClasses[variant], className)}>
+    <span
+      className={cn(baseClasses, variantClasses[variant], clickableClasses, className)}
+      onClick={clickable ? handleTagClick : undefined}
+    >
       <span className="truncate max-w-[200px]">{children}</span>
       {removable && onRemove && (
         <button
-          onClick={onRemove}
+          onClick={(e) => {
+            e.stopPropagation() // 防止触发标签点击
+            onRemove()
+          }}
           className="ml-1 hover:bg-black/10 rounded-sm p-0.5 transition-colors"
           type="button"
         >

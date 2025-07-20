@@ -5,6 +5,11 @@ export interface ModelConfig {
   display_name: string
   provider: string
   free?: boolean
+  // 多模态相关配置
+  multimodal?: boolean
+  image_resolution_threshold?: number
+  // API格式类型
+  api_format?: 'openai' | 'gemini' | 'claude'
 }
 
 // 创建模型配置的工厂函数
@@ -13,14 +18,19 @@ export const createModelConfig = (
   display_name: string,
   provider: string,
   envKeyPrefix: string,
-  free?: boolean
+  free?: boolean,
+  multimodalConfig?: {
+    multimodal?: boolean
+    image_resolution_threshold?: number
+  }
 ): ModelConfig => ({
   model_name,
   display_name,
   provider,
   free,
   base_url: getEnvVar(`PLASMO_PUBLIC_BASE_URL_${envKeyPrefix}`) || "",
-  api_key: "" // 不从环境变量加载 API key，只使用用户输入
+  api_key: "", // 不从环境变量加载 API key，只使用用户输入
+  ...multimodalConfig
 })
 
 // 从环境变量获取配置
@@ -39,6 +49,7 @@ export const siliconFlowModels: ModelConfig[] = [
     api_key: "",
     display_name: "Kimi-K2",
     provider: "硅基流动",
+    multimodal: false,
   },
   {
     model_name: "deepseek-ai/DeepSeek-V3",
@@ -46,6 +57,7 @@ export const siliconFlowModels: ModelConfig[] = [
     api_key: "",
     display_name: "DeepSeek-V3 (硅基)",
     provider: "硅基流动",
+    multimodal: false,
   },
   {
     model_name: "deepseek-ai/DeepSeek-R1",
@@ -53,6 +65,7 @@ export const siliconFlowModels: ModelConfig[] = [
     api_key: "",
     display_name: "DeepSeek-R1 (硅基)",
     provider: "硅基流动",
+    multimodal: false,
   },
   {
     model_name: "Qwen/Qwen3-235B-A22B",
@@ -60,6 +73,7 @@ export const siliconFlowModels: ModelConfig[] = [
     api_key: "",
     display_name: "Qwen3-235B-A22B",
     provider: "硅基流动",
+    multimodal: false,
   },
 ]
 
@@ -70,14 +84,16 @@ export const deepSeekModels: ModelConfig[] = [
     base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_DS"),
     api_key: "",
     display_name: "DeepSeek-V3 (官方)",
-    provider: "DeepSeek"
+    provider: "DeepSeek",
+    multimodal: false,
   },
   {
     model_name: "deepseek-reasoner",
     base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_DS"),
     api_key: "",
     display_name: "DeepSeek-R1 (官方)",
-    provider: "DeepSeek"
+    provider: "DeepSeek",
+    multimodal: false,
   }
 ]
 
@@ -88,28 +104,50 @@ export const yunwuModels: ModelConfig[] = [
     base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_YW"),
     api_key: "",
     display_name: "gemini-2.5-flash",
-    provider: "云雾"
+    provider: "云雾",
+    multimodal: true,
+    image_resolution_threshold: 1024,
+    api_format: 'openai',
   },
   {
     model_name: "gemini-2.5-pro",
     base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_YW"),
     api_key: "",
     display_name: "gemini-2.5-pro",
-    provider: "云雾"
+    provider: "云雾",
+    multimodal: true,
+    image_resolution_threshold: 1024,
+    api_format: 'openai',
   },
   {
     model_name: "gpt-4.1-2025-04-14",
     base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_YW"),
     api_key: "",
     display_name: "gpt-4.1",
-    provider: "云雾"
+    provider: "云雾",
+    multimodal: true,
+    image_resolution_threshold: 1024,
+    api_format: 'openai',
   },
   {
     model_name: "o4-mini",
     base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_YW"),
     api_key: "",
     display_name: "o4-mini",
-    provider: "云雾"
+    provider: "云雾",
+    multimodal: true,
+    image_resolution_threshold: 1024,
+    api_format: 'openai',
+  },
+  {
+    model_name: "claude-3-5-sonnet-20240620",
+    base_url: getEnvVar("PLASMO_PUBLIC_BASE_URL_YW"),
+    api_key: "",
+    display_name: "Claude-3.5-Sonnet",
+    provider: "云雾",
+    multimodal: true,
+    image_resolution_threshold: 1024,
+    api_format: 'openai',
   },
 ]
 

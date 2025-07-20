@@ -29,6 +29,11 @@ export interface ModelConfig {
   display_name: string
   provider: string
   free?: boolean
+  // 多模态相关配置
+  multimodal?: boolean
+  image_resolution_threshold?: number
+  // API格式类型
+  api_format?: 'openai' | 'gemini' | 'claude'
 }
 
 export interface SettingsState {

@@ -1,13 +1,16 @@
-import React, { useState, useRef, useEffect } from "react"
+import React from "react"
 import { Button } from "~components/ui/button"
 import { Textarea } from "~components/ui/textarea"
 import { ContextTags } from "./context-tags"
+import { FilePreviewModal } from "./file-preview-modal"
 import { Send, Square, Eraser } from "lucide-react"
-import { LLMService, type ChatMessage } from "~lib/llm-service"
-import { useSettings } from "~hooks/useSettings"
+import { LLMService } from "~lib/llm-service"
+import { type ImageInfo } from "~lib/image-utils"
 import { useToast } from "~components/ui/sonner"
 import { useSelectedText } from "~hooks/useSelectedText"
-import { defaultModel } from "~lib/models"
+import { useMessageHandler } from "~hooks/useMessageHandler"
+import { useImageHandler } from "~hooks/useImageHandler"
+import { useInputHandler } from "~hooks/useInputHandler"
 
 interface Message {
   id: string
@@ -23,6 +26,7 @@ interface Message {
 interface ExtractedFile {
   name: string
   content: string
+  length: number
 }
 
 interface ChatInputProps {
@@ -56,227 +60,49 @@ export const ChatInput = ({
   onChatNameChange,
   onChatIdChange
 }: ChatInputProps) => {
-  const [inputValue, setInputValue] = useState("")
-  const [isStreaming, setIsStreaming] = useState(false)
-  const [abortController, setAbortController] = useState<AbortController | null>(null)
-  const [currentSelectedText, setCurrentSelectedText] = useState("")
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  // 使用消息处理 hook
+  const { isStreaming, handleSendMessage, handleStopStreaming } = useMessageHandler({
+    messages,
+    onMessagesChange,
+    selectedFiles,
+    extractedFiles,
+    llmService,
+    currentChatId,
+    currentChatName,
+    onChatNameChange
+  })
 
-  // 使用设置 hook
-  const { getModelConfig, selectedModel } = useSettings()
+  // 使用图片处理 hook
+  const {
+    uploadedImages,
+    previewModal,
+    handleImageClick,
+    handlePaste,
+    handleDrop,
+    handleDragOver,
+    handleRemoveImage,
+    handleClosePreview,
+    clearImages
+  } = useImageHandler()
+
+  // 使用输入框处理 hook
+  const {
+    inputValue,
+    textareaRef,
+    handleInputChange,
+    handleKeyDown,
+    clearInput
+  } = useInputHandler()
 
   // 使用 toast hook
-  const { success, error, info } = useToast()
+  const { info } = useToast()
 
   // 使用选中文本 hook
   const { selectedText, clearSelectedText, hasSelection } = useSelectedText()
 
-  // 自适应高度函数
-  const adjustTextareaHeight = () => {
-    const textarea = textareaRef.current
-    if (!textarea) return
 
-    // 重置高度以获取正确的 scrollHeight
-    textarea.style.height = 'auto'
 
-    // 获取内容高度
-    const scrollHeight = textarea.scrollHeight
 
-    // 设置最小和最大高度（基于 CSS 中的设置）
-    const minHeight = 36 // min-h-[36px]
-    const maxHeight = 240 // max-h-[240px]
-
-    // 设置高度，限制在最小和最大高度之间
-    const newHeight = Math.min(Math.max(scrollHeight, minHeight), maxHeight)
-    textarea.style.height = `${newHeight}px`
-  }
-
-  // 监听输入值变化，自动调整高度
-  useEffect(() => {
-    adjustTextareaHeight()
-  }, [inputValue])
-
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isStreaming) return
-
-    // 确保有选中的模型
-    const currentModel = selectedModel || defaultModel
-
-    // 每次发送消息时重新获取最新的模型配置（包含最新的 API key 和 base URL）
-    const currentModelConfig = getModelConfig(currentModel)
-
-    // 检查当前模型是否可用（有 API key）
-    if (!currentModelConfig.api_key || !currentModelConfig.base_url) {
-      error(`当前模型 ${currentModel.display_name} 未配置 API Key 或 Base URL，请在设置中配置后再使用。`, {
-        title: '配置错误'
-      })
-      return
-    }
-
-    // 使用最新的模型配置更新 LLM 服务
-    llmService.updateModel(currentModelConfig)
-
-    // 调试信息
-    console.log('Sending message with model:', currentModelConfig.display_name)
-    console.log('API Key available:', !!currentModelConfig.api_key)
-    console.log('Base URL:', currentModelConfig.base_url)
-
-    // 保存当前选中的文本（如果有的话）
-    const messageSelectedText = hasSelection ? selectedText.text : undefined
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: inputValue,
-      isUser: true,
-      timestamp: new Date(),
-      selectedText: messageSelectedText
-    }
-
-    // 如果是第一条用户消息且没有设置聊天名称，自动设置名称
-    if (onChatNameChange && (!currentChatName || currentChatName === "")) {
-      const firstUserMessage = messages.find(msg => msg.isUser)
-      if (!firstUserMessage) {
-        // 这是第一条用户消息，设置聊天名称
-        const name = inputValue.length > 20 ? inputValue.substring(0, 20) + "..." : inputValue
-        onChatNameChange(name)
-      }
-    }
-
-    // 添加用户消息
-    onMessagesChange([...messages, userMessage])
-    const currentInput = inputValue
-    setInputValue("")
-    // 重置 textarea 高度
-    setTimeout(() => adjustTextareaHeight(), 0)
-    setIsStreaming(true)
-
-    // 创建 AI 回复消息
-    const aiMessageId = (Date.now() + 1).toString()
-    const aiMessage: Message = {
-      id: aiMessageId,
-      content: "",
-      isUser: false,
-      timestamp: new Date(),
-      isStreaming: true,
-      isWaiting: true, // 所有模型都显示等待状态
-      waitingStartTime: new Date() // 记录等待开始时间
-    }
-    onMessagesChange([...messages, userMessage, aiMessage])
-
-    try {
-      // 准备聊天历史
-      const chatHistory: ChatMessage[] = []
-
-      // 添加选中的文件内容作为上下文（持续提供）
-      const selectedFileContents = extractedFiles
-        .filter(file => selectedFiles.has(file.name))
-        .map(file => `文件 ${file.name}:\n${file.content}`)
-        .join('\n\n')
-
-      if (selectedFileContents) {
-        chatHistory.push({
-          role: 'system',
-          content: `以下是用户提供的文件内容作为上下文：\n\n${selectedFileContents}`
-        })
-      }
-
-      // 添加选中文本内容（仅本次消息）
-      if (messageSelectedText) {
-        chatHistory.push({
-          role: 'system',
-          content: `用户在编辑器中选中了以下内容：\n\n${messageSelectedText}`
-        })
-      }
-
-      // 添加最近的对话历史（最多10条）
-      const recentMessages = messages.slice(-10).filter(msg => !msg.isStreaming)
-      recentMessages.forEach(msg => {
-        chatHistory.push({
-          role: msg.isUser ? 'user' : 'assistant',
-          content: msg.content
-        })
-      })
-
-      // 添加当前用户消息
-      chatHistory.push({
-        role: 'user',
-        content: currentInput
-      })
-
-      // 创建 AbortController
-      const controller = new AbortController()
-      setAbortController(controller)
-
-      // 开始流式对话
-      let fullContent = ""
-      let isFirstToken = true
-      let hasError = false
-
-      for await (const response of llmService.streamChat(chatHistory, controller.signal)) {
-        if (controller.signal.aborted) break
-
-        // 检查是否有错误
-        if (response.error) {
-          hasError = true
-          fullContent = `❌ **API 调用出错**\n\n**错误信息：**\n${response.error}`
-        } else {
-          fullContent = response.content
-        }
-
-        onMessagesChange(prev => prev.map(msg =>
-          msg.id === aiMessageId
-            ? {
-                ...msg,
-                content: fullContent,
-                isStreaming: !response.finished,
-                isWaiting: false, // 收到第一个token后取消等待状态
-                waitingStartTime: undefined
-              }
-            : msg
-        ))
-
-        isFirstToken = false
-
-        if (response.finished) {
-          break
-        }
-      }
-
-      // 如果有错误，不显示toast提示，因为错误信息已经在消息中显示了
-      if (hasError) {
-        console.error('LLM API Error displayed in chat')
-      }
-    } catch (error) {
-      console.error('Chat error:', error)
-
-      // 将详细错误信息作为AI消息显示
-      const errorMessage = error instanceof Error ? error.message : '未知错误'
-      const detailedErrorContent = `❌ **请求处理出错**\n\n**错误信息：**\n${errorMessage}\n\n**可能的原因：**\n- 网络连接中断\n- 服务器响应超时\n- API 服务暂时不可用\n- 请求被中止\n\n**建议解决方案：**\n1. 检查网络连接\n2. 稍后重试\n3. 尝试切换其他模型\n4. 如果问题持续，请联系技术支持`
-
-      onMessagesChange(prev => prev.map(msg =>
-        msg.id === aiMessageId
-          ? {
-              ...msg,
-              content: detailedErrorContent,
-              isStreaming: false,
-              isWaiting: false,
-              waitingStartTime: undefined
-            }
-          : msg
-      ))
-    } finally {
-      setIsStreaming(false)
-      setAbortController(null)
-    }
-  }
-
-  const handleStopStreaming = () => {
-    if (abortController) {
-      abortController.abort()
-      setIsStreaming(false)
-      setAbortController(null)
-    }
-  }
 
   // 清理所有对话内容
   const handleClearChat = async () => {
@@ -285,7 +111,7 @@ export const ChatInput = ({
       await onSaveChatHistory(messages)
     }
 
-    // 重置消息列表
+    // 重置消息列表和图片
     onMessagesChange([
       {
         id: "1",
@@ -294,6 +120,8 @@ export const ChatInput = ({
         timestamp: new Date()
       }
     ])
+    clearImages() // 清空图片
+    clearSelectedText() // 清空选中文本
 
     // 重置聊天ID和名称，创建新的聊天会话
     if (onChatIdChange) {
@@ -304,25 +132,8 @@ export const ChatInput = ({
       onChatNameChange("")
     }
 
-    setInputValue("")
-    // 重置 textarea 高度
-    setTimeout(() => adjustTextareaHeight(), 0)
+    clearInput()
     info('对话记录已清空', { title: '清空完成' })
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      if (isStreaming) {
-        handleStopStreaming()
-      } else {
-        handleSendMessage()
-      }
-    }
-  }
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInputValue(e.target.value)
   }
 
   // 处理文件删除
@@ -334,24 +145,49 @@ export const ChatInput = ({
     }
   }
 
+  // 发送消息的包装函数
+  const onSendMessage = () => {
+    const messageSelectedText = hasSelection ? selectedText.text : undefined
+    handleSendMessage(inputValue, messageSelectedText, uploadedImages)
+    clearInput()
+    clearImages()
+    clearSelectedText()
+  }
+
   return (
     <div className="p-4 border-t border-gray-200">
       {/* 标签区域 */}
       <ContextTags
         selectedFiles={selectedFiles}
         selectedText={selectedText}
+        uploadedImages={uploadedImages}
         onRemoveFile={handleRemoveFile}
         onRemoveSelectedText={clearSelectedText}
+        onImageClick={handleImageClick}
+        onRemoveImage={handleRemoveImage}
         className="mb-3"
       />
 
+      {/* 图片预览模态框 */}
+      <FilePreviewModal
+        isOpen={previewModal.isOpen}
+        onClose={handleClosePreview}
+        fileName={previewModal.fileName}
+        imageUrls={previewModal.imageUrls}
+        isLoading={previewModal.isLoading}
+        error={previewModal.error}
+      />
+      
       <div className="flex items-end space-x-2">
         <Textarea
           ref={textareaRef}
           value={inputValue}
           onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          placeholder="Shift + Enter 换行，Enter 发送"
+          onKeyDown={(e) => handleKeyDown(e, onSendMessage, handleStopStreaming, isStreaming)}
+          onPaste={handlePaste}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          placeholder="Shift + Enter 换行，Enter 发送，支持粘贴或拖拽图片"
           className="flex-1 min-h-[72px] max-h-[240px] overflow-y-auto text-sm resize-none"
           disabled={isStreaming || disabled}
           autoComplete="off"
@@ -369,7 +205,7 @@ export const ChatInput = ({
             <Eraser className="h-4 w-4" />
           </Button>
           <Button
-            onClick={isStreaming ? handleStopStreaming : handleSendMessage}
+            onClick={isStreaming ? handleStopStreaming : onSendMessage}
             size="sm"
             variant={isStreaming ? "destructive" : "default"}
             title="发送消息"

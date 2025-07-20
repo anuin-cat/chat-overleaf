@@ -1,9 +1,16 @@
-import OpenAI from 'openai'
 import type { ModelConfig } from './models'
+import { ApiClient } from './api-client'
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
-  content: string
+  content: string | Array<{
+    type: 'text' | 'image_url'
+    text?: string
+    image_url?: {
+      url: string
+      detail?: 'low' | 'high' | 'auto'
+    }
+  }>
 }
 
 export interface StreamResponse {
@@ -13,26 +20,18 @@ export interface StreamResponse {
 }
 
 export class LLMService {
-  private client: OpenAI
+  private apiClient: ApiClient
   private model: ModelConfig
 
   constructor(model: ModelConfig) {
     this.model = model
-    this.client = new OpenAI({
-      apiKey: model.api_key,
-      baseURL: model.base_url,
-      dangerouslyAllowBrowser: true // 允许在浏览器中使用
-    })
+    this.apiClient = new ApiClient(model)
   }
 
   // 更新模型配置
   updateModel(model: ModelConfig) {
     this.model = model
-    this.client = new OpenAI({
-      apiKey: model.api_key,
-      baseURL: model.base_url,
-      dangerouslyAllowBrowser: true
-    })
+    this.apiClient = new ApiClient(model)
   }
 
   // 流式聊天
@@ -41,81 +40,36 @@ export class LLMService {
     abortSignal?: AbortSignal
   ): AsyncGenerator<StreamResponse, void, unknown> {
     try {
-      const stream = await this.client.chat.completions.create({
-        model: this.model.model_name,
-        messages: messages.map(msg => ({
-          role: msg.role,
-          content: msg.content
-        })),
-        stream: true,
-        temperature: 0.7,
-        max_tokens: 4000
-      }, {
-        signal: abortSignal
-      })
+      // 发送请求
+      const response = await this.apiClient.sendChatRequest(messages, true, abortSignal)
 
-      let fullContent = ''
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`API Error: ${response.status} - ${errorText}`)
+      }
 
-      for await (const chunk of stream) {
+      // 处理流式响应
+      for await (const chunk of this.apiClient.processStreamResponse(response)) {
         if (abortSignal?.aborted) {
           yield {
-            content: fullContent,
+            content: chunk.content,
             finished: true,
             error: 'Request aborted'
           }
           return
         }
 
-        const delta = chunk.choices[0]?.delta
-        if (delta?.content) {
-          fullContent += delta.content
-          yield {
-            content: fullContent,
-            finished: false
-          }
-        }
+        yield chunk
 
-        if (chunk.choices[0]?.finish_reason) {
-          yield {
-            content: fullContent,
-            finished: true
-          }
+        if (chunk.finished) {
           return
         }
       }
     } catch (error) {
-      console.error('LLM Service Error:', error)
-
-      // 提供更详细的错误信息
-      let errorMessage = 'Unknown error'
-      if (error instanceof Error) {
-        errorMessage = error.message
-
-        // 检查是否是网络错误
-        if (error.message.includes('fetch')) {
-          errorMessage += '\n\n这可能是网络连接问题或API服务不可用。'
-        }
-
-        // 检查是否是认证错误
-        if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-          errorMessage += '\n\n请检查API Key是否正确配置。'
-        }
-
-        // 检查是否是余额不足
-        if (error.message.includes('insufficient') || error.message.includes('quota') || error.message.includes('billing')) {
-          errorMessage += '\n\n可能是账户余额不足，请检查账户余额。'
-        }
-
-        // 检查是否是频率限制
-        if (error.message.includes('rate') || error.message.includes('429')) {
-          errorMessage += '\n\n请求频率过高，请稍后重试。'
-        }
-      }
-
       yield {
         content: '',
         finished: true,
-        error: errorMessage
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
       }
     }
   }
@@ -123,50 +77,25 @@ export class LLMService {
   // 非流式聊天（备用）
   async chat(messages: ChatMessage[]): Promise<string> {
     try {
-      const response = await this.client.chat.completions.create({
-        model: this.model.model_name,
-        messages: messages.map(msg => ({
-          role: msg.role,
-          content: msg.content
-        })),
-        temperature: 0.7,
-        max_tokens: 4000
-      })
+      // 发送请求
+      const response = await this.apiClient.sendChatRequest(messages, false)
 
-      return response.choices[0]?.message?.content || 'No response'
-    } catch (error) {
-      console.error('LLM Service Error:', error)
-
-      // 提供更详细的错误信息
-      if (error instanceof Error) {
-        let errorMessage = error.message
-
-        // 检查是否是网络错误
-        if (error.message.includes('fetch')) {
-          errorMessage += '\n\n这可能是网络连接问题或API服务不可用。'
-        }
-
-        // 检查是否是认证错误
-        if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-          errorMessage += '\n\n请检查API Key是否正确配置。'
-        }
-
-        // 检查是否是余额不足
-        if (error.message.includes('insufficient') || error.message.includes('quota') || error.message.includes('billing')) {
-          errorMessage += '\n\n可能是账户余额不足，请检查账户余额。'
-        }
-
-        // 检查是否是频率限制
-        if (error.message.includes('rate') || error.message.includes('429')) {
-          errorMessage += '\n\n请求频率过高，请稍后重试。'
-        }
-
-        // 创建新的错误对象，包含详细信息
-        const detailedError = new Error(errorMessage)
-        detailedError.stack = error.stack
-        throw detailedError
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`API Error: ${response.status} - ${errorText}`)
       }
 
+      const data = await response.json()
+
+      // 根据API格式解析响应
+      const apiFormat = this.model.api_format || 'openai'
+
+      if (apiFormat === 'gemini') {
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response'
+      } else {
+        return data.choices?.[0]?.message?.content || 'No response'
+      }
+    } catch (error) {
       throw error
     }
   }
