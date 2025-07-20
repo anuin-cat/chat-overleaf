@@ -1,5 +1,5 @@
 import type { PlasmoCSConfig } from "plasmo"
-import { getFileTreeItems, clickFileTreeItem, waitForFileLoad, getCurrentFileName, type FileTreeItem } from "~dom/overleaf-filetree"
+import { getFileTreeItems, clickFileTreeItem, waitForFileLoad, getCurrentFileName, type FileTreeItem } from "./overleaf-filetree"
 
 export const config: PlasmoCSConfig = {
   matches: ["*://www.overleaf.com/*", "*://*.overleaf.com/*"],
