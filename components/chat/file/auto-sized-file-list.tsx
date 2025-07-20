@@ -31,8 +31,8 @@ export const AutoSizedFileList = ({
   onSelectFile,
   className = ""
 }: AutoSizedFileListProps) => {
-  // 计算页面高度的2/3作为最大限制
-  const maxHeight = Math.floor(window.innerHeight * 2 / 3)
+  // 计算页面高度的1/2作为最大限制
+  const maxHeight = Math.floor(window.innerHeight * 1 / 2)
   const HEADER_HEIGHT = 40 // 头部高度约40px
 
 
