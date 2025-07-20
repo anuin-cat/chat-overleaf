@@ -10,7 +10,7 @@ interface ChatContainerProps {
 
 export const ChatContainer = ({ isOverleaf }: ChatContainerProps) => {
   const [showChat, setShowChat] = useState(false)
-  const [sidebarWidth, setSidebarWidth] = useState(420)
+  const [sidebarWidth, setSidebarWidth] = useState(521)
 
   useEffect(() => {
     // 根据 showChat 状态和宽度调整页面 margin
