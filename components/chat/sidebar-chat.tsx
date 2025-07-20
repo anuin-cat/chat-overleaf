@@ -29,8 +29,6 @@ interface Message {
   waitingStartTime?: Date // 等待开始时间
 }
 
-
-
 interface SidebarChatProps {
   onClose?: () => void
   onWidthChange?: (width: number) => void
@@ -46,8 +44,6 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
     {
       id: "1",
       content: "你好！我是你的 Overleaf 助手，有什么可以帮助你的吗？",
-      // \n\n⚠️ **首次使用提示**：请先在设置中配置您的 API Key 才能开始对话。",
-      // \n\n我支持 **Markdown** 格式，可以显示：\n- 列表项\n- `代码`\n- **粗体** 和 *斜体*\n- 行内数学公式：$E = mc^2$\n- 块级数学公式：\n\n$$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$\n\n```javascript\nconsole.log('Hello World!');\n```",
       isUser: false,
       timestamp: new Date()
     }
@@ -261,7 +257,6 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
                 }
               })}
             />
-            {/* <h2 className="text-lg font-semibold text-gray-800 whitespace-nowrap">Chat Overleaf</h2> */}
           </div>
           {/* 文件列表展开按钮 + 聊天历史按钮 + 设置按钮 + 关闭按钮 */}
           <div className="flex items-center space-x-1">
@@ -318,14 +313,6 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
             )}
           </div>
         </div>
-
-        {/* 文件提取面板 - 始终渲染，通过样式控制显示/隐藏 */}
-        {/* <div className={showFileList ? "block" : "hidden"}>
-          <FileExtractionPanel
-            selectedFiles={selectedFiles}
-            onFileSelectionChange={setSelectedFiles}
-          />
-        </div> */}
       </div>
 
       {/* 文件提取面板 - 始终渲染，通过样式控制显示/隐藏 */}
