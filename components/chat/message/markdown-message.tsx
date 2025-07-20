@@ -1,6 +1,6 @@
 import { Marked } from 'marked'
 import markedKatex from 'marked-katex-extension'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { cn } from "~lib/utils"
 
 interface MarkdownMessageProps {
@@ -29,6 +29,9 @@ const markedInstance = new Marked({
 export const MarkdownMessage = ({ content, isUser, isStreaming, className, isWaiting, waitingStartTime }: MarkdownMessageProps) => {
   // 等待时间计时器
   const [waitingTime, setWaitingTime] = useState(0)
+  // 复制状态管理
+  const [copiedBlocks, setCopiedBlocks] = useState<Set<string>>(new Set())
+  const containerRef = useRef<HTMLDivElement>(null)
 
   // 更新等待时间
   useEffect(() => {
@@ -44,6 +47,25 @@ export const MarkdownMessage = ({ content, isUser, isStreaming, className, isWai
       setWaitingTime(0)
     }
   }, [isWaiting, waitingStartTime])
+
+  // 复制代码块内容
+  const copyCodeBlock = async (code: string, blockId: string) => {
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopiedBlocks(prev => new Set(prev).add(blockId))
+      // 2秒后清除复制状态
+      setTimeout(() => {
+        setCopiedBlocks(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(blockId)
+          return newSet
+        })
+      }, 2000)
+    } catch (err) {
+      console.error('Failed to copy code:', err)
+    }
+  }
+
   // 动态加载 KaTeX CSS 到 Shadow DOM
   useEffect(() => {
     const loadKatexCSS = async () => {
@@ -78,6 +100,75 @@ export const MarkdownMessage = ({ content, isUser, isStreaming, className, isWai
     loadKatexCSS()
   }, [])
 
+  // 为代码块添加复制按钮
+  useEffect(() => {
+    if (!containerRef.current || isUser || isWaiting) return
+
+    const codeBlocks = containerRef.current.querySelectorAll('pre')
+
+    codeBlocks.forEach((pre, index) => {
+      // 避免重复添加按钮
+      if (pre.querySelector('.copy-button-container')) return
+
+      const code = pre.querySelector('code')
+      if (!code) return
+
+      const codeText = code.textContent || ''
+      const blockId = `code-block-${index}`
+
+      // 创建复制按钮容器
+      const buttonContainer = document.createElement('div')
+      buttonContainer.className = 'copy-button-container absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200'
+
+      // 创建复制按钮
+      const copyButton = document.createElement('button')
+      copyButton.className = 'flex items-center justify-center w-8 h-8 bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors duration-200'
+      copyButton.title = '复制代码'
+
+      // 创建图标
+      const icon = document.createElement('div')
+      icon.className = 'w-4 h-4'
+
+      const updateIcon = (copied: boolean) => {
+        icon.innerHTML = copied
+          ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"></polyline></svg>'
+          : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="m4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>'
+      }
+
+      updateIcon(false)
+      copyButton.appendChild(icon)
+
+      // 点击事件
+      copyButton.addEventListener('click', () => {
+        copyCodeBlock(codeText, blockId)
+      })
+
+      buttonContainer.appendChild(copyButton)
+
+      // 设置pre为相对定位并添加group类
+      pre.style.position = 'relative'
+      pre.classList.add('group')
+      pre.appendChild(buttonContainer)
+    })
+
+    // 监听复制状态变化来更新图标
+    const updateIcons = () => {
+      codeBlocks.forEach((pre, index) => {
+        const blockId = `code-block-${index}`
+        const button = pre.querySelector('.copy-button-container button')
+        const icon = button?.querySelector('div')
+        if (icon) {
+          const copied = copiedBlocks.has(blockId)
+          icon.innerHTML = copied
+            ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"></polyline></svg>'
+            : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="m4 16c-1.1 0-2-.9-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>'
+        }
+      })
+    }
+
+    updateIcons()
+  }, [content, copiedBlocks, isUser, isWaiting])
+
   const renderMarkdown = (text: string) => {
     try {
       const html = markedInstance.parse(text)
@@ -106,6 +197,7 @@ export const MarkdownMessage = ({ content, isUser, isStreaming, className, isWai
       ) : (
         // AI 消息使用 Markdown 渲染
         <div
+          ref={containerRef}
           className="markdown-content max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
           dangerouslySetInnerHTML={renderMarkdown(content)}
         />
