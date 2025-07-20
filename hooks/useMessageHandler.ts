@@ -2,8 +2,8 @@ import { useState } from "react"
 import { LLMService, type ChatMessage } from "~lib/llm-service"
 import { FileContentProcessor } from "~lib/file-content-processor"
 import { useSettings } from "./useSettings"
+import { useModels } from "./useModels"
 import { useToast } from "~components/ui/sonner"
-import { defaultModel } from "~lib/models"
 import { type ImageInfo } from "~lib/image-utils"
 import { generateId, truncateText } from "~utils/helpers"
 
@@ -49,6 +49,7 @@ export const useMessageHandler = ({
   const [abortController, setAbortController] = useState<AbortController | null>(null)
   
   const { getModelConfig, selectedModel } = useSettings()
+  const { allModels } = useModels()
   const { error } = useToast()
 
   const handleSendMessage = async (
@@ -58,8 +59,15 @@ export const useMessageHandler = ({
   ) => {
     if (!inputValue.trim() || isStreaming) return
 
-    // 确保有选中的模型
-    const currentModel = selectedModel || defaultModel
+    // 确保有选中的模型，如果没有选中模型，使用第一个可用模型
+    const currentModel = selectedModel || allModels[0]
+
+    if (!currentModel) {
+      error('没有可用的模型，请在设置中配置模型和API Key。', {
+        title: '配置错误'
+      })
+      return
+    }
 
     // 每次发送消息时重新获取最新的模型配置
     const currentModelConfig = getModelConfig(currentModel)

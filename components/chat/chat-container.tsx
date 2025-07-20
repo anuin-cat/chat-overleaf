@@ -3,6 +3,7 @@ import iconUrl from "data-base64:~assets/icon.svg"
 
 import { Button } from "~components/ui/button"
 import { SidebarChat } from "./sidebar-chat"
+import { SettingsPanel } from "./settings-panel"
 
 interface ChatContainerProps {
   isOverleaf: boolean
@@ -11,6 +12,7 @@ interface ChatContainerProps {
 export const ChatContainer = ({ isOverleaf }: ChatContainerProps) => {
   const [showChat, setShowChat] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(521)
+  const [showSettings, setShowSettings] = useState(false)
 
   useEffect(() => {
     // 根据 showChat 状态和宽度调整页面 margin
@@ -49,6 +51,14 @@ export const ChatContainer = ({ isOverleaf }: ChatContainerProps) => {
     setSidebarWidth(width)
   }
 
+  const handleShowSettings = () => {
+    setShowSettings(true)
+  }
+
+  const handleCloseSettings = () => {
+    setShowSettings(false)
+  }
+
   if (!isOverleaf) {
     return null
   }
@@ -81,8 +91,17 @@ export const ChatContainer = ({ isOverleaf }: ChatContainerProps) => {
           showChat ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <SidebarChat onClose={handleCloseChat} onWidthChange={handleWidthChange} />
+        <SidebarChat
+          onClose={handleCloseChat}
+          onWidthChange={handleWidthChange}
+          onShowSettings={handleShowSettings}
+        />
       </div>
+
+      {/* 设置面板 - 在最高层级渲染，覆盖整个页面 */}
+      {showSettings && (
+        <SettingsPanel onClose={handleCloseSettings} />
+      )}
     </>
   )
 }

@@ -7,6 +7,7 @@ import { useEffect, useState } from "react"
 import { LoginForm } from "~components/login-form"
 import { ChatContainer } from "~components/chat"
 import { ToastProvider } from "~components/ui/sonner"
+import { DialogProvider } from "~components/ui/dialog"
 import { store, persistor } from "~store"
 import { chatHistoryStorage } from "~utils/indexeddb-storage"
 
@@ -74,13 +75,15 @@ const CSUIExample = () => {
   return (
     <Provider store={store}>
       <PersistGate loading={<div>加载中...</div>} persistor={persistor}>
-        <ToastProvider>
-          {/* 非 Overleaf 页面显示原有的登录表单 */}
-          {!isOverleaf && (null)}
+        <DialogProvider>
+          <ToastProvider>
+            {/* 非 Overleaf 页面显示原有的登录表单 */}
+            {!isOverleaf && (null)}
 
-          {/* 聊天容器组件 */}
-          <ChatContainer isOverleaf={isOverleaf} />
-        </ToastProvider>
+            {/* 聊天容器组件 */}
+            <ChatContainer isOverleaf={isOverleaf} />
+          </ToastProvider>
+        </DialogProvider>
       </PersistGate>
     </Provider>
   )

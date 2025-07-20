@@ -47,11 +47,19 @@ export const persistor = persistStore(store)
 
 // 这是关键：让Redux在多个页面间同步
 // 当chrome.storage中的数据变化时，自动重新同步store
-new Storage().watch({
-  [`persist:${persistConfig.key}`]: () => {
-    persistor.resync()
-  }
-})
+try {
+  new Storage().watch({
+    [`persist:${persistConfig.key}`]: () => {
+      try {
+        persistor.resync()
+      } catch (error) {
+        console.error('Failed to resync persistor:', error)
+      }
+    }
+  })
+} catch (error) {
+  console.error('Failed to setup storage watch:', error)
+}
 
 // 导出类型，供hooks使用
 export type RootState = ReturnType<typeof store.getState>

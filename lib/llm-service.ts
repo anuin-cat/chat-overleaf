@@ -1,4 +1,4 @@
-import type { ModelConfig } from './models'
+import type { ModelConfig } from './builtin-models'
 import { ApiClient } from './api-client'
 
 export interface ChatMessage {

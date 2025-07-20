@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { Button } from "~components/ui/button"
 import { ScrollArea } from "~components/ui/scroll-area"
-import { SimpleSelect } from "~components/ui/simple-select"
+import { ModelSelect } from "~components/ui/model-select"
 import { DialogProvider } from "~components/ui/dialog"
 import { MessageContextTags } from "./context-tags"
 import { MessageActions } from "./message/message-actions"
@@ -11,9 +11,10 @@ import { useFileExtraction } from "./file/use-file-extraction"
 import { ChatHistoryList } from "./history/chat-history-list"
 import { useChatHistory } from "~hooks/useChatHistory"
 import { LLMService } from "~lib/llm-service"
-import { allModels, defaultModel } from "~lib/models"
+
+import { useModels } from "~hooks/useModels"
 import { useSettings } from "~hooks/useSettings"
-import { SettingsPanel } from "./settings-panel"
+
 import { MarkdownMessage } from "./message/markdown-message"
 import { useToast } from "~components/ui/sonner"
 import { ChatInput } from "./chat-input"
@@ -33,9 +34,10 @@ interface Message {
 interface SidebarChatProps {
   onClose?: () => void
   onWidthChange?: (width: number) => void
+  onShowSettings?: () => void
 }
 
-export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
+export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarChatProps) => {
   // 当前聊天会话状态
   const [currentChatId, setCurrentChatId] = useState<string>(() =>
     `chat_${generateId()}`
@@ -51,16 +53,30 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
   ])
   const [width, setWidth] = useState(521) // 默认宽度 400px
   const [isResizing, setIsResizing] = useState(false)
-  const [llmService] = useState<LLMService>(new LLMService(defaultModel))
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
-  const [showSettings, setShowSettings] = useState(false)
+
   const sidebarRef = useRef<HTMLDivElement>(null)
 
   // 使用设置 hook
-  const { initializeSettings, getModelConfig, isModelAvailable, selectedModel, setSelectedModel } = useSettings()
+  const { initializeSettings, selectedModel, setSelectedModel } = useSettings()
+
+  // 使用模型管理 hook
+  const { getModelById, getModelByName, getFullModelConfig, allModels } = useModels()
+
+  // 创建一个临时的默认模型配置用于初始化 LLMService
+  const defaultModelForInit = allModels[0] || {
+    model_name: "temp",
+    display_name: "临时模型",
+    provider: "临时",
+    base_url: "",
+    api_key: "",
+    multimodal: false
+  }
+
+  const [llmService] = useState<LLMService>(new LLMService(defaultModelForInit))
 
   // 使用 toast hook
-  const { success, error, info } = useToast()
+  const { success } = useToast()
 
   // 使用文件提取 hook（用于获取提取的文件信息）
   const { extractedFiles, showFileList, toggleFileList: originalToggleFileList } = useFileExtraction(selectedFiles, setSelectedFiles)
@@ -86,21 +102,26 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
 
   // 初始化选中的模型（如果还没有选择的话）
   useEffect(() => {
-    if (!selectedModel) {
-      setSelectedModel(defaultModel)
+    if (!selectedModel && allModels.length > 0) {
+      setSelectedModel(allModels[0])
     }
-  }, [selectedModel, setSelectedModel])
+  }, [selectedModel, setSelectedModel, allModels])
 
   // 初始化时同步宽度
   useEffect(() => {
     onWidthChange?.(width)
   }, []) // 只在组件挂载时执行一次
 
-  const handleModelChange = (modelName: string) => {
-    const model = allModels.find(m => m.model_name === modelName)
+  const handleModelChange = (modelId: string) => {
+    // 先尝试通过ID查找，如果找不到再通过model_name查找（兼容性）
+    let model = getModelById(modelId)
+    if (!model) {
+      model = getModelByName(modelId)
+    }
+
     if (model) {
-      // 使用设置系统获取完整的模型配置
-      const modelConfig = getModelConfig(model)
+      // 获取完整的模型配置
+      const modelConfig = getFullModelConfig(model)
       setSelectedModel(modelConfig)
       llmService.updateModel(modelConfig)
 
@@ -235,28 +256,12 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
         <div className="flex items-center justify-between mb-0 gap-2">
           {/* 模型选择 */}
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <SimpleSelect
-              value={selectedModel?.model_name || defaultModel.model_name}
+            <ModelSelect
+              value={selectedModel?.model_name || (allModels[0]?.model_name || "")}
               onValueChange={handleModelChange}
               placeholder="选择模型"
-              className="min-w-[120px]"
-              options={allModels.map((model) => {
-                const available = isModelAvailable(model)
-                return {
-                  value: model.model_name,
-                  label: model.display_name,
-                  extra: (
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {model.free && (
-                        <span className="text-xs text-green-600 whitespace-nowrap">免费</span>
-                      )}
-                      {!available && (
-                        <span className="text-xs text-red-600 whitespace-nowrap">未配置</span>
-                      )}
-                    </div>
-                  )
-                }
-              })}
+              className="flex-1"
+              showOnlyAvailable={true}
             />
           </div>
           {/* 文件列表展开按钮 + 聊天历史按钮 + 设置按钮 + 关闭按钮 */}
@@ -296,7 +301,7 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setShowSettings(true)}
+              onClick={onShowSettings}
               className="h-8 w-8 p-0"
               title="设置"
             >
@@ -414,10 +419,6 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
       />
     </div>
 
-    {/* 设置面板 */}
-    {showSettings && (
-      <SettingsPanel onClose={() => setShowSettings(false)} />
-    )}
   </DialogProvider>
   )
 }

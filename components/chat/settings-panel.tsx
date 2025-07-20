@@ -1,209 +1,126 @@
 import { useState } from "react"
 import { Button } from "~components/ui/button"
-import { Input } from "~components/ui/input"
 import { ScrollArea } from "~components/ui/scroll-area"
-import { X, Save, Eye, EyeOff, RotateCcw } from "lucide-react"
+import { X, Settings, Server, Palette, Shield, Info } from "lucide-react"
 import { useSettings } from "~hooks/useSettings"
+import { ModelServiceSettings } from "./settings/model-service-settings"
+import { cn } from "~lib/utils"
 
 interface SettingsPanelProps {
   onClose: () => void
 }
 
-interface ProviderConfig {
+// 设置分类配置
+interface SettingsCategory {
+  id: string
   name: string
-  displayName: string
-  apiKeyLabel: string
-  baseUrlLabel: string
+  icon: React.ComponentType<{ className?: string }>
   description: string
 }
 
-const providers: ProviderConfig[] = [
+const settingsCategories: SettingsCategory[] = [
   {
-    name: "硅基流动",
-    displayName: "硅基流动",
-    apiKeyLabel: "API Key",
-    baseUrlLabel: "Base URL",
-    description: "https://cloud.siliconflow.cn/"
+    id: "model-service",
+    name: "模型服务",
+    icon: Server,
+    description: "管理AI模型和API配置"
   },
   {
-    name: "DeepSeek",
-    displayName: "DeepSeek",
-    apiKeyLabel: "API Key",
-    baseUrlLabel: "Base URL",
-    description: "https://platform.deepseek.com/api_keys"
+    id: "appearance",
+    name: "外观设置",
+    icon: Palette,
+    description: "主题和界面设置"
   },
   {
-    name: "云雾",
-    displayName: "云雾",
-    apiKeyLabel: "API Key",
-    baseUrlLabel: "Base URL",
-    description: "https://yunwu.ai/"
-  },
+    id: "privacy",
+    name: "隐私安全",
+    icon: Shield,
+    description: "数据安全和隐私设置"
+  }
 ]
 
 export const SettingsPanel = ({ onClose }: SettingsPanelProps) => {
-  const { apiKeys, baseUrls, setApiKey, setBaseUrl, resetSettings } = useSettings()
-  const [localApiKeys, setLocalApiKeys] = useState<Record<string, string>>(apiKeys)
-  const [localBaseUrls, setLocalBaseUrls] = useState<Record<string, string>>(baseUrls)
-  const [showApiKeys, setShowApiKeys] = useState<Record<string, boolean>>({})
-  const [hasChanges, setHasChanges] = useState(false)
+  const { settingsCategory, setSettingsCategory } = useSettings()
+  const [currentCategory, setCurrentCategory] = useState(settingsCategory || "model-service")
 
-  const handleApiKeyChange = (provider: string, value: string) => {
-    setLocalApiKeys(prev => ({ ...prev, [provider]: value }))
-    setHasChanges(true)
+  const handleCategoryChange = (categoryId: string) => {
+    setCurrentCategory(categoryId)
+    setSettingsCategory(categoryId)
   }
 
-  const handleBaseUrlChange = (provider: string, value: string) => {
-    setLocalBaseUrls(prev => ({ ...prev, [provider]: value }))
-    setHasChanges(true)
-  }
-
-  const toggleShowApiKey = (provider: string) => {
-    setShowApiKeys(prev => ({ ...prev, [provider]: !prev[provider] }))
-  }
-
-  const handleSave = () => {
-    // 保存所有更改
-    Object.entries(localApiKeys).forEach(([provider, apiKey]) => {
-      if (apiKey !== apiKeys[provider]) {
-        setApiKey(provider, apiKey)
-      }
-    })
-
-    Object.entries(localBaseUrls).forEach(([provider, baseUrl]) => {
-      if (baseUrl !== baseUrls[provider]) {
-        setBaseUrl(provider, baseUrl)
-      }
-    })
-
-    setHasChanges(false)
-    onClose()
-  }
-
-  const handleReset = () => {
-    if (confirm('确定要重置所有设置吗？这将清除所有已保存的 API keys 和 URLs。')) {
-      resetSettings()
-      setLocalApiKeys({})
-      setLocalBaseUrls({})
-      setHasChanges(false)
+  const renderCategoryContent = () => {
+    switch (currentCategory) {
+      case "model-service":
+        return <ModelServiceSettings />
+      case "appearance":
+        return <div className="p-4 text-center text-sm text-gray-500">外观设置功能开发中...</div>
+      case "privacy":
+        return <div className="p-4 text-center text-sm text-gray-500">所有数据都存储在您的浏览器中，不会上传到服务器。</div>
+      default:
+        return <div className="p-4 text-center text-sm text-gray-500">未知设置分类</div>
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-[10000] flex items-center justify-center">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-        {/* Header */}
-        <div className="p-4 border-b border-gray-200 shadow-md flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-800">API 设置</h2>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleReset}
-              className="text-red-600 hover:text-red-700"
-            >
-              <RotateCcw className="h-4 w-4 mr-1" />
-              重置
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="h-8 w-8 p-0"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* 安全提示 */}
-        <div className="p-4 bg-yellow-50 border-b border-yellow-200">
-          <div className="flex items-start space-x-2">
-            <div className="flex-shrink-0 w-5 h-5 text-yellow-600 mt-0.5">
-              ⚠️
-            </div>
-            <div className="text-sm text-yellow-800">
-              <p className="font-medium mb-1">安全提示</p>
-              <p>请输入您自己的 API Key。API Key 将安全地存储在您的浏览器本地，不会上传到任何服务器。</p>
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-[10000] flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-xl w-2/3 h-2/3 flex overflow-hidden">
+        {/* 左侧导航 */}
+        <div className="w-48 border-r border-gray-200 flex flex-col">
+          {/* Header */}
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-800 flex items-center">
+                <Settings className="h-4 w-4 mr-2" />
+                设置
+              </h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           </div>
-        </div>
 
-        {/* Content */}
-        <ScrollArea className="flex-1 p-4">
-          <div className="space-y-6">
-            {providers.map((provider) => (
-              <div key={provider.name} className="border border-gray-200 rounded-lg p-4">
-                <div className="mb-3">
-                  <h3 className="font-medium text-gray-800">{provider.displayName}</h3>
-                  <p className="text-sm text-gray-600">{provider.description}</p>
-                </div>
-
-                <div className="space-y-3">
-                  {/* API Key */}
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-1 block">
-                      {provider.apiKeyLabel}
-                    </label>
-                    <div className="relative">
-                      <Input
-                        type={showApiKeys[provider.name] ? "text" : "password"}
-                        value={localApiKeys[provider.name] || ""}
-                        onChange={(e) => handleApiKeyChange(provider.name, e.target.value)}
-                        placeholder="输入 API Key"
-                        className="pr-10"
-                        autoComplete="off"
-                        data-form-type="other"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-1 top-1 h-8 w-8 p-0"
-                        onClick={() => toggleShowApiKey(provider.name)}
-                      >
-                        {showApiKeys[provider.name] ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </Button>
+          {/* 分类列表 */}
+          <ScrollArea className="flex-1">
+            <div className="p-2">
+              {settingsCategories.map((category) => {
+                const Icon = category.icon
+                return (
+                  <button
+                    key={category.id}
+                    onClick={() => handleCategoryChange(category.id)}
+                    className={cn(
+                      "w-full flex items-center px-3 py-2 rounded-lg text-left transition-colors",
+                      "hover:bg-gray-100",
+                      currentCategory === category.id
+                        ? "bg-blue-50 text-blue-700 border border-blue-200"
+                        : "text-gray-700"
+                    )}
+                  >
+                    <Icon className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium">{category.name}</div>
+                      <div className="text-xs text-gray-500 truncate">
+                        {category.description}
+                      </div>
                     </div>
-                  </div>
+                  </button>
+                )
+              })}
+            </div>
+          </ScrollArea>
+        </div>
 
-                  {/* Base URL */}
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-1 block">
-                      {provider.baseUrlLabel}
-                    </label>
-                    <Input
-                      type="text"
-                      value={localBaseUrls[provider.name] || ""}
-                      onChange={(e) => handleBaseUrlChange(provider.name, e.target.value)}
-                      placeholder="输入 Base URL"
-                      autoComplete="off"
-                      data-form-type="other"
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
+        {/* 右侧内容区域 */}
+        <div className="flex-1 flex flex-col">
+          {/* 内容区域 */}
+          <div className="flex-1 overflow-hidden">
+            {renderCategoryContent()}
           </div>
-        </ScrollArea>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-gray-200 flex justify-end space-x-2">
-          <Button variant="outline" onClick={onClose}>
-            取消
-          </Button>
-          <Button 
-            onClick={handleSave}
-            disabled={!hasChanges}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            <Save className="h-4 w-4 mr-1" />
-            保存设置
-          </Button>
         </div>
       </div>
     </div>

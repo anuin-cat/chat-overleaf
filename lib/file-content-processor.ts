@@ -1,4 +1,4 @@
-import type { ModelConfig } from './models'
+import type { ModelConfig } from './builtin-models'
 import type { FileInfo } from '~components/chat/file/file-extraction-service'
 import type { ChatMessage } from './llm-service'
 
