@@ -175,29 +175,6 @@ export const SidebarChat = ({ onClose, onWidthChange }: SidebarChatProps) => {
     success(`已加载历史对话: ${history.name}`, { title: '加载成功' })
   }
 
-  // 创建新的聊天会话
-  const handleNewChat = async () => {
-    // 如果当前对话不是只有初始消息，先保存当前对话
-    if (!isOnlyInitialMessage(messages)) {
-      await saveChatHistory(messages, currentChatName, currentChatId)
-    }
-
-    // 创建新的聊天会话
-    const newChatId = `chat_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-    setCurrentChatId(newChatId)
-    setCurrentChatName("")
-
-    // 重置消息列表
-    setMessages([
-      {
-        id: "1",
-        content: "你好！我是你的 Overleaf 助手，有什么可以帮助你的吗？",
-        isUser: false,
-        timestamp: new Date()
-      }
-    ])
-  }
-
   // 互斥的切换函数
   const toggleFileList = () => {
     // 如果聊天历史列表是打开的，先关闭它
