@@ -172,9 +172,10 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
       content: msg.content,
       isUser: msg.isUser,
       timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp),
+      // 恢复选中的文本内容
+      selectedText: msg.selectedText,
       // 恢复时不需要临时状态
       isStreaming: false,
-      selectedText: undefined,
       isWaiting: false,
       waitingStartTime: undefined
     }))

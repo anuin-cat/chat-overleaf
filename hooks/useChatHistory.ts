@@ -20,6 +20,7 @@ export interface StoredMessage {
   content: string
   isUser: boolean
   timestamp: Date
+  selectedText?: string // 保存选中的文本内容
 }
 
 export interface ChatHistory {
@@ -110,8 +111,9 @@ export const useChatHistory = () => {
         id: msg.id,
         content: truncateText(msg.content, 1000), // 限制消息长度
         isUser: msg.isUser,
-        timestamp: msg.timestamp
-        // 不保存 selectedText, isStreaming, isWaiting, waitingStartTime 等临时状态
+        timestamp: msg.timestamp,
+        selectedText: msg.selectedText // 保存选中的文本内容
+        // 不保存 isStreaming, isWaiting, waitingStartTime 等临时状态
       }))
 
       const finalHistoryId = historyId || `history_${generateId()}`

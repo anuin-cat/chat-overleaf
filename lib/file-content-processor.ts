@@ -15,12 +15,10 @@ export class FileContentProcessor {
    */
   static async processFilesForModel(
     files: FileInfo[],
-    modelConfig: ModelConfig
   ): Promise<ChatMessage[]> {
     if (files.length === 0) {
       return []
     }
-
     return this.createTextBasedMessages(files)
   }
 
@@ -36,8 +34,8 @@ export class FileContentProcessor {
 
     // 添加文件内容
     const selectedFileContents = files
-      .map(file => `文件 ${file.name}:\n${file.content}`)
-      .join('\n\n')
+      .map(file => `《文件：${file.name}》\n${file.content}`)
+      .join('\n   ==========   \n')
 
     messages.push({
       role: 'system',

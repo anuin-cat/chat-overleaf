@@ -148,35 +148,41 @@ export const useMessageHandler = ({
     // 准备聊天历史
     const chatHistory: ChatMessage[] = []
 
-    // 处理选中的文件内容
+    // 1. 处理选中的文件内容
     const selectedFilesData = extractedFiles.filter(file => selectedFiles.has(file.name))
     if (selectedFilesData.length > 0) {
-      const fileMessages = await FileContentProcessor.processFilesForModel(
-        selectedFilesData,
-        currentModelConfig
-      )
+      const fileMessages = await FileContentProcessor.processFilesForModel(selectedFilesData)
       chatHistory.push(...fileMessages)
     }
-
-    // 添加选中文本内容
-    if (selectedText) {
-      chatHistory.push({
-        role: 'system',
-        content: `用户在编辑器中选中了以下内容：\n\n${selectedText}`
-      })
-    }
-
-    // 添加最近的对话历史（最多10条）
+    
+    // 2. 添加最近的对话历史（最多10条）
     const recentMessages = messages.slice(-10).filter(msg => !msg.isStreaming)
     recentMessages.forEach(msg => {
+      // 如果是用户消息且有选中文本，添加相应的系统消息
+      if (msg.isUser && msg.selectedText) {
+        chatHistory.push({
+          role: 'system',
+          content: `用户在 Overleaf 编辑器中选中了：\n\n${msg.selectedText}`
+        })
+      }
+      // 添加基本消息
       chatHistory.push({
         role: msg.isUser ? 'user' : 'assistant',
         content: msg.content
       })
     })
 
-    // 添加当前用户消息（包含图片）
-    if (uploadedImages.length > 0 && currentModelConfig.multimodal) {
+    // 3. 添加当前选中文本内容
+    if (selectedText) {
+      chatHistory.push({
+        role: 'system',
+        content: `用户在 Overleaf 编辑器中选中了以下内容：\n\n${selectedText}`
+      })
+    }
+
+    // 4. 添加当前用户消息（包含图片）
+    // if (uploadedImages.length > 0  && currentModelConfig.multimodal) {
+    if (uploadedImages.length > 0) {
       // 多模态消息
       const messageContent: Array<{
         type: 'text' | 'image_url'
@@ -199,7 +205,7 @@ export const useMessageHandler = ({
           type: 'image_url',
           image_url: {
             url: imageInfo.dataUrl,
-            detail: 'high'
+            detail: 'auto'
           }
         })
       })
