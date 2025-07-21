@@ -27,6 +27,7 @@ interface Message {
   timestamp: Date
   isStreaming?: boolean
   selectedText?: string // 添加选中文本字段
+  images?: import("~lib/image-utils").ImageInfo[] // 添加图片信息字段
   isWaiting?: boolean // 是否在等待第一个token
   waitingStartTime?: Date // 等待开始时间
 }
@@ -174,6 +175,8 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
       timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp),
       // 恢复选中的文本内容
       selectedText: msg.selectedText,
+      // 恢复图片信息
+      images: msg.images,
       // 恢复时不需要临时状态
       isStreaming: false,
       isWaiting: false,
@@ -377,10 +380,11 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
                     <p className="text-xs opacity-70">
                       {message.timestamp.toLocaleTimeString()}
                     </p>
-                    {/* 显示选中文本标签（仅用户消息且有选中文本时） */}
-                    {message.isUser && message.selectedText && (
+                    {/* 显示上下文标签（选中文本和图片） */}
+                    {message.isUser && (message.selectedText || message.images) && (
                       <MessageContextTags
                         selectedText={message.selectedText}
+                        images={message.images}
                         className="text-xs"
                       />
                     )}

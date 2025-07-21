@@ -94,27 +94,45 @@ export const ContextTags = ({
 
 interface MessageContextTagsProps {
   selectedText?: string
+  images?: import("~lib/image-utils").ImageInfo[]
   className?: string
 }
 
 /**
- * 消息上下文标签组件 - 用于消息气泡中显示选中内容标签
+ * 消息上下文标签组件 - 用于消息气泡中显示选中内容和图片标签
  */
 export const MessageContextTags = ({
   selectedText,
+  images,
   className
 }: MessageContextTagsProps) => {
-  if (!selectedText) {
+  const hasSelectedText = selectedText && selectedText.length > 0
+  const hasImages = images && images.length > 0
+
+  if (!hasSelectedText && !hasImages) {
     return null
   }
 
   return (
-    <Tag
-      variant="selection"
-      className={className}
-      removable={false}
-    >
-      ✂️ {selectedText.length} 字符
-    </Tag>
+    <div className="flex items-center gap-1">
+      {hasSelectedText && (
+        <Tag
+          variant="selection"
+          className={className}
+          removable={false}
+        >
+          ✂️ {selectedText.length} 字符
+        </Tag>
+      )}
+      {hasImages && (
+        <Tag
+          variant="selection"
+          className={className}
+          removable={false}
+        >
+          🖼️ {images.length} 张图片
+        </Tag>
+      )}
+    </div>
   )
 }

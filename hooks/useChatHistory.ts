@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { storageUtils } from "~utils/storage"
 import { generateId, truncateText } from "~utils/helpers"
+import { type ImageInfo } from "~lib/image-utils"
 
 // 聊天历史记录接口
 export interface Message {
@@ -10,6 +11,7 @@ export interface Message {
   timestamp: Date
   isStreaming?: boolean
   selectedText?: string
+  images?: ImageInfo[] // 添加图片信息字段
   isWaiting?: boolean
   waitingStartTime?: Date
 }
@@ -21,6 +23,7 @@ export interface StoredMessage {
   isUser: boolean
   timestamp: Date
   selectedText?: string // 保存选中的文本内容
+  images?: ImageInfo[] // 保存图片信息
 }
 
 export interface ChatHistory {
@@ -112,7 +115,8 @@ export const useChatHistory = () => {
         content: truncateText(msg.content, 1000), // 限制消息长度
         isUser: msg.isUser,
         timestamp: msg.timestamp,
-        selectedText: msg.selectedText // 保存选中的文本内容
+        selectedText: msg.selectedText, // 保存选中的文本内容
+        images: msg.images // 保存图片信息
         // 不保存 isStreaming, isWaiting, waitingStartTime 等临时状态
       }))
 

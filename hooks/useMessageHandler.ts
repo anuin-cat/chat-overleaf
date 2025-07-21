@@ -14,6 +14,7 @@ interface Message {
   timestamp: Date
   isStreaming?: boolean
   selectedText?: string
+  images?: ImageInfo[] // 添加图片信息字段
   isWaiting?: boolean
   waitingStartTime?: Date
 }
@@ -93,7 +94,8 @@ export const useMessageHandler = ({
       content: inputValue,
       isUser: true,
       timestamp: new Date(),
-      selectedText
+      selectedText,
+      images: uploadedImages.length > 0 ? uploadedImages : undefined
     }
 
     // 如果是第一条用户消息且没有设置聊天名称，自动设置名称
@@ -165,11 +167,47 @@ export const useMessageHandler = ({
           content: `用户在 Overleaf 编辑器中选中了：\n\n${msg.selectedText}`
         })
       }
-      // 添加基本消息
-      chatHistory.push({
-        role: msg.isUser ? 'user' : 'assistant',
-        content: msg.content
-      })
+
+      // 添加基本消息（包含图片）
+      if (msg.isUser && msg.images && msg.images.length > 0) {
+        // 用户消息包含图片
+        const messageContent: Array<{
+          type: 'text' | 'image_url'
+          text?: string
+          image_url?: {
+            url: string
+            detail?: 'low' | 'high' | 'auto'
+          }
+        }> = []
+
+        if (msg.content.trim()) {
+          messageContent.push({
+            type: 'text',
+            text: msg.content
+          })
+        }
+
+        msg.images.forEach(imageInfo => {
+          messageContent.push({
+            type: 'image_url',
+            image_url: {
+              url: imageInfo.dataUrl,
+              detail: 'auto'
+            }
+          })
+        })
+
+        chatHistory.push({
+          role: 'user',
+          content: messageContent
+        })
+      } else {
+        // 普通消息（文本或AI回复）
+        chatHistory.push({
+          role: msg.isUser ? 'user' : 'assistant',
+          content: msg.content
+        })
+      }
     })
 
     // 3. 添加当前选中文本内容

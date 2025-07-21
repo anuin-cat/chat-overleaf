@@ -20,6 +20,7 @@ interface Message {
   timestamp: Date
   isStreaming?: boolean
   selectedText?: string // 添加选中文本字段
+  images?: import("~lib/image-utils").ImageInfo[] // 添加图片信息字段
   isWaiting?: boolean // 是否在等待第一个token
   waitingStartTime?: Date // 等待开始时间
 }
