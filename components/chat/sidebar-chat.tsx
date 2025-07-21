@@ -61,7 +61,7 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
   const { initializeSettings, selectedModel, setSelectedModel } = useSettings()
 
   // 使用模型管理 hook
-  const { getModelById, getModelByName, getFullModelConfig, allModels } = useModels()
+  const { getModelById, getFullModelConfig, allModels } = useModels()
 
   // 创建一个临时的默认模型配置用于初始化 LLMService
   const defaultModelForInit = allModels[0] || {
@@ -103,7 +103,9 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
   // 初始化选中的模型（如果还没有选择的话）
   useEffect(() => {
     if (!selectedModel && allModels.length > 0) {
-      setSelectedModel(allModels[0])
+      // 优先选择默认模型，如果找不到则选择第一个可用模型
+      const defaultModel = allModels.find(m => m.id === "硅基流动::moonshotai/Kimi-K2-Instruct") || allModels[0]
+      setSelectedModel(defaultModel)
     }
   }, [selectedModel, setSelectedModel, allModels])
 
@@ -113,11 +115,7 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
   }, []) // 只在组件挂载时执行一次
 
   const handleModelChange = (modelId: string) => {
-    // 先尝试通过ID查找，如果找不到再通过model_name查找（兼容性）
-    let model = getModelById(modelId)
-    if (!model) {
-      model = getModelByName(modelId)
-    }
+    const model = getModelById(modelId)
 
     if (model) {
       // 获取完整的模型配置
@@ -257,7 +255,7 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
           {/* 模型选择 */}
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <ModelSelect
-              value={selectedModel?.model_name || (allModels[0]?.model_name || "")}
+              value={selectedModel?.id || (allModels[0]?.id || "")}
               onValueChange={handleModelChange}
               placeholder="选择模型"
               className="flex-1"

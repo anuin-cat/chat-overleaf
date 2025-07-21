@@ -92,5 +92,13 @@ export const builtinModels: BaseModelConfig[] = [
   },
 ]
 
+// 生成模型的唯一标识符（供应商 + 模型名称）
+export const getModelUniqueId = (model: BaseModelConfig): string => {
+  return `${model.provider}::${model.model_name}`
+}
+
+// 默认模型的唯一标识符
+export const DEFAULT_MODEL_ID = "硅基流动::moonshotai/Kimi-K2-Instruct"
+
 // 默认模型（基础配置）
-export const defaultBaseModel = builtinModels.find(m => m.model_name === "moonshotai/Kimi-K2-Instruct") || builtinModels[0]
+export const defaultBaseModel = builtinModels.find(m => getModelUniqueId(m) === DEFAULT_MODEL_ID) || builtinModels[0]

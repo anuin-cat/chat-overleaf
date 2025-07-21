@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import { useSettings } from "./useSettings"
-import { builtinModels } from "~lib/builtin-models"
+import { builtinModels, getModelUniqueId } from "~lib/builtin-models"
 import { getAllProviders } from "~lib/providers"
 import type { ModelConfig, BaseModelConfig } from "~lib/builtin-models"
 import type { CustomModel } from "~store/types"
@@ -33,7 +33,8 @@ export const useModels = () => {
       const provider = allProviders.find(p => p.name === baseModel.provider)
       if (!provider) return null
 
-      const modelId = `builtin-${baseModel.model_name}`
+      // 使用新的唯一标识符：供应商::模型名称
+      const modelId = getModelUniqueId(baseModel)
 
       // 内置模型现在也通过供应商获取配置，和自定义模型保持一致
       const modelConfig: ModelConfig = {
@@ -68,10 +69,13 @@ export const useModels = () => {
         api_format: 'openai' // 默认值，可以后续扩展
       }
 
+      // 自定义模型也使用供应商::模型名称的格式
+      const modelId = `${provider.name}::${customModel.modelName}`
+
       return {
         ...modelConfig,
-        id: customModel.id,
-        isPinned: (pinnedModels || []).includes(customModel.id),
+        id: modelId,
+        isPinned: (pinnedModels || []).includes(modelId),
         isCustom: true,
         providerDisplayName: provider.name
       }
@@ -108,11 +112,6 @@ export const useModels = () => {
     return allModels.find(model => model.id === id)
   }
 
-  // 根据model_name获取模型（兼容旧版本）
-  const getModelByName = (modelName: string): ExtendedModelConfig | undefined => {
-    return allModels.find(model => model.model_name === modelName)
-  }
-
   // 切换模型置顶状态
   const handleTogglePin = (modelId: string) => {
     toggleModelPin(modelId)
@@ -128,7 +127,6 @@ export const useModels = () => {
     sortedModels,
     availableModels,
     getModelById,
-    getModelByName,
     handleTogglePin,
     getFullModelConfig,
     isModelAvailable: (model: ExtendedModelConfig) => {

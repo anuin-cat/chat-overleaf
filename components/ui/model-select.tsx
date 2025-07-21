@@ -24,7 +24,6 @@ export const ModelSelect = ({
     sortedModels = [],
     availableModels = [],
     getModelById,
-    getModelByName,
     handleTogglePin,
     isModelAvailable
   } = useModels()
@@ -32,8 +31,8 @@ export const ModelSelect = ({
   // 根据showOnlyAvailable决定显示哪些模型
   const displayModels = showOnlyAvailable ? availableModels : sortedModels
 
-  // 查找当前选中的模型 - 优先通过ID查找，然后通过model_name查找
-  const selectedModel = getModelById(value) || getModelByName(value) || displayModels.find(m => m.model_name === value)
+  // 查找当前选中的模型
+  const selectedModel = getModelById(value)
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
