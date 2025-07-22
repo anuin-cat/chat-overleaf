@@ -57,9 +57,17 @@ export class ApiClient {
     // 检查是否是Gemini模型
     const isGeminiModel = this.modelConfig.model_name.toLowerCase().includes('gemini')
 
+    const convertedMessages = messages.map(msg => this.convertToOpenAIMessage(msg))
+
+    // 输出最终发送给API的消息内容用于调试
+    console.log('=== 最终发送给API的消息 ===')
+    console.log('Model:', this.modelConfig.model_name)
+    console.log(convertedMessages)
+    console.log('=== API消息结束 ===')
+
     const body = JSON.stringify({
       model: this.modelConfig.model_name,
-      messages: messages.map(msg => this.convertToOpenAIMessage(msg)),
+      messages: convertedMessages,
       stream,
       temperature: 0.7, // Gemini使用0.9温度
       max_tokens: 8000   // Gemini使用400 max_tokens

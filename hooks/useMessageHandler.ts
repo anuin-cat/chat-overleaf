@@ -150,27 +150,29 @@ export const useMessageHandler = ({
     // 准备聊天历史
     const chatHistory: ChatMessage[] = []
 
-    // 1. 处理选中的文件内容
+    // 1. 添加系统提示，帮助LLM理解消息格式
+    chatHistory.push({
+      role: 'system',
+      content: `消息格式说明：
+- [用户选中内容] 表示用户在历史对话中选中的文本
+- [当前消息的用户选中内容] 表示用户在当前这次提问时选中的文本
+- [基于选中内容的问题] 表示用户基于选中内容提出的问题
+- [当前消息的用户问题] 表示用户当前这次提问的具体问题
+请重点关注标记为"当前消息"的内容，这是用户此次提问的核心。`
+    })
+
+    // 2. 处理选中的文件内容
     const selectedFilesData = extractedFiles.filter(file => selectedFiles.has(file.name))
     if (selectedFilesData.length > 0) {
       const fileMessages = await FileContentProcessor.processFilesForModel(selectedFilesData)
       chatHistory.push(...fileMessages)
     }
     
-    // 2. 添加最近的对话历史（最多10条）
+    // 3. 添加最近的对话历史（最多10条）
     const recentMessages = messages.slice(-10).filter(msg => !msg.isStreaming)
     recentMessages.forEach(msg => {
-      // 如果是用户消息且有选中文本，添加相应的系统消息
-      if (msg.isUser && msg.selectedText) {
-        chatHistory.push({
-          role: 'system',
-          content: `用户在 Overleaf 编辑器中选中了：\n\n${msg.selectedText}`
-        })
-      }
-
-      // 添加基本消息（包含图片）
-      if (msg.isUser && msg.images && msg.images.length > 0) {
-        // 用户消息包含图片
+      if (msg.isUser) {
+        // 构建用户消息内容，合并选中文本、用户消息和图片
         const messageContent: Array<{
           type: 'text' | 'image_url'
           text?: string
@@ -180,66 +182,88 @@ export const useMessageHandler = ({
           }
         }> = []
 
-        if (msg.content.trim()) {
+        // 构建文本内容 - 使用更清晰的分隔格式
+        let textContent = ""
+        if (msg.selectedText && msg.content.trim()) {
+          // 有选中内容和用户问题的情况
+          textContent = `[用户选中内容]\n${msg.selectedText}\n\n[基于选中内容的问题]\n${msg.content}`
+        } else if (msg.selectedText) {
+          // 只有选中内容没有问题的情况
+          textContent = `[用户选中内容]\n${msg.selectedText}`
+        } else if (msg.content.trim()) {
+          // 只有问题没有选中内容的情况
+          textContent = msg.content
+        }
+
+        if (textContent) {
           messageContent.push({
             type: 'text',
-            text: msg.content
+            text: textContent
           })
         }
 
-        msg.images.forEach(imageInfo => {
-          messageContent.push({
-            type: 'image_url',
-            image_url: {
-              url: imageInfo.dataUrl,
-              detail: 'auto'
-            }
+        // 添加图片
+        if (msg.images && msg.images.length > 0) {
+          msg.images.forEach(imageInfo => {
+            messageContent.push({
+              type: 'image_url',
+              image_url: {
+                url: imageInfo.dataUrl,
+                detail: 'auto'
+              }
+            })
           })
-        })
+        }
 
         chatHistory.push({
           role: 'user',
-          content: messageContent
+          content: messageContent.length === 1 && messageContent[0].type === 'text'
+            ? messageContent[0].text
+            : messageContent
         })
       } else {
-        // 普通消息（文本或AI回复）
+        // AI回复消息
         chatHistory.push({
-          role: msg.isUser ? 'user' : 'assistant',
+          role: 'assistant',
           content: msg.content
         })
       }
     })
 
-    // 3. 添加当前选中文本内容
-    if (selectedText) {
-      chatHistory.push({
-        role: 'system',
-        content: `用户在 Overleaf 编辑器中选中了以下内容：\n\n${selectedText}`
+    // 4. 添加当前用户消息（合并选中文本、用户消息和图片）
+    const currentMessageContent: Array<{
+      type: 'text' | 'image_url'
+      text?: string
+      image_url?: {
+        url: string
+        detail?: 'low' | 'high' | 'auto'
+      }
+    }> = []
+
+    // 构建当前消息的文本内容 - 使用特殊标记区分当前选中内容
+    let currentTextContent = ""
+    if (selectedText && inputValue.trim()) {
+      // 有选中内容和用户问题的情况 - 使用特殊标记强调这是当前消息的选中内容
+      currentTextContent = `[当前消息的用户选中内容]\n${selectedText}\n\n[当前消息的用户问题]\n${inputValue}`
+    } else if (selectedText) {
+      // 只有选中内容没有问题的情况
+      currentTextContent = `[当前消息的用户选中内容]\n${selectedText}`
+    } else if (inputValue.trim()) {
+      // 只有问题没有选中内容的情况
+      currentTextContent = inputValue
+    }
+
+    if (currentTextContent) {
+      currentMessageContent.push({
+        type: 'text',
+        text: currentTextContent
       })
     }
 
-    // 4. 添加当前用户消息（包含图片）
-    // if (uploadedImages.length > 0  && currentModelConfig.multimodal) {
+    // 添加图片
     if (uploadedImages.length > 0) {
-      // 多模态消息
-      const messageContent: Array<{
-        type: 'text' | 'image_url'
-        text?: string
-        image_url?: {
-          url: string
-          detail?: 'low' | 'high' | 'auto'
-        }
-      }> = []
-
-      if (inputValue.trim()) {
-        messageContent.push({
-          type: 'text',
-          text: inputValue
-        })
-      }
-
       uploadedImages.forEach(imageInfo => {
-        messageContent.push({
+        currentMessageContent.push({
           type: 'image_url',
           image_url: {
             url: imageInfo.dataUrl,
@@ -247,17 +271,14 @@ export const useMessageHandler = ({
           }
         })
       })
-
-      chatHistory.push({
-        role: 'user',
-        content: messageContent
-      })
-    } else {
-      chatHistory.push({
-        role: 'user',
-        content: inputValue
-      })
     }
+
+    chatHistory.push({
+      role: 'user',
+      content: currentMessageContent.length === 1 && currentMessageContent[0].type === 'text'
+        ? currentMessageContent[0].text
+        : currentMessageContent
+    })
 
     // 创建 AbortController
     const controller = new AbortController()
