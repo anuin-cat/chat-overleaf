@@ -29,6 +29,7 @@ export interface CustomProvider {
   baseUrl: string
   apiKeyLabel: string
   isCustom: boolean
+  enabled?: boolean // 供应商是否启用，默认为true
 }
 
 // 自定义模型配置
@@ -50,4 +51,5 @@ export interface SettingsState {
   customModels: CustomModel[]
   pinnedModels: string[] // 存储置顶模型的ID
   settingsCategory: string // 当前选中的设置分类
+  enabledProviders: Record<string, boolean> // 存储供应商的启用状态
 }

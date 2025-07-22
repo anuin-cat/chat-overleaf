@@ -57,7 +57,8 @@ export const AddProviderDialog = ({ onClose }: AddProviderDialogProps) => {
       name: formData.name.trim(),
       baseUrl: formData.baseUrl.trim(),
       apiKeyLabel: "API Key",
-      isCustom: true
+      isCustom: true,
+      enabled: true // 默认启用
     }
 
     addCustomProvider(newProvider)

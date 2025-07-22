@@ -77,7 +77,7 @@ export const AddModelDialog = ({ provider, onClose }: AddModelDialogProps) => {
           {/* 供应商信息 */}
           <div className="p-3 bg-gray-50 rounded-lg">
             <div className="text-sm text-gray-600">供应商</div>
-            <div className="font-medium text-gray-800">{provider.displayName}</div>
+            <div className="font-medium text-gray-800">{provider.name}</div>
           </div>
 
           {/* 模型ID */}

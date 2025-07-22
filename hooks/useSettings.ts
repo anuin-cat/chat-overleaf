@@ -19,7 +19,9 @@ import {
   removeCustomModel,
   updateCustomModel,
   toggleModelPin,
-  setPinnedModels
+  setPinnedModels,
+  toggleProviderEnabled,
+  setProviderEnabled
 } from "~store/slices/settings.slice"
 
 export const useSettings = () => {
@@ -35,7 +37,8 @@ export const useSettings = () => {
     customProviders = [],
     customModels = [],
     pinnedModels = [],
-    settingsCategory = "model-service"
+    settingsCategory = "model-service",
+    enabledProviders = {}
   } = settingsState || {}
 
   // 初始化设置 - 使用新的供应商配置系统
@@ -83,6 +86,12 @@ export const useSettings = () => {
     return available
   }
 
+  // 检查供应商是否启用
+  const isProviderEnabled = (providerId: string): boolean => {
+    // 默认所有供应商都是启用的，除非明确设置为false
+    return enabledProviders[providerId] !== false
+  }
+
   return {
     // 状态
     apiKeys,
@@ -93,6 +102,7 @@ export const useSettings = () => {
     customModels,
     pinnedModels,
     settingsCategory,
+    enabledProviders,
 
     // 方法
     setApiKey: (provider: string, apiKey: string) =>
@@ -120,6 +130,11 @@ export const useSettings = () => {
       dispatch(toggleModelPin(modelId)),
     setPinnedModels: (modelIds: string[]) =>
       dispatch(setPinnedModels(modelIds)),
+    toggleProviderEnabled: (providerId: string) =>
+      dispatch(toggleProviderEnabled(providerId)),
+    setProviderEnabled: (providerId: string, enabled: boolean) =>
+      dispatch(setProviderEnabled({ providerId, enabled })),
+    isProviderEnabled,
     initializeSettings,
     getModelConfig,
     isModelAvailable

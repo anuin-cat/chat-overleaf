@@ -7,35 +7,40 @@ export const builtinProviders: CustomProvider[] = [
     name: "硅基流动",
     baseUrl: "https://api.siliconflow.cn/v1",
     apiKeyLabel: "API Key",
-    isCustom: false
+    isCustom: false,
+    enabled: true
   },
   {
     id: "deepseek",
     name: "DeepSeek",
     baseUrl: "https://api.deepseek.com/v1",
     apiKeyLabel: "API Key",
-    isCustom: false
+    isCustom: false,
+    enabled: true
   },
   {
     id: "yunwu",
     name: "云雾",
     baseUrl: "https://yunwu.ai/v1",
     apiKeyLabel: "API Key",
-    isCustom: false
+    isCustom: false,
+    enabled: true
   },
   {
     id: "zhipu",
     name: "智谱AI",
     baseUrl: "https://open.bigmodel.cn/api/paas/v4",
     apiKeyLabel: "API Key",
-    isCustom: false
+    isCustom: false,
+    enabled: true
   },
   {
     id: "alibaba",
     name: "阿里云",
     baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
     apiKeyLabel: "API Key",
-    isCustom: false
+    isCustom: false,
+    enabled: true
   }
 ]
 

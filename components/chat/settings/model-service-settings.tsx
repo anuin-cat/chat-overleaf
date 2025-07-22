@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Button } from "~components/ui/button"
 import { Input } from "~components/ui/input"
 import { ScrollArea } from "~components/ui/scroll-area"
+import { Switch } from "~components/ui/switch"
 import { Plus, Eye, EyeOff, Trash2, Edit, Pin, PinOff } from "lucide-react"
 import { useSettings } from "~hooks/useSettings"
 import { useModels } from "~hooks/useModels"
@@ -18,7 +19,9 @@ export const ModelServiceSettings = () => {
     setApiKey,
     customProviders,
     removeCustomProvider,
-    removeCustomModel
+    removeCustomModel,
+    isProviderEnabled,
+    toggleProviderEnabled
   } = useSettings()
 
   const { allModels = [], handleTogglePin } = useModels()
@@ -128,19 +131,32 @@ export const ModelServiceSettings = () => {
                       {provider.isCustom ? "自定义" : "内置"}
                     </span>
                   </div>
-                  {provider.isCustom && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 ml-2"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleRemoveProvider(provider.id)
-                      }}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-1 ml-2">
+                    {provider.isCustom && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleRemoveProvider(provider.id)
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                    {/* 启用开关 */}
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Switch
+                        checked={isProviderEnabled(provider.id)}
+                        onCheckedChange={(checked) => {
+                          toggleProviderEnabled(provider.id)
+                        }}
+                        size="sm"
+                        className="mr-1"
+                      />
+                    </div>
+                  </div>
                 </button>
               </div>
             ))}

@@ -10,7 +10,8 @@ const initialState: SettingsState = {
   customProviders: [],
   customModels: [],
   pinnedModels: [],
-  settingsCategory: "model-service"
+  settingsCategory: "model-service",
+  enabledProviders: {}
 }
 
 const settingsSlice = createSlice({
@@ -57,6 +58,7 @@ const settingsSlice = createSlice({
       state.customModels = []
       state.pinnedModels = []
       state.settingsCategory = "model-service"
+      state.enabledProviders = {}
     },
 
     // 设置当前设置分类
@@ -143,6 +145,25 @@ const settingsSlice = createSlice({
     // 设置置顶模型列表
     setPinnedModels: (state, action: PayloadAction<string[]>) => {
       state.pinnedModels = action.payload
+    },
+
+    // 切换供应商启用状态
+    toggleProviderEnabled: (state, action: PayloadAction<string>) => {
+      const providerId = action.payload
+      if (!state.enabledProviders) {
+        state.enabledProviders = {}
+      }
+      // 默认所有供应商都是启用的，所以如果没有记录就是启用状态
+      const currentState = state.enabledProviders[providerId] !== false
+      state.enabledProviders[providerId] = !currentState
+    },
+
+    // 设置供应商启用状态
+    setProviderEnabled: (state, action: PayloadAction<{ providerId: string; enabled: boolean }>) => {
+      if (!state.enabledProviders) {
+        state.enabledProviders = {}
+      }
+      state.enabledProviders[action.payload.providerId] = action.payload.enabled
     }
   }
 })
@@ -163,7 +184,9 @@ export const {
   removeCustomModel,
   updateCustomModel,
   toggleModelPin,
-  setPinnedModels
+  setPinnedModels,
+  toggleProviderEnabled,
+  setProviderEnabled
 } = settingsSlice.actions
 
 export default settingsSlice.reducer

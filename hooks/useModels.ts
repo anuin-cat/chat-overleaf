@@ -22,7 +22,8 @@ export const useModels = () => {
     baseUrls = {},
     getModelConfig,
     isModelAvailable,
-    toggleModelPin
+    toggleModelPin,
+    isProviderEnabled
   } = useSettings()
 
   const allProviders = getAllProviders(customProviders)
@@ -69,8 +70,8 @@ export const useModels = () => {
         api_format: 'openai' // 默认值，可以后续扩展
       }
 
-      // 自定义模型也使用供应商::模型名称的格式
-      const modelId = `${provider.name}::${customModel.modelName}`
+      // 使用存储的ID，而不是重新生成
+      const modelId = customModel.id
 
       return {
         ...modelConfig,
@@ -99,13 +100,31 @@ export const useModels = () => {
     })
   }, [allModels])
 
-  // 获取可用的模型（有API key的）
+  // 获取可用的模型（有API key且供应商已启用的）
   const availableModels: ExtendedModelConfig[] = useMemo(() => {
     return sortedModels.filter(model => {
       const modelConfig = getModelConfig(model)
-      return isModelAvailable(modelConfig)
+      // 检查模型是否可用（有API key）
+      if (!isModelAvailable(modelConfig)) return false
+
+      // 检查供应商是否启用
+      if (model.isCustom) {
+        // 自定义模型：检查自定义供应商是否启用
+        const customModel = customModels.find(cm => cm.id === model.id)
+        if (customModel) {
+          return isProviderEnabled(customModel.providerId)
+        }
+      } else {
+        // 内置模型：检查内置供应商是否启用
+        const provider = allProviders.find(p => p.name === model.provider)
+        if (provider) {
+          return isProviderEnabled(provider.id)
+        }
+      }
+
+      return true // 如果找不到供应商信息，默认显示
     })
-  }, [sortedModels, getModelConfig, isModelAvailable])
+  }, [sortedModels, getModelConfig, isModelAvailable, isProviderEnabled, customModels, allProviders])
 
   // 根据ID获取模型
   const getModelById = (id: string): ExtendedModelConfig | undefined => {
