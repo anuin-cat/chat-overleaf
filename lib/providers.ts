@@ -27,6 +27,14 @@ export const builtinProviders: CustomProvider[] = [
     enabled: true
   },
   {
+    id: "Gemini 官方",
+    name: "Gemini 官方",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    apiKeyLabel: "API Key",
+    isCustom: false,
+    enabled: true
+  },
+  {
     id: "zhipu",
     name: "智谱AI",
     baseUrl: "https://open.bigmodel.cn/api/paas/v4",

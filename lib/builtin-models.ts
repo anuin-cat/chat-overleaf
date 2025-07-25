@@ -58,7 +58,23 @@ export const builtinModels: BaseModelConfig[] = [
     provider: "DeepSeek",
     multimodal: false,
   },
-  
+
+  // Google Gemini 模型
+  {
+    model_name: "gemini-2.5-pro",
+    display_name: "Gemini 2.5 Pro",
+    provider: "Gemini 官方",
+    multimodal: true,
+    api_format: "openai",
+  },
+  {
+    model_name: "gemini-2.5-flash",
+    display_name: "Gemini 2.5 Flash",
+    provider: "Gemini 官方",
+    multimodal: true,
+    api_format: "openai",
+  },
+
   // 云雾模型
   {
     model_name: "gemini-2.5-flash",

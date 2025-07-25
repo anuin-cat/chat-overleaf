@@ -57,7 +57,7 @@ export const useSettings = () => {
       { name: '云雾', baseUrl: 'https://api.yunwu.ai/v1' },
       { name: 'OpenAI', baseUrl: 'https://api.openai.com/v1' },
       { name: 'Anthropic', baseUrl: 'https://api.anthropic.com/v1' },
-      { name: 'Google', baseUrl: 'https://generativelanguage.googleapis.com/v1' },
+      { name: 'Gemini 官方', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai' },
       { name: '智谱AI', baseUrl: 'https://open.bigmodel.cn/api/paas/v4' },
       { name: '阿里云', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1' }
     ]

@@ -14,19 +14,43 @@ export class ApiClient {
 
   /**
    * 智能构建API URL，避免路径重复
+   * 支持多种API格式和路径结构
    */
   private buildUrl(path: string): string {
     const baseUrl = this.modelConfig.base_url.replace(/\/+$/, '') // 移除末尾的斜杠
     const cleanPath = path.startsWith('/') ? path : `/${path}`
 
-    // 检查base_url是否已经包含了路径的一部分
-    if (cleanPath.startsWith('/v1/') && baseUrl.endsWith('/v1')) {
-      return `${baseUrl}${cleanPath.substring(3)}` // 移除重复的/v1
-    } else if (cleanPath.startsWith('/v1beta/') && baseUrl.endsWith('/v1beta')) {
-      return `${baseUrl}${cleanPath.substring(7)}` // 移除重复的/v1beta
-    } else {
-      return `${baseUrl}${cleanPath}`
+    // 特殊情况处理：如果baseUrl已经包含完整的API路径，直接拼接
+    // 例如：https://generativelanguage.googleapis.com/v1beta/openai + /chat/completions
+    if (this.isCompleteApiPath(baseUrl)) {
+      return `${baseUrl}${cleanPath.replace('/v1', '')}`
     }
+
+    // 通用路径重复检查：避免版本号重复
+    const versionPatterns = ['/v1', '/v1beta', '/v2', '/v3', '/api/v1', '/api/v2']
+
+    for (const version of versionPatterns) {
+      if (cleanPath.startsWith(`${version}/`) && baseUrl.endsWith(version)) {
+        return `${baseUrl}${cleanPath.substring(version.length)}`
+      }
+    }
+
+    // 默认情况：直接拼接
+    return `${baseUrl}${cleanPath}`
+  }
+
+  /**
+   * 检查baseUrl是否已经包含完整的API路径
+   * 这些URL通常不需要额外的版本前缀
+   */
+  private isCompleteApiPath(baseUrl: string): boolean {
+    const completeApiPatterns = [
+      '/openai',           // Gemini OpenAI兼容: /v1beta/openai
+      '/compatible-mode',  // 阿里云兼容模式: /compatible-mode/v1
+      '/api/paas',         // 智谱AI: /api/paas/v4
+    ]
+
+    return completeApiPatterns.some(pattern => baseUrl.includes(pattern))
   }
 
   /**
@@ -53,9 +77,6 @@ export class ApiClient {
     headers.append('Accept', 'application/json')
     headers.append('Authorization', `Bearer ${this.modelConfig.api_key}`)
     headers.append('Content-Type', 'application/json')
-
-    // 检查是否是Gemini模型
-    const isGeminiModel = this.modelConfig.model_name.toLowerCase().includes('gemini')
 
     const convertedMessages = messages.map(msg => this.convertToOpenAIMessage(msg))
 
