@@ -4,7 +4,6 @@ import { Provider } from "react-redux"
 import { PersistGate } from "@plasmohq/redux-persist/integration/react"
 import { useEffect, useState } from "react"
 
-import { LoginForm } from "~components/login-form"
 import { ChatContainer } from "~components/chat"
 import { ToastProvider } from "~components/ui/sonner"
 import { DialogProvider } from "~components/ui/dialog"
@@ -77,9 +76,6 @@ const CSUIExample = () => {
       <PersistGate loading={<div>加载中...</div>} persistor={persistor}>
         <DialogProvider>
           <ToastProvider>
-            {/* 非 Overleaf 页面显示原有的登录表单 */}
-            {!isOverleaf && (null)}
-
             {/* 聊天容器组件 */}
             <ChatContainer isOverleaf={isOverleaf} />
           </ToastProvider>
