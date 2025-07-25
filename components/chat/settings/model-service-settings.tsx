@@ -165,7 +165,7 @@ export const ModelServiceSettings = () => {
       </div>
 
       {/* 右侧配置区域 */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0">
         {currentProvider ? (
           <>
             {/* 供应商信息 */}
@@ -228,7 +228,7 @@ export const ModelServiceSettings = () => {
             </div>
 
             {/* 模型管理 */}
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col min-h-0">
               <div className="p-4 border-b border-gray-200 flex items-center justify-between">
                 <h4 className="text-sm font-medium text-gray-800">模型管理</h4>
                 <Button
@@ -241,7 +241,7 @@ export const ModelServiceSettings = () => {
                 </Button>
               </div>
 
-              <ScrollArea className="flex-1 p-3">
+              <ScrollArea className="flex-1 p-3 min-h-0">
                 <div className="space-y-1">
                   {providerModels.length === 0 ? (
                     <div className="text-center text-gray-500 py-8">

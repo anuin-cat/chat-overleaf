@@ -63,7 +63,7 @@ export const SettingsPanel = ({ onClose }: SettingsPanelProps) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-[10000] flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-2/3 h-2/3 flex overflow-hidden">
+      <div className="bg-white rounded-lg shadow-xl w-2/3 max-w-6xl h-2/3 min-h-[500px] max-h-[90vh] flex overflow-hidden">
         {/* 左侧导航 */}
         <div className="w-48 border-r border-gray-200 flex flex-col">
           {/* Header */}
