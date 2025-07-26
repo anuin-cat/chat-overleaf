@@ -5,7 +5,7 @@ import { ModelSelect } from "~components/ui/model-select"
 import { DialogProvider } from "~components/ui/dialog"
 import { MessageContextTags } from "./context-tags"
 import { MessageActions } from "./message/message-actions"
-import { X, Settings, ChevronDown, ChevronUp, History } from "lucide-react"
+import { X, Settings, ChevronDown, ChevronUp } from "lucide-react"
 import { FileExtractionPanel } from "./file/file-extraction-panel"
 import { useFileExtraction } from "./file/use-file-extraction"
 import { ChatHistoryList } from "./history/chat-history-list"
@@ -215,27 +215,68 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
   // 拖拽调整大小的处理函数
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     setIsResizing(true)
 
     const startX = e.clientX
     const startWidth = width
 
     const handleMouseMove = (e: MouseEvent) => {
+      e.preventDefault()
       const deltaX = startX - e.clientX // 向左拖拽为正值
       const newWidth = Math.max(280, Math.min(800, startWidth + deltaX)) // 限制宽度范围
       setWidth(newWidth)
       onWidthChange?.(newWidth)
     }
 
-    const handleMouseUp = () => {
+    const cleanup = () => {
       setIsResizing(false)
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
+      document.removeEventListener('mousemove', handleMouseMove, true)
+      document.removeEventListener('mouseup', handleMouseUp, true)
+      document.removeEventListener('mouseleave', handleMouseLeave, true)
+      // 移除窗口级别的事件监听器作为备用清理
+      window.removeEventListener('mouseup', handleMouseUp, true)
+      window.removeEventListener('blur', cleanup, true)
     }
 
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
+    const handleMouseUp = (e: MouseEvent) => {
+      e.preventDefault()
+      cleanup()
+    }
+
+    const handleMouseLeave = (e: MouseEvent) => {
+      // 当鼠标离开文档时也停止拖拽
+      if (e.target === document.documentElement) {
+        cleanup()
+      }
+    }
+
+    // 使用捕获模式添加事件监听器，提高兼容性
+    document.addEventListener('mousemove', handleMouseMove, true)
+    document.addEventListener('mouseup', handleMouseUp, true)
+    document.addEventListener('mouseleave', handleMouseLeave, true)
+    // 添加窗口级别的备用事件监听器
+    window.addEventListener('mouseup', handleMouseUp, true)
+    window.addEventListener('blur', cleanup, true)
   }, [width, onWidthChange])
+
+  // 组件卸载时清理拖拽状态
+  useEffect(() => {
+    return () => {
+      if (isResizing) {
+        setIsResizing(false)
+        // 清理可能残留的事件监听器
+        const cleanup = () => {
+          document.removeEventListener('mousemove', () => {}, true)
+          document.removeEventListener('mouseup', () => {}, true)
+          document.removeEventListener('mouseleave', () => {}, true)
+          window.removeEventListener('mouseup', () => {}, true)
+          window.removeEventListener('blur', () => {}, true)
+        }
+        cleanup()
+      }
+    }
+  }, [isResizing])
 
   return (
     <DialogProvider>
