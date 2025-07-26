@@ -112,7 +112,7 @@ export const useChatHistory = () => {
       // 清理消息数据，只保留聊天气泡信息，移除文件相关数据
       const cleanMessages: StoredMessage[] = messages.map(msg => ({
         id: msg.id,
-        content: truncateText(msg.content, 1000), // 限制消息长度
+        content: truncateText(msg.content, 100000), // 增加消息长度限制以适应更长的回复
         isUser: msg.isUser,
         timestamp: msg.timestamp,
         selectedText: msg.selectedText, // 保存选中的文本内容
