@@ -90,8 +90,8 @@ export class ApiClient {
       model: this.modelConfig.model_name,
       messages: convertedMessages,
       stream,
-      temperature: 0.7, // Gemini使用0.9温度
-      max_tokens: 8000   // Gemini使用400 max_tokens
+      temperature: 0.7,
+      max_tokens: 16384   // 统一设置最大输出长度为16384
     })
 
     const fullUrl = this.buildUrl('/v1/chat/completions')
