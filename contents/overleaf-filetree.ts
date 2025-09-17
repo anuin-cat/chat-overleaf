@@ -152,3 +152,13 @@ export function waitForFileLoad(timeout = 3000): Promise<void> {
     setTimeout(resolve, timeout)
   })
 }
+import type { PlasmoCSConfig } from "plasmo"
+
+export const config: PlasmoCSConfig = {
+  matches: [
+    "https://www.overleaf.com/*",
+    "https://*.overleaf.com/*"
+  ],
+  world: "MAIN"
+}
+// import type { PlasmoCSConfig } from "plasmo"

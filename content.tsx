@@ -13,7 +13,10 @@ import { chatHistoryStorage } from "~utils/indexeddb-storage"
 // 调试工具将在开发环境中自动可用
 
 export const config: PlasmoCSConfig = {
-  matches: ["<all_urls>"]
+  matches: [
+    "https://www.overleaf.com/*",
+    "https://*.overleaf.com/*"
+  ]
 }
 
 const styleElement = document.createElement("style")

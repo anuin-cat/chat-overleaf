@@ -48,7 +48,8 @@
   },
   "manifest": {
     "host_permissions": [
-      "https://*/*"
+      "https://www.overleaf.com/*",
+      "https://*.overleaf.com/*"
     ]
   }
 }
