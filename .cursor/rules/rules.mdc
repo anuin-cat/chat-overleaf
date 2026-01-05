@@ -1,0 +1,140 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 1. 项目通用开发规范
+## 目录结构
+```
+    chat-overleaf/
+    ├── assets/                       # 静态资源文件
+    │   ├── icon/                     # 扩展图标（不同尺寸）
+    │   ├── img/                      # 图片资源
+    │   ├── icon.png                  # 主图标
+    │   ├── icon.svg                  # SVG 图标
+    │   └── desc.txt                  # 描述文件
+    │
+    ├── build/                        # 构建输出目录
+    │   └── chrome-mv3-prod/          # Chrome Manifest V3 生产构建
+    │
+    ├── components/                   # 组件库
+    │   ├── chat/                     # 聊天功能组件
+    │   │   ├── file/                 # 文件相关组件（文件列表、提取面板等）
+    │   │   ├── history/              # 聊天历史组件
+    │   │   ├── message/              # 消息相关组件（Markdown 渲染、消息操作等）
+    │   │   ├── settings/             # 设置相关组件（模型管理、提供商管理等）
+    │   │   ├── chat-container.tsx    # 聊天容器组件
+    │   │   ├── chat-input.tsx        # 聊天输入框组件
+    │   │   ├── context-tags.tsx      # 上下文标签组件
+    │   │   ├── file-preview-modal.tsx # 文件预览弹窗
+    │   │   ├── settings-panel.tsx    # 设置面板
+    │   │   ├── sidebar-chat.tsx      # 侧边栏聊天组件
+    │   │   └── index.ts              # 导出文件
+    │   ├── ui/                       # UI 基础组件（shadcn/ui）
+    │   │   ├── button.tsx            # 按钮组件
+    │   │   ├── card.tsx              # 卡片组件
+    │   │   ├── checkbox.tsx          # 复选框组件
+    │   │   ├── dialog.tsx            # 对话框组件
+    │   │   ├── input.tsx             # 输入框组件
+    │   │   ├── label.tsx             # 标签组件
+    │   │   ├── model-select.tsx      # 模型选择组件
+    │   │   ├── scroll-area.tsx       # 滚动区域组件
+    │   │   ├── select.tsx            # 选择器组件
+    │   │   ├── simple-select.tsx     # 简单选择器组件
+    │   │   ├── sonner.tsx            # Toast 通知组件
+    │   │   ├── switch.tsx            # 开关组件
+    │   │   ├── tag.tsx               # 标签组件
+    │   │   └── textarea.tsx          # 文本域组件
+    │   └── usage-guide.tsx           # 使用指南组件
+    │
+    ├── contents/                     # Content Scripts（内容脚本）
+    │   ├── overleaf-filetree.ts      # Overleaf 文件树注入脚本
+    │   └── overleaf-main-world.ts    # Overleaf 主世界脚本
+    │
+    ├── hooks/                        # React Hooks
+    │   ├── useApp.ts                 # 应用相关 Hook
+    │   ├── useAuth.ts                # 认证相关 Hook
+    │   ├── useChatHistory.ts         # 聊天历史 Hook
+    │   ├── useImageHandler.ts        # 图片处理 Hook
+    │   ├── useInputHandler.ts        # 输入处理 Hook
+    │   ├── useMessageHandler.ts      # 消息处理 Hook
+    │   ├── useModels.ts              # 模型管理 Hook
+    │   ├── useSelectedText.ts        # 选中文本 Hook
+    │   ├── useSettings.ts            # 设置管理 Hook
+    │   ├── useUI.ts                  # UI 状态 Hook
+    │   └── index.ts                  # 导出文件
+    │
+    ├── lib/                          # 工具库和共享代码
+    │   ├── api-client.ts             # API 客户端
+    │   ├── builtin-models.ts         # 内置模型配置
+    │   ├── file-content-processor.ts # 文件内容处理工具
+    │   ├── image-utils.ts            # 图片处理工具
+    │   ├── llm-service.ts            # LLM 服务封装
+    │   ├── providers.ts              # 提供商配置
+    │   └── utils.ts                  # 通用工具函数
+    │
+    ├── store/                        # Redux 状态管理
+    │   ├── middleware/               # Redux 中间件
+    │   │   └── persistence.ts        # 持久化中间件
+    │   ├── slices/                   # Redux Slices
+    │   │   ├── app.slice.ts          # 应用状态切片
+    │   │   ├── auth.slice.ts         # 认证状态切片
+    │   │   ├── settings.slice.ts     # 设置状态切片
+    │   │   ├── ui.slice.ts           # UI 状态切片
+    │   │   └── index.ts              # 导出文件
+    │   ├── index.ts                  # Store 配置
+    │   └── types.ts                  # Store 类型定义
+    │
+    ├── utils/                        # 工具函数
+    │   ├── helpers.ts                # 辅助函数
+    │   ├── indexeddb-storage.ts      # IndexedDB 存储工具
+    │   ├── storage.ts                # 存储工具
+    │   └── index.ts                  # 导出文件
+    │
+    ├── popup.tsx                     # 弹出窗口入口文件
+    ├── content.tsx                   # 内容脚本入口文件
+    ├── globals.css                   # 全局样式文件
+    │
+    └── 配置文件
+        ├── components.json           # shadcn/ui 配置
+        ├── package.json              # 项目依赖
+        ├── pnpm-lock.yaml            # pnpm 锁文件
+        ├── postcss.config.js         # PostCSS 配置
+        ├── tailwind.config.js        # Tailwind CSS 配置
+        └── tsconfig.json             # TypeScript 配置
+```
+
+## 组织原则
+── 保持项目结构清晰，遵循摸块化原则
+── 相关功能应放在同一目录下
+── 使用适当的目录命名，反映其包含内容
+── 单个代码文件行数不宜超过三百行
+── 单个函数不宜超过 50 行
+
+## 命名规范
+
+类名：PascalCase(大驼峰)
+── 函数名：camelCase(小驼蜂) 或 snake_case
+── 常量：UPPER SNAKE CASE
+── 函数参数：使用语义化名称（如 `userInput` 而非 `input1`）
+── 接口/类型：`IProps` → `ChatComponentProps`（具体化命名）
+── 布尔变量：以 is/has/can 开头（`isLoading`, `hasPermission`）
+── 事件处理：handle[元素][事件]（`handleInputChange`, `handleSubmitClick`）
+
+## 注释规范
+
+── 关键部分代码应有良好且简介的中文注释，但不宜过多，适量即可
+── 所有注释之间应该形成良好的层次感和协同
+
+# 2. 前端规范
+
+## 前端架构
+
+1. 前端项目始终使用 tailwind 样式，完全兼容。
+2. 所有代码撰写均需要遵循最小代码量原则，如非完全必要，不要创建新文件
+3. 不要撰写测试代码和测试页面，遇到难以解决的问题只需提供 print 或者控制台输出即可。
+4. 对于你不确定的问题请先进行网络检索再确定。
+5. 任务完成后不要使用 pnpm dev 启动，我自己会启动并测试，你只需要总结你所做的内容即可。
+6. 目前的框架为 plasmo 任何代码都要确保能够在 plasmo 框架下运行。
+7. 谨慎使用 shadcn 组件，使用前可以先思考或网络检索是否能在 plasmo 框架下运行。
+
