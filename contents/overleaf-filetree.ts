@@ -74,7 +74,7 @@ export function getProjectInfo(): ProjectInfo {
  */
 export function isTextFile(fileName: string): boolean {
   // const textExtensions = ['.tex', '.txt', '.md', '.py', '.js', '.ts', '.css', '.html', '.json', '.yml', '.yaml', '.xml', '.bib', '.cls', '.sty']
-  const textExtensions = ['.tex', '.txt', '.md']
+  const textExtensions = ['.tex', '.txt', '.md', '.bib']
   return textExtensions.some(ext => fileName.toLowerCase().endsWith(ext))
 }
 
