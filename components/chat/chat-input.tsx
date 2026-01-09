@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react"
-import { Button } from "~components/ui/button"
-import { Textarea } from "~components/ui/textarea"
+import { Button } from "../ui/button"
+import { Textarea } from "../ui/textarea"
 import { ScrollArea } from "../ui/scroll-area"
 import { ContextTags } from "./context-tags"
 import { FilePreviewModal } from "./file-preview-modal"
@@ -278,6 +278,14 @@ export const ChatInput = ({
     }
   }
 
+  // 清空所有文件
+  const handleClearAllFiles = () => {
+    if (onFileSelectionChange) {
+      onFileSelectionChange(new Set())
+      info('已取消所有文件选中', { title: '清空完成' })
+    }
+  }
+
   // 发送消息的包装函数
   const onSendMessage = () => {
     const messageSelectedText = hasSelection ? selectedText.text : undefined
@@ -302,6 +310,7 @@ export const ChatInput = ({
         onRemoveSelectedText={clearSelectedText}
         onImageClick={handleImageClick}
         onRemoveImage={handleRemoveImage}
+        onClearAllFiles={handleClearAllFiles}
         className="mb-1.5"
       />
 

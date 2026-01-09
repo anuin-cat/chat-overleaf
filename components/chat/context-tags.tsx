@@ -1,5 +1,6 @@
 import { Tag, TagList } from "~components/ui/tag"
 import type { ImageInfo } from "~lib/image-utils"
+import { Button } from "../ui/button"
 
 interface ContextTagsProps {
   selectedFiles: Set<string>
@@ -14,6 +15,7 @@ interface ContextTagsProps {
   onFileClick?: (fileName: string) => void
   onImageClick?: (imageInfo: ImageInfo) => void
   onRemoveImage?: (imageId: string) => void
+  onClearAllFiles?: () => void
   showFileNames?: boolean
   showSelectedText?: boolean
   showImages?: boolean
@@ -32,6 +34,7 @@ export const ContextTags = ({
   onFileClick,
   onImageClick,
   onRemoveImage,
+  onClearAllFiles,
   showFileNames = true,
   showSelectedText = true,
   showImages = true,
@@ -50,6 +53,19 @@ export const ContextTags = ({
   return (
     <div className={className}>
       <TagList>
+        {/* 清空文件按钮 - 当有文件时显示在最左侧 */}
+        {showFileNames && selectedFileNames.length > 0 && onClearAllFiles && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClearAllFiles}
+            className="h-6 px-2 text-xs text-red-600 bg-red-50 hover:bg-red-100 "
+            title="清空所有文件"
+          >
+            清空
+          </Button>
+        )}
+        
         {/* 文件标签 */}
         {showFileNames && selectedFileNames.map((fileName) => (
           <Tag

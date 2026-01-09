@@ -54,7 +54,7 @@ export const Tag = ({
             e.stopPropagation() // 防止触发标签点击
             onRemove()
           }}
-          className="ml-1 hover:bg-black/10 rounded-sm p-0.5 transition-colors"
+          className="ml-0 hover:bg-black/10 rounded-sm p-0.5 transition-colors"
           type="button"
         >
           <X className="h-3 w-3" />

@@ -123,6 +123,13 @@ export const useFileExtraction = (
     })
   }
 
+  // 全选所有文件
+  const selectAllFiles = () => {
+    const allFileNames = extractedFiles.map(file => file.name)
+    updateSelectedFiles(() => new Set(allFileNames))
+    info(`已全选 ${allFileNames.length} 个文件`, { title: '全选完成' })
+  }
+
   // 自动选中文件
   const autoSelectFile = (fileName: string) => {
     updateSelectedFiles(prev => {
@@ -188,6 +195,7 @@ export const useFileExtraction = (
     deleteFile,
     clearAllFiles,
     selectFile,
+    selectAllFiles,
     autoSelectFile,
     toggleFileList
   }

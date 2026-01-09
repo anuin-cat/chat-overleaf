@@ -13,6 +13,7 @@ interface AutoSizedFileListProps {
   onDeleteFile: (fileName: string) => void
   onClearAllFiles: () => void
   onSelectFile: (fileName: string, selected: boolean) => void
+  onSelectAllFiles: () => void
   className?: string
 }
 
@@ -29,6 +30,7 @@ export const AutoSizedFileList = ({
   onDeleteFile,
   onClearAllFiles,
   onSelectFile,
+  onSelectAllFiles,
   className = ""
 }: AutoSizedFileListProps) => {
   // 计算页面高度的1/2作为最大限制
@@ -63,12 +65,21 @@ export const AutoSizedFileList = ({
           <Button
             variant="ghost"
             size="sm"
+            onClick={onSelectAllFiles}
+            className="h-6 px-2 text-xs text-blue-600 hover:bg-blue-100"
+            title="全选所有文件"
+          >
+            全选
+          </Button>
+          {/* <Button
+            variant="ghost"
+            size="sm"
             onClick={onClearAllFiles}
             className="h-6 px-2 text-xs text-red-600 hover:bg-red-50"
             title="清空所有文件"
           >
             清空
-          </Button>
+          </Button> */}
         </div>
       </div>
 

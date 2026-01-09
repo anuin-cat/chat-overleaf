@@ -29,7 +29,8 @@ export const FileExtractionPanel = ({
     copyFile,
     deleteFile,
     clearAllFiles,
-    selectFile
+    selectFile,
+    selectAllFiles
   } = useFileExtraction(externalSelectedFiles, onFileSelectionChange)
 
   return (
@@ -46,6 +47,7 @@ export const FileExtractionPanel = ({
           onDeleteFile={deleteFile}
           onClearAllFiles={clearAllFiles}
           onSelectFile={selectFile}
+          onSelectAllFiles={selectAllFiles}
         />
       ) : (
         /* 空状态 - 显示获取所有文件按钮 */
