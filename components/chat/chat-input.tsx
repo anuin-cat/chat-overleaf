@@ -1,6 +1,7 @@
-import React from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "~components/ui/button"
 import { Textarea } from "~components/ui/textarea"
+import { ScrollArea } from "../ui/scroll-area"
 import { ContextTags } from "./context-tags"
 import { FilePreviewModal } from "./file-preview-modal"
 import { Send, Square, Eraser } from "lucide-react"
@@ -93,7 +94,9 @@ export const ChatInput = ({
     textareaRef,
     handleInputChange,
     handleKeyDown,
-    clearInput
+    clearInput,
+    adjustTextareaHeight,
+    setInputValue
   } = useInputHandler()
 
   // 使用 toast hook
@@ -102,8 +105,132 @@ export const ChatInput = ({
   // 使用选中文本 hook
   const { selectedText, clearSelectedText, hasSelection } = useSelectedText()
 
+  // @ 文件选择提示状态
+  const [mentionQuery, setMentionQuery] = useState("")
+  const [mentionStart, setMentionStart] = useState<number | null>(null)
+  const [isMentionListOpen, setIsMentionListOpen] = useState(false)
+  const [highlightedIndex, setHighlightedIndex] = useState(0)
+  const mentionItemRefs = useRef<Record<string, HTMLButtonElement | null>>({})
 
+  // 可供 @ 选择的文件名列表（过滤已选文件）
+  const mentionOptions = useMemo(() => {
+    const available = extractedFiles
+      .map(file => file.name)
+      .filter(name => !selectedFiles.has(name))
 
+    if (!mentionQuery) return available
+    const lower = mentionQuery.toLowerCase()
+    return available.filter(name => name.toLowerCase().includes(lower))
+  }, [extractedFiles, mentionQuery, selectedFiles])
+
+  // 输入时更新 @ 状态
+  const updateMentionState = (value: string, cursor: number) => {
+    if (extractedFiles.length === 0) {
+      setIsMentionListOpen(false)
+      setMentionStart(null)
+      setMentionQuery("")
+      return
+    }
+
+    const textBeforeCursor = value.slice(0, cursor)
+    const match = /(?:^|\s)@([^\s@]*)$/.exec(textBeforeCursor)
+
+    if (match) {
+      const query = match[1] || ""
+      setMentionQuery(query)
+      setMentionStart(cursor - query.length - 1) // 记录 @ 开始位置
+      setIsMentionListOpen(true)
+      setHighlightedIndex(0)
+    } else {
+      setIsMentionListOpen(false)
+      setMentionStart(null)
+      setMentionQuery("")
+    }
+  }
+
+  // 处理输入变化并同步 @ 状态
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    handleInputChange(e)
+    const cursor = e.target.selectionStart ?? e.target.value.length
+    updateMentionState(e.target.value, cursor)
+  }
+
+  // 选择 @ 提示项
+  const handleMentionSelect = (fileName: string) => {
+    if (onFileSelectionChange) {
+      const newSelectedFiles = new Set(selectedFiles)
+      newSelectedFiles.add(fileName)
+      onFileSelectionChange(newSelectedFiles)
+      info(`已添加 ${fileName}`, { title: '文件已添加' })
+    }
+
+    // 将输入框中的 @ 查询文本删除（不保留在输入框中）
+    if (mentionStart !== null) {
+      const before = inputValue.slice(0, mentionStart)
+      const after = inputValue.slice(mentionStart + mentionQuery.length + 1)
+      const newValue = `${before}${after}`
+      setInputValue(newValue)
+      setTimeout(() => {
+        if (textareaRef.current) {
+          const newPos = before.length
+          textareaRef.current.focus()
+          textareaRef.current.setSelectionRange(newPos, newPos)
+          adjustTextareaHeight()
+        }
+      }, 0)
+    }
+
+    setIsMentionListOpen(false)
+    setMentionQuery("")
+    setMentionStart(null)
+    setHighlightedIndex(0)
+  }
+
+  // 键盘导航 @ 提示
+  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (isMentionListOpen) {
+      if (e.key === "ArrowDown" && mentionOptions.length > 0) {
+        e.preventDefault()
+        setHighlightedIndex(prev => (prev + 1) % mentionOptions.length)
+        return
+      }
+      if (e.key === "ArrowUp" && mentionOptions.length > 0) {
+        e.preventDefault()
+        setHighlightedIndex(prev => (prev - 1 + mentionOptions.length) % mentionOptions.length)
+        return
+      }
+      if ((e.key === "Enter" || e.key === "Tab") && mentionOptions.length > 0) {
+        e.preventDefault()
+        handleMentionSelect(mentionOptions[highlightedIndex] || mentionOptions[0])
+        return
+      }
+      if (e.key === "Escape") {
+        e.preventDefault()
+        setIsMentionListOpen(false)
+        return
+      }
+    }
+
+    handleKeyDown(e, onSendMessage, handleStopStreaming, isStreaming)
+  }
+
+  // 当候选为空时关闭列表
+  useEffect(() => {
+    if (isMentionListOpen && mentionOptions.length === 0) {
+      setIsMentionListOpen(false)
+    }
+  }, [isMentionListOpen, mentionOptions.length])
+
+  // 高亮项滚动到可视范围内
+  useEffect(() => {
+    if (!isMentionListOpen) return
+    const targetName = mentionOptions[highlightedIndex]
+    if (!targetName) return
+    const target = mentionItemRefs.current[targetName]
+    if (target) {
+      target.scrollIntoView({ block: "nearest" })
+    }
+  }, [highlightedIndex, mentionOptions, isMentionListOpen])
 
 
   // 清理所有对话内容
@@ -124,6 +251,10 @@ export const ChatInput = ({
     ])
     clearImages() // 清空图片
     clearSelectedText() // 清空选中文本
+    setIsMentionListOpen(false)
+    setMentionQuery("")
+    setMentionStart(null)
+    setHighlightedIndex(0)
 
     // 重置聊天ID和名称，创建新的聊天会话
     if (onChatIdChange) {
@@ -154,6 +285,10 @@ export const ChatInput = ({
     clearInput()
     clearImages()
     clearSelectedText()
+    setIsMentionListOpen(false)
+    setMentionQuery("")
+    setMentionStart(null)
+    setHighlightedIndex(0)
   }
 
   return (
@@ -181,21 +316,52 @@ export const ChatInput = ({
       />
       
       <div className="flex items-end space-x-2">
-        <Textarea
-          ref={textareaRef}
-          value={inputValue}
-          onChange={handleInputChange}
-          onKeyDown={(e) => handleKeyDown(e, onSendMessage, handleStopStreaming, isStreaming)}
-          onPaste={handlePaste}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          placeholder="Shift + Enter 换行，Enter 发送，支持粘贴或拖拽图片"
-          className="flex-1 min-h-[72px] max-h-[200px] overflow-y-auto text-sm resize-none"
-          disabled={isStreaming || disabled}
-          autoComplete="off"
-          data-form-type="other"
-          rows={1}
-        />
+        <div className="flex-1 relative">
+          <Textarea
+            ref={textareaRef}
+            value={inputValue}
+            onChange={handleTextareaChange}
+            onKeyDown={handleTextareaKeyDown}
+            onPaste={handlePaste}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            placeholder="Shift + Enter 换行，Enter 发送，支持粘贴或拖拽图片，输入 @ 可快速添加文件"
+            className="min-h-[72px] max-h-[200px] overflow-y-auto text-sm resize-none"
+            disabled={isStreaming || disabled}
+            autoComplete="off"
+            data-form-type="other"
+            rows={1}
+          />
+          {isMentionListOpen && (
+            <div className="absolute left-0 right-0 bottom-full z-50 mb-2 overflow-hidden rounded-md border bg-white shadow-lg">
+              {mentionOptions.length > 0 ? (
+                <ScrollArea className="max-h-60">
+                  <div className="py-1">
+                    {mentionOptions.map((fileName, index) => (
+                      <button
+                        key={fileName}
+                        ref={el => { mentionItemRefs.current[fileName] = el }}
+                        type="button"
+                        className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-100 ${
+                          index === highlightedIndex ? "bg-gray-100 text-blue-600" : ""
+                        }`}
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          handleMentionSelect(fileName)
+                        }}
+                      >
+                        <span className="truncate">{fileName}</span>
+                        <span className="ml-2 text-[11px] text-gray-400">回车选择</span>
+                      </button>
+                    ))}
+                  </div>
+                </ScrollArea>
+              ) : (
+                <div className="px-3 py-2 text-xs text-gray-500">暂无可添加的文件</div>
+              )}
+            </div>
+          )}
+        </div>
         <div className="flex flex-col space-y-2">
           <Button
             onClick={handleClearChat}
