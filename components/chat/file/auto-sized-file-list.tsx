@@ -42,10 +42,10 @@ export const AutoSizedFileList = ({
   }
 
   return (
-    <div className={`border rounded-lg ${showFileList ? 'block' : 'hidden'} ${className}`}>
+    <div className={className}>
       {/* 头部操作按钮 */}
-      <div className="flex items-center justify-between p-2 bg-gray-50 border-b">
-        <span className="text-xs font-medium text-gray-600">
+      <div className="flex items-center justify-between px-3 py-2 bg-blue-100 border-b border-blue-200">
+        <span className="text-xs font-medium text-blue-800">
           已提取文件 ({extractedFiles.length})
         </span>
         <div className="flex items-center gap-1">
@@ -54,17 +54,17 @@ export const AutoSizedFileList = ({
             disabled={isExtracting}
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700"
+            className="h-6 px-2 text-xs text-blue-700 hover:bg-blue-200"
             title="获取所有文件"
           >
             <Files className="h-3 w-3" />
-            {isExtracting ? '提取中...' : '获得所有文件'}
+            {isExtracting ? '提取中...' : '提取项目文件'}
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={onClearAllFiles}
-            className="h-6 px-2 text-xs text-red-600 hover:text-red-700"
+            className="h-6 px-2 text-xs text-red-600 hover:bg-red-50"
             title="清空所有文件"
           >
             清空
@@ -74,7 +74,7 @@ export const AutoSizedFileList = ({
 
       {/* 文件列表 - 使用max-height实现自适应高度 */}
       <div
-        className="overflow-y-auto"
+        className="overflow-y-auto bg-white"
         style={{ maxHeight: `${maxHeight - HEADER_HEIGHT}px` }}
       >
           {extractedFiles.map((file, index) => {
@@ -83,7 +83,7 @@ export const AutoSizedFileList = ({
             return (
               <div
                 key={`${file.name}-${index}`}
-                className="flex items-center justify-between p-2 border-b last:border-b-0 hover:bg-gray-50 cursor-pointer"
+                className="flex items-center justify-between px-3 py-2 border-b border-blue-100 last:border-b-0 hover:bg-blue-50 cursor-pointer transition-colors"
                 onClick={() => onSelectFile(file.name, !isSelected)}
               >
                 <div className="flex items-center space-x-2 flex-1 min-w-0">
@@ -91,14 +91,14 @@ export const AutoSizedFileList = ({
                     checked={isSelected}
                     onCheckedChange={(checked) => onSelectFile(file.name, checked as boolean)}
                     className="flex-shrink-0"
-                    onClick={(e) => e.stopPropagation()} // 防止复选框点击时触发行点击
+                    onClick={(e) => e.stopPropagation()}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-gray-800 truncate">
                         {file.name}
                       </span>
-                      <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
+                      <span className="text-xs text-blue-600 ml-2 flex-shrink-0">
                         {file.length} 字符
                       </span>
                     </div>
@@ -109,10 +109,10 @@ export const AutoSizedFileList = ({
                     variant="ghost"
                     size="sm"
                     onClick={(e) => {
-                      e.stopPropagation() // 防止按钮点击时触发行点击
+                      e.stopPropagation()
                       onCopyFile(file)
                     }}
-                    className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700"
+                    className="h-6 w-6 p-0 text-blue-600 hover:bg-blue-100"
                     title="复制内容"
                   >
                     <Copy className="h-3 w-3" />
@@ -121,10 +121,10 @@ export const AutoSizedFileList = ({
                     variant="ghost"
                     size="sm"
                     onClick={(e) => {
-                      e.stopPropagation() // 防止按钮点击时触发行点击
+                      e.stopPropagation()
                       onDeleteFile(file.name)
                     }}
-                    className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                    className="h-6 w-6 p-0 text-red-600 hover:bg-red-50"
                     title="删除文件"
                   >
                     <Trash2 className="h-3 w-3" />

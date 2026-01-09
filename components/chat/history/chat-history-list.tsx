@@ -124,10 +124,10 @@ export const ChatHistoryList = ({
   // 移除这个条件，让组件始终渲染
 
   return (
-    <div className={`border rounded-lg ${showHistoryList ? 'block' : 'hidden'} ${className}`}>
+    <div className={`bg-green-50 border-b border-green-200 ${className}`}>
       {/* 头部操作按钮 */}
-      <div className="flex items-center justify-between p-2 bg-gray-50 border-b">
-        <span className="text-xs font-medium text-gray-600">
+      <div className="flex items-center justify-between px-3 py-2 bg-green-100 border-b border-green-200">
+        <span className="text-xs font-medium text-green-800">
           聊天历史 ({chatHistories.length})
         </span>
         <div className="flex items-center gap-1">
@@ -135,7 +135,7 @@ export const ChatHistoryList = ({
             variant="ghost"
             size="sm"
             onClick={handleClearAllHistories}
-            className="h-6 px-2 text-xs text-red-600 hover:text-red-700"
+            className="h-6 px-2 text-xs text-red-600 hover:bg-red-50"
             title="清空所有历史"
             disabled={chatHistories.length === 0}
           >
@@ -146,7 +146,7 @@ export const ChatHistoryList = ({
 
       {/* 历史记录列表 */}
       <div
-        className="overflow-y-auto"
+        className="overflow-y-auto bg-white"
         style={{ maxHeight: `${maxHeight - HEADER_HEIGHT}px` }}
       >
         {isLoading ? (
@@ -161,11 +161,11 @@ export const ChatHistoryList = ({
           chatHistories.map((history, index) => (
             <div
               key={`${history.id}-${index}`}
-              className="flex items-center justify-between p-2 border-b last:border-b-0 hover:bg-gray-50 cursor-pointer"
+              className="flex items-center justify-between px-3 py-2 border-b border-green-100 last:border-b-0 hover:bg-green-50 cursor-pointer transition-colors"
               onClick={() => editingId !== history.id && onLoadHistory(history)}
             >
               <div className="flex items-center space-x-2 flex-1 min-w-0">
-                <MessageCircle className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                <MessageCircle className="h-3 w-3 text-green-500 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     {editingId === history.id ? (
@@ -187,7 +187,7 @@ export const ChatHistoryList = ({
                         {truncateName(history.name, 120)}
                       </span>
                     )}
-                    <div className="flex items-center gap-1 text-xs text-gray-500 ml-2 flex-shrink-0">
+                    <div className="flex items-center gap-1 text-xs text-green-600 ml-2 flex-shrink-0">
                       <span>{history.messageCount} 条</span>
                       <span>•</span>
                       <span>{formatTime(history.lastUpdated)}</span>
@@ -203,7 +203,7 @@ export const ChatHistoryList = ({
                     e.stopPropagation()
                     startEditing(history)
                   }}
-                  className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700"
+                  className="h-6 w-6 p-0 text-green-600 hover:bg-green-100"
                   title="重命名"
                 >
                   <Edit3 className="h-3 w-3" />
@@ -215,7 +215,7 @@ export const ChatHistoryList = ({
                     e.stopPropagation()
                     handleDeleteHistory(history.id, history.name)
                   }}
-                  className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                  className="h-6 w-6 p-0 text-red-600 hover:bg-red-50"
                   title="删除历史"
                 >
                   <Trash2 className="h-3 w-3" />

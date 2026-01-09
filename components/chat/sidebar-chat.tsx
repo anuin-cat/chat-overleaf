@@ -315,9 +315,9 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
                 variant="ghost"
                 size="sm"
                 onClick={toggleFileList}
-                className={`h-7 px-1.5 flex items-center gap-0.5 ${
+                className={`h-7 px-1.5 flex items-center gap-0.5 transition-all ${
                   showFileList
-                    ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-b-none'
                     : 'hover:bg-gray-100'
                 }`}
                 title={showFileList ? "收起文件列表" : "展开文件列表"}
@@ -331,9 +331,9 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
               variant="ghost"
               size="sm"
               onClick={toggleHistoryListMutex}
-              className={`h-7 px-1.5 flex items-center gap-0.5 ${
+              className={`h-7 px-1.5 flex items-center gap-0.5 transition-all ${
                 showHistoryList
-                  ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-green-50 text-green-700 hover:bg-green-100 rounded-b-none'
                   : 'hover:bg-gray-100'
               }`}
               title={showHistoryList ? "收起聊天历史" : "展开聊天历史"}
@@ -364,33 +364,35 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
         </div>
       </div>
 
-      {/* 文件提取面板 - 始终渲染，通过样式控制显示/隐藏 */}
-      <div className={showFileList ? "block" : "hidden"}>
+      {/* 文件提取面板 - 添加过渡动画 */}
+      <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+        showFileList ? "max-h-[50vh] opacity-100" : "max-h-0 opacity-0"
+      }`}>
         <FileExtractionPanel
           selectedFiles={selectedFiles}
           onFileSelectionChange={setSelectedFiles}
         />
       </div>
 
-      {/* 聊天历史面板 - 始终渲染，通过样式控制显示/隐藏 */}
-      <div className={showHistoryList ? "block" : "hidden"}>
-        <div className="m-2">
-          <ChatHistoryList
-            chatHistories={chatHistories}
-            showHistoryList={showHistoryList}
-            isLoading={isHistoryLoading}
-            onLoadHistory={handleLoadHistory}
-            onDeleteHistory={deleteChatHistory}
-            onUpdateHistoryName={(historyId, newName) => {
-              // 如果更新的是当前聊天的历史记录，同步更新当前聊天名称
-              if (historyId === currentChatId) {
-                setCurrentChatName(newName)
-              }
-              return updateHistoryName(historyId, newName)
-            }}
-            onClearAllHistories={clearAllHistories}
-          />
-        </div>
+      {/* 聊天历史面板 - 添加过渡动画 */}
+      <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+        showHistoryList ? "max-h-[50vh] opacity-100" : "max-h-0 opacity-0"
+      }`}>
+        <ChatHistoryList
+          chatHistories={chatHistories}
+          showHistoryList={showHistoryList}
+          isLoading={isHistoryLoading}
+          onLoadHistory={handleLoadHistory}
+          onDeleteHistory={deleteChatHistory}
+          onUpdateHistoryName={(historyId, newName) => {
+            // 如果更新的是当前聊天的历史记录，同步更新当前聊天名称
+            if (historyId === currentChatId) {
+              setCurrentChatName(newName)
+            }
+            return updateHistoryName(historyId, newName)
+          }}
+          onClearAllHistories={clearAllHistories}
+        />
       </div>
 
       {/* Messages */}
