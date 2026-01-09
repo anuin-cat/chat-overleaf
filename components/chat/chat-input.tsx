@@ -157,7 +157,7 @@ export const ChatInput = ({
   }
 
   return (
-    <div className="p-4 border-t border-gray-200">
+    <div className="p-2 border-t border-gray-200">
       {/* 标签区域 */}
       <ContextTags
         selectedFiles={selectedFiles}
@@ -167,7 +167,7 @@ export const ChatInput = ({
         onRemoveSelectedText={clearSelectedText}
         onImageClick={handleImageClick}
         onRemoveImage={handleRemoveImage}
-        className="mb-3"
+        className="mb-1.5"
       />
 
       {/* 图片预览模态框 */}
@@ -190,7 +190,7 @@ export const ChatInput = ({
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           placeholder="Shift + Enter 换行，Enter 发送，支持粘贴或拖拽图片"
-          className="flex-1 min-h-[72px] max-h-[240px] overflow-y-auto text-sm resize-none"
+          className="flex-1 min-h-[72px] max-h-[200px] overflow-y-auto text-sm resize-none"
           disabled={isStreaming || disabled}
           autoComplete="off"
           data-form-type="other"

@@ -21,7 +21,7 @@ export const Tag = ({
   removable = true,
   clickable = false
 }: TagProps) => {
-  const baseClasses = "inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md font-medium"
+  const baseClasses = "inline-flex items-center gap-0.5 px-0.5 py-0.5 text-xs rounded-md font-medium"
 
   const variantClasses = {
     default: "bg-gray-100 text-gray-700 border border-gray-200",
@@ -71,7 +71,7 @@ interface TagListProps {
 
 export const TagList = ({ children, className }: TagListProps) => {
   return (
-    <div className={cn("flex flex-wrap gap-1", className)}>
+    <div className={cn("flex flex-wrap gap-1.5", className)}>
       {children}
     </div>
   )
