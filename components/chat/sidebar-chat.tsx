@@ -294,11 +294,11 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
       />
 
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-2 border-b border-gray-200">
         {/* 关闭按钮 + 设置按钮 + 模型选择 */}
-        <div className="flex items-center justify-between mb-0 gap-2">
+        <div className="flex items-center justify-between mb-0 gap-1.5">
           {/* 模型选择 */}
-          <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
             <ModelSelect
               value={selectedModel?.id || (allModels[0]?.id || "")}
               onValueChange={handleModelChange}
@@ -308,14 +308,14 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
             />
           </div>
           {/* 文件列表展开按钮 + 聊天历史按钮 + 设置按钮 + 关闭按钮 */}
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center space-x-0.5">
             {/* 文件列表展开按钮 - 只有当有提取的文件时才显示 */}
             {extractedFiles.length > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={toggleFileList}
-                className={`h-8 px-2 flex items-center gap-1 ${
+                className={`h-7 px-1.5 flex items-center gap-0.5 ${
                   showFileList
                     ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     : 'hover:bg-gray-100'
@@ -331,7 +331,7 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
               variant="ghost"
               size="sm"
               onClick={toggleHistoryListMutex}
-              className={`h-8 px-2 flex items-center gap-1 ${
+              className={`h-7 px-1.5 flex items-center gap-0.5 ${
                 showHistoryList
                   ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   : 'hover:bg-gray-100'
@@ -345,19 +345,19 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
               variant="ghost"
               size="sm"
               onClick={onShowSettings}
-              className="h-8 w-8 p-0"
+              className="h-7 w-7 p-0"
               title="设置"
             >
-              <Settings className="h-4 w-4" />
+              <Settings className="h-3.5 w-3.5" />
             </Button>
             {onClose && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={onClose}
-                className="h-8 w-8 p-0"
+                className="h-7 w-7 p-0"
               >
-                <X className="h-4 w-4" />
+                <X className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>
@@ -374,7 +374,7 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
 
       {/* 聊天历史面板 - 始终渲染，通过样式控制显示/隐藏 */}
       <div className={showHistoryList ? "block" : "hidden"}>
-        <div className="m-4">
+        <div className="m-2">
           <ChatHistoryList
             chatHistories={chatHistories}
             showHistoryList={showHistoryList}
@@ -394,7 +394,7 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea className="flex-1 p-2">
         <div className="space-y-4">
           {messages.map((message) => (
             <div
