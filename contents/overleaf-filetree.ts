@@ -72,9 +72,34 @@ export function getProjectInfo(): ProjectInfo {
 /**
  * 检查是否为文本文件
  */
-function isTextFile(fileName: string): boolean {
-  const textExtensions = ['.tex', '.txt', '.md', '.py', '.js', '.ts', '.css', '.html', '.json', '.yml', '.yaml', '.xml', '.bib', '.cls', '.sty']
+export function isTextFile(fileName: string): boolean {
+  // const textExtensions = ['.tex', '.txt', '.md', '.py', '.js', '.ts', '.css', '.html', '.json', '.yml', '.yaml', '.xml', '.bib', '.cls', '.sty']
+  const textExtensions = ['.tex', '.txt', '.md']
   return textExtensions.some(ext => fileName.toLowerCase().endsWith(ext))
+}
+
+
+/**
+ * 判断当前选中的树节点是否为文件（而非文件夹）
+ */
+export function isActiveTreeItemFile(): boolean {
+  const activeItem = document.querySelector('.file-tree-inner li[role="treeitem"][aria-selected="true"]')
+  if (!activeItem) return false
+
+  const entityDiv = activeItem.querySelector('.entity')
+  const fileType = entityDiv?.getAttribute('data-file-type') || ''
+  const isFolder = fileType === 'folder'
+
+  let fileName = activeItem.getAttribute('aria-label') || ''
+  if (!fileName) {
+    const nameButton = activeItem.querySelector('.item-name-button span')
+    if (nameButton) {
+      fileName = nameButton.textContent?.trim() || ''
+    }
+  }
+
+  const hasExtension = /\.[^./]+$/.test(fileName)
+  return !isFolder && hasExtension && isTextFile(fileName)
 }
 
 
@@ -106,11 +131,13 @@ export function getFileTreeItems(): FileTreeItem[] {
     
     // 检查是否为文件夹
     const entityDiv = item.querySelector('.entity')
-    const isFolder = entityDiv?.getAttribute('data-file-type') === 'folder'
+    const fileType = entityDiv?.getAttribute('data-file-type') || ''
+    const isFolder = fileType === 'folder'
     const hasExpandButton = item.querySelector('button[aria-label="Expand"]') !== null
+    const hasExtension = /\.[^./]+$/.test(fileName)
     
-    // 只处理文本文件
-    if (!isFolder && !hasExpandButton && isTextFile(fileName)) {
+    // 只处理有后缀的文本文件，避免误把文件夹当成文件
+    if (!isFolder && !hasExpandButton && hasExtension && isTextFile(fileName)) {
       const clickElement = item.querySelector('.item-name-button') || item
       
       fileItems.push({

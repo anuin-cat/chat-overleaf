@@ -1,5 +1,5 @@
 import type { PlasmoCSConfig } from "plasmo"
-import { getFileTreeItems, clickFileTreeItem, waitForFileLoad, getCurrentFileName, type FileTreeItem } from "./overleaf-filetree"
+import { getFileTreeItems, clickFileTreeItem, waitForFileLoad, getCurrentFileName, isActiveTreeItemFile, type FileTreeItem } from "./overleaf-filetree"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://www.overleaf.com/*", "https://*.overleaf.com/*"],
@@ -160,6 +160,17 @@ function getSelectedText(): SelectedTextInfo {
  */
 function getOverleafEditorInfo(): OverleafEditorInfo {
   try {
+    // 防止用户选中的是文件夹导致复用上一份文件内容
+    if (!isActiveTreeItemFile()) {
+      return {
+        content: '',
+        fileName: '',
+        length: 0,
+        success: false,
+        error: '当前选中项不是文件'
+      }
+    }
+
     const content = getCodeMirrorContent()
     const cleanedContent = cleanContent(content || '')
 
@@ -219,12 +230,25 @@ async function getAllFilesContent(): Promise<AllFilesInfo> {
         // 等待文件加载
         await waitForFileLoad(2000)
 
+        // 确认当前选中的是文件而非文件夹
+        if (!isActiveTreeItemFile()) {
+          console.warn(`Skip item ${fileItem.name}, active tree item is not a file`)
+          continue
+        }
+
+        // 再次确认当前打开的确实是目标文件，防止文件夹误入
+        const activeFileName = getCurrentFileName()
+        if (activeFileName !== fileItem.name) {
+          console.warn(`Skip item ${fileItem.name}, active file is ${activeFileName}`)
+          continue
+        }
+
         // 获取内容
         const content = getCodeMirrorContent()
         if (content) {
           const cleanedContent = cleanContent(content)
           files.push({
-            name: fileItem.name,
+            name: activeFileName,
             content: cleanedContent,
             length: cleanedContent.length
           })
@@ -261,6 +285,11 @@ let contentChangeTimeout: NodeJS.Timeout | null = null
  */
 function checkContentChange() {
   try {
+    // 选中的是文件夹则不触发内容变更事件
+    if (!isActiveTreeItemFile()) {
+      return
+    }
+
     const content = getCodeMirrorContent()
     const fileName = getCurrentFileName()
 
