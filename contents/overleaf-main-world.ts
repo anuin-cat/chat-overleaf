@@ -1,5 +1,5 @@
 import type { PlasmoCSConfig } from "plasmo"
-import { getFileTreeItems, clickFileTreeItem, waitForFileLoad, getCurrentFileName, isActiveTreeItemFile, type FileTreeItem } from "./overleaf-filetree"
+import { getFileTreeItems, clickFileTreeItem, waitForFileLoad, getCurrentFileName, isActiveTreeItemFile, expandAllFolders, collapseFolders, type FileTreeItem } from "./overleaf-filetree"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://www.overleaf.com/*", "https://*.overleaf.com/*"],
@@ -206,6 +206,8 @@ function getOverleafEditorInfo(): OverleafEditorInfo {
  */
 async function getAllFilesContent(): Promise<AllFilesInfo> {
   try {
+    // 先展开所有文件夹，保证隐藏文件节点加载到 DOM 中
+    const expandedFolders = await expandAllFolders()
     const fileItems = getFileTreeItems()
 
     if (fileItems.length === 0) {
@@ -218,44 +220,49 @@ async function getAllFilesContent(): Promise<AllFilesInfo> {
 
     const files: Array<{ name: string; content: string; length: number }> = []
 
-    for (const fileItem of fileItems) {
-      try {
-        // 点击文件
-        const clicked = await clickFileTreeItem(fileItem)
-        if (!clicked) {
-          console.warn(`Failed to click file: ${fileItem.name}`)
-          continue
-        }
+    try {
+      for (const fileItem of fileItems) {
+        try {
+          // 点击文件
+          const clicked = await clickFileTreeItem(fileItem)
+          if (!clicked) {
+            console.warn(`Failed to click file: ${fileItem.name}`)
+            continue
+          }
 
-        // 等待文件加载
-        await waitForFileLoad(2000)
+          // 等待文件加载
+          await waitForFileLoad(2000)
 
-        // 确认当前选中的是文件而非文件夹
-        if (!isActiveTreeItemFile()) {
-          console.warn(`Skip item ${fileItem.name}, active tree item is not a file`)
-          continue
-        }
+          // 确认当前选中的是文件而非文件夹
+          if (!isActiveTreeItemFile()) {
+            console.warn(`Skip item ${fileItem.name}, active tree item is not a file`)
+            continue
+          }
 
-        // 再次确认当前打开的确实是目标文件，防止文件夹误入
-        const activeFileName = getCurrentFileName()
-        if (activeFileName !== fileItem.name) {
-          console.warn(`Skip item ${fileItem.name}, active file is ${activeFileName}`)
-          continue
-        }
+          // 再次确认当前打开的确实是目标文件，防止文件夹误入
+          const activeFileName = getCurrentFileName()
+          if (activeFileName !== fileItem.name) {
+            console.warn(`Skip item ${fileItem.name}, active file is ${activeFileName}`)
+            continue
+          }
 
-        // 获取内容
-        const content = getCodeMirrorContent()
-        if (content) {
-          const cleanedContent = cleanContent(content)
-          files.push({
-            name: activeFileName,
-            content: cleanedContent,
-            length: cleanedContent.length
-          })
+          // 获取内容
+          const content = getCodeMirrorContent()
+          if (content) {
+            const cleanedContent = cleanContent(content)
+            files.push({
+              name: activeFileName,
+              content: cleanedContent,
+              length: cleanedContent.length
+            })
+          }
+        } catch (error) {
+          console.error(`Error processing file ${fileItem.name}:`, error)
         }
-      } catch (error) {
-        console.error(`Error processing file ${fileItem.name}:`, error)
       }
+    } finally {
+      // 提取完成后收起刚刚展开的文件夹，减少界面干扰
+      await collapseFolders(expandedFolders)
     }
 
     return {

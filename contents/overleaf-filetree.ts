@@ -105,6 +105,68 @@ export function isActiveTreeItemFile(): boolean {
 
 
 /**
+ * 自动展开文件树中的所有文件夹，确保隐藏文件可见
+ */
+export async function expandAllFolders(maxRounds = 20, delayMs = 120): Promise<HTMLElement[]> {
+  const treeRoot = document.querySelector('.file-tree-inner')
+  if (!treeRoot) return []
+
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+  const toggledFolders: HTMLElement[] = []
+
+  let round = 0
+  while (round < maxRounds) {
+    // 仅选择未展开的文件夹节点，避免重复点击
+    const collapsedFolders = Array.from(
+      treeRoot.querySelectorAll<HTMLLIElement>('li[role="treeitem"][aria-expanded="false"][aria-label]')
+    ).filter(li => li.querySelector('.entity[data-file-type="folder"]'))
+
+    if (collapsedFolders.length === 0) break
+
+    // 兼容 Overleaf 的结构：折叠按钮是 div.folder-expand-collapse-button
+    collapsedFolders.forEach(folder => {
+      const toggle =
+        folder.querySelector<HTMLElement>('.folder-expand-collapse-button') ||
+        folder.querySelector<HTMLElement>('button[aria-label="Expand"]') ||
+        folder.querySelector<HTMLElement>('button[aria-label="Expand folder"]')
+
+      toggle?.click()
+      toggledFolders.push(folder)
+
+      // 滚动到视图，触发虚拟化加载
+      if (toggle?.scrollIntoView) toggle.scrollIntoView({ block: 'nearest' })
+    })
+
+    round += 1
+    // 等待 Overleaf 渲染子节点
+    await sleep(delayMs)
+  }
+
+  return toggledFolders
+}
+
+/**
+ * 折叠指定文件夹列表（通常是我们刚刚展开的那些）
+ */
+export async function collapseFolders(folders: HTMLElement[], delayMs = 120): Promise<void> {
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+  for (const folder of folders) {
+    // 只处理当前已展开的
+    if (folder.getAttribute('aria-expanded') !== 'true') continue
+
+    const toggle =
+      folder.querySelector<HTMLElement>('.folder-expand-collapse-button') ||
+      folder.querySelector<HTMLElement>('button[aria-label="Collapse"]') ||
+      folder.querySelector<HTMLElement>('button[aria-label="Collapse folder"]')
+
+    toggle?.click()
+    await sleep(delayMs)
+  }
+}
+
+
+/**
  * 获取文件树中的所有文件项
  */
 export function getFileTreeItems(): FileTreeItem[] {
@@ -133,7 +195,10 @@ export function getFileTreeItems(): FileTreeItem[] {
     const entityDiv = item.querySelector('.entity')
     const fileType = entityDiv?.getAttribute('data-file-type') || ''
     const isFolder = fileType === 'folder'
-    const hasExpandButton = item.querySelector('button[aria-label="Expand"]') !== null
+    const hasExpandButton =
+      item.querySelector('.folder-expand-collapse-button') !== null ||
+      item.querySelector('button[aria-label="Expand"]') !== null ||
+      item.querySelector('button[aria-label="Expand folder"]') !== null
     const hasExtension = /\.[^./]+$/.test(fileName)
     
     // 只处理有后缀的文本文件，避免误把文件夹当成文件
