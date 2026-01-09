@@ -214,5 +214,70 @@ export class ApiClient {
     }
   }
 
+  /**
+   * 获取模型列表
+   */
+  async fetchModels(): Promise<{ id: string; name: string }[]> {
+    try {
+      const headers = new Headers()
+      headers.append('Authorization', `Bearer ${this.modelConfig.api_key}`)
+      headers.append('Accept', 'application/json')
 
+      const fullUrl = this.buildUrl('/v1/models')
+      
+      const response = await fetch(fullUrl, {
+        method: 'GET',
+        headers
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch models: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      
+      // 处理不同API返回格式
+      if (data.data && Array.isArray(data.data)) {
+        return data.data.map((model: any) => ({
+          id: model.id || model.model,
+          name: model.id || model.model
+        }))
+      } else if (Array.isArray(data)) {
+        return data.map((model: any) => ({
+          id: model.id || model.model,
+          name: model.id || model.model
+        }))
+      }
+      
+      return []
+    } catch (error) {
+      console.error('Error fetching models:', error)
+      return []
+    }
+  }
+}
+
+/**
+ * 静态方法：获取指定提供商的模型列表
+ */
+export async function fetchProviderModels(
+  baseUrl: string,
+  apiKey: string
+): Promise<{ id: string; name: string }[]> {
+  try {
+    const tempConfig: ModelConfig = {
+      model_name: 'temp',
+      display_name: 'temp',
+      provider: 'temp',
+      base_url: baseUrl,
+      api_key: apiKey,
+      multimodal: false
+    }
+    
+    const client = new ApiClient(tempConfig)
+    return await client.fetchModels()
+  } catch (error) {
+    console.error('Error in fetchProviderModels:', error)
+    return []
+  }
 }
