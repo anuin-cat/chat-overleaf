@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useToast } from "~components/ui/sonner"
 import { FileExtractionService, type FileInfo, type ExtractionResult } from "./file-extraction-service"
 import { storageUtils } from "~utils/storage"
@@ -17,6 +17,11 @@ export const useFileExtraction = (
   const [showFileList, setShowFileList] = useState(true)
   const [isCacheReady, setIsCacheReady] = useState(false)
   const [projectId, setProjectId] = useState<string | null>(null)
+  const pendingCacheRef = useRef<{
+    files: FileInfo[]
+    selectedFileNames: string[]
+    updatedAt: string
+  } | null>(null)
 
   const cacheKey = projectId ? `overleaf_file_cache:${projectId}` : null
 
@@ -123,6 +128,7 @@ export const useFileExtraction = (
     let isMounted = true
     if (!cacheKey) return
     setIsCacheReady(false)
+    pendingCacheRef.current = null
 
     const loadCache = async () => {
       const cached = await storageUtils.get<{
@@ -158,15 +164,27 @@ export const useFileExtraction = (
     }
   }, [cacheKey, onSelectedFilesChange])
 
-  // 文件列表或选择变化时写入缓存
   useEffect(() => {
     if (!cacheKey || !isCacheReady) return
+    if (pendingCacheRef.current) {
+      storageUtils.set(cacheKey, pendingCacheRef.current)
+      pendingCacheRef.current = null
+    }
+  }, [cacheKey, isCacheReady])
+
+  // 文件列表或选择变化时写入缓存
+  useEffect(() => {
+    if (!cacheKey) return
     const payload = {
       files: extractedFiles,
       selectedFileNames: Array.from(selectedFiles),
       updatedAt: new Date().toISOString()
     }
-    storageUtils.set(cacheKey, payload)
+    if (isCacheReady) {
+      storageUtils.set(cacheKey, payload)
+    } else {
+      pendingCacheRef.current = payload
+    }
   }, [cacheKey, extractedFiles, selectedFiles, isCacheReady])
 
   // 处理内容提取结果
