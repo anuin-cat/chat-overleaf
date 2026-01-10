@@ -4,6 +4,7 @@ import { Button } from "../ui/button"
 
 interface ContextTagsProps {
   selectedFiles: Set<string>
+  fileTokenEstimate?: number
   selectedText?: {
     text: string
     fileName: string
@@ -27,6 +28,7 @@ interface ContextTagsProps {
  */
 export const ContextTags = ({
   selectedFiles,
+  fileTokenEstimate,
   selectedText,
   uploadedImages = [],
   onRemoveFile,
@@ -71,6 +73,15 @@ export const ContextTags = ({
           >
             清空
           </Button>
+        )}
+        {showFileNames && selectedFileNames.length > 0 && fileTokenEstimate && fileTokenEstimate > 0 && (
+          <Tag
+            variant="default"
+            removable={false}
+            className="rounded-full px-2 py-0.5 text-[11px] text-gray-600 bg-gray-100 border border-gray-200"
+          >
+            约 {fileTokenEstimate} token
+          </Tag>
         )}
         
         {/* 文件标签 */}

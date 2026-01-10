@@ -32,6 +32,42 @@ interface ExtractedFile {
   length: number
 }
 
+const isCjk = (code: number) =>
+  (code >= 0x4e00 && code <= 0x9fff) ||
+  (code >= 0x3400 && code <= 0x4dbf) ||
+  (code >= 0xf900 && code <= 0xfaff) ||
+  (code >= 0x3040 && code <= 0x30ff) ||
+  (code >= 0xac00 && code <= 0xd7af)
+
+const estimateTokenWeight = (text: string) => {
+  let weight = 0
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0
+    if (ch === " " || ch === "\n" || ch === "\t" || ch === "\r") {
+      weight += 0.25
+      continue
+    }
+    if (isCjk(code)) {
+      weight += 1
+      continue
+    }
+    if (code <= 0x007f) {
+      if (
+        (code >= 0x30 && code <= 0x39) ||
+        (code >= 0x41 && code <= 0x5a) ||
+        (code >= 0x61 && code <= 0x7a)
+      ) {
+        weight += 0.25
+      } else {
+        weight += 0.5
+      }
+      continue
+    }
+    weight += 0.8
+  }
+  return weight
+}
+
 interface ChatInputProps {
   messages: Message[]
   onMessagesChange: React.Dispatch<React.SetStateAction<Message[]>>
@@ -122,6 +158,18 @@ export const ChatInput = ({
     const lower = mentionQuery.toLowerCase()
     return available.filter(name => name.toLowerCase().includes(lower))
   }, [extractedFiles, mentionQuery, selectedFiles])
+
+  const estimatedFileTokens = useMemo(() => {
+    if (selectedFiles.size === 0) return 0
+    let weight = 0
+    for (const file of extractedFiles) {
+      if (!selectedFiles.has(file.name)) continue
+      if (file.content) {
+        weight += estimateTokenWeight(file.content)
+      }
+    }
+    return weight > 0 ? Math.max(1, Math.ceil(weight)) : 0
+  }, [selectedFiles, extractedFiles])
 
   // 输入时更新 @ 状态
   const updateMentionState = (value: string, cursor: number) => {
@@ -304,6 +352,7 @@ export const ChatInput = ({
       {/* 标签区域 */}
       <ContextTags
         selectedFiles={selectedFiles}
+        fileTokenEstimate={estimatedFileTokens}
         selectedText={selectedText}
         uploadedImages={uploadedImages}
         onRemoveFile={handleRemoveFile}
