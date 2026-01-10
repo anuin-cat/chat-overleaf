@@ -17,6 +17,38 @@ export interface ProjectInfo {
   currentFile: string
 }
 
+function getTreeItemLabel(item: Element | null): string {
+  if (!item) return ''
+
+  const ariaLabel = item.getAttribute('aria-label')
+  if (ariaLabel?.trim()) return ariaLabel.trim()
+
+  const nameButton = item.querySelector('.item-name-button span')
+  return nameButton?.textContent?.trim() || ''
+}
+
+function buildTreeItemPath(item: Element | null): string {
+  const itemName = getTreeItemLabel(item)
+  if (!itemName) return ''
+
+  const parts = [itemName]
+  let parentList = item?.closest('ul.file-tree-folder-list')
+
+  while (parentList) {
+    const folderItem = parentList.previousElementSibling
+    if (!folderItem || !folderItem.matches('li[role="treeitem"]')) break
+
+    const folderName = getTreeItemLabel(folderItem)
+    if (folderName) {
+      parts.unshift(folderName)
+    }
+
+    parentList = folderItem.closest('ul.file-tree-folder-list')
+  }
+
+  return parts.join('/')
+}
+
 /**
  * 获取项目标题
  */
@@ -46,8 +78,8 @@ export function getCurrentFileName(): string {
   // 尝试从文件树中找到当前选中的文件
   const activeItem = document.querySelector('.file-tree-inner li[role="treeitem"][aria-selected="true"]')
   if (activeItem) {
-    const fileName = activeItem.getAttribute('aria-label')
-    if (fileName) return fileName
+    const filePath = buildTreeItemPath(activeItem)
+    if (filePath) return filePath
   }
   
   // 尝试从编辑器标签获取
@@ -180,14 +212,7 @@ export function getFileTreeItems(): FileTreeItem[] {
   
   items.forEach((item) => {
     // 获取文件名
-    let fileName = item.getAttribute('aria-label')
-    
-    if (!fileName) {
-      const nameButton = item.querySelector('.item-name-button span')
-      if (nameButton) {
-        fileName = nameButton.textContent?.trim() || ''
-      }
-    }
+    let fileName = getTreeItemLabel(item)
     
     if (!fileName) return
     
@@ -205,9 +230,10 @@ export function getFileTreeItems(): FileTreeItem[] {
     if (!isFolder && !hasExpandButton && hasExtension && isTextFile(fileName)) {
       const clickElement = item.querySelector('.item-name-button') || item
       
+      const filePath = buildTreeItemPath(item) || fileName
       fileItems.push({
-        name: fileName,
-        path: fileName, // 简化版本，直接使用文件名作为路径
+        name: filePath,
+        path: filePath,
         element: clickElement,
         fileId: entityDiv?.getAttribute('data-file-id') || undefined,
         fileType: entityDiv?.getAttribute('data-file-type') || undefined,
