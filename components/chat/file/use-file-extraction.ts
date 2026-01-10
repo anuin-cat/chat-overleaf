@@ -314,7 +314,7 @@ export const useFileExtraction = (
       if (event.data.type === 'OVERLEAF_CONTENT_CHANGED') {
         const { fileName, content, length } = event.data.data
 
-        // 自动更新已提取文件列表中的对应文件
+        // 自动更新已提取文件列表中的对应文件（不自动添加到选中列表）
         setExtractedFiles(prev => {
           const existingIndex = prev.findIndex(file => file.name === fileName)
           const newFile: FileInfo = { name: fileName, content, length }
@@ -328,16 +328,6 @@ export const useFileExtraction = (
             // 添加新文件
             return [...prev, newFile]
           }
-        })
-
-        // 如果文件不在选中列表中，自动选中它
-        updateSelectedFiles(prev => {
-          if (!prev.has(fileName)) {
-            const newSet = new Set(prev)
-            newSet.add(fileName)
-            return newSet
-          }
-          return prev
         })
       }
     }

@@ -387,6 +387,17 @@ export const ChatInput = ({
     }
   }
 
+  // 批量删除文件（用于删除文件夹时一次性删除所有子文件）
+  const handleRemoveFiles = (fileNames: string[]) => {
+    if (onFileSelectionChange) {
+      const newSelectedFiles = new Set(selectedFiles)
+      for (const fileName of fileNames) {
+        newSelectedFiles.delete(fileName)
+      }
+      onFileSelectionChange(newSelectedFiles)
+    }
+  }
+
   // 清空所有文件
   const handleClearAllFiles = () => {
     if (onFileSelectionChange) {
@@ -418,6 +429,7 @@ export const ChatInput = ({
         selectedText={selectedText}
         uploadedImages={uploadedImages}
         onRemoveFile={handleRemoveFile}
+        onRemoveFiles={handleRemoveFiles}
         onRemoveSelectedText={clearSelectedText}
         onImageClick={handleImageClick}
         onRemoveImage={handleRemoveImage}

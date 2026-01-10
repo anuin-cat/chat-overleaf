@@ -20,6 +20,7 @@ interface ContextTagsProps {
   }
   uploadedImages?: ImageInfo[]
   onRemoveFile?: (fileName: string) => void
+  onRemoveFiles?: (fileNames: string[]) => void  // 批量删除文件
   onRemoveSelectedText?: () => void
   onFileClick?: (fileName: string) => void
   onImageClick?: (imageInfo: ImageInfo) => void
@@ -57,6 +58,7 @@ export const ContextTags = ({
   selectedText,
   uploadedImages = [],
   onRemoveFile,
+  onRemoveFiles,
   onRemoveSelectedText,
   onFileClick,
   onImageClick,
@@ -84,9 +86,16 @@ export const ContextTags = ({
 
   // 处理移除文件夹（移除其下所有文件）
   const handleRemoveFolder = (folderFiles: string[]) => {
-    if (!onRemoveFile) return
-    for (const file of folderFiles) {
-      onRemoveFile(file)
+    // 优先使用批量删除方法
+    if (onRemoveFiles) {
+      onRemoveFiles(folderFiles)
+      return
+    }
+    // 降级方案：逐个删除（可能只删除最后一个）
+    if (onRemoveFile) {
+      for (const file of folderFiles) {
+        onRemoveFile(file)
+      }
     }
   }
 
