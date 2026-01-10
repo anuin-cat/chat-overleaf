@@ -10,6 +10,7 @@ interface TagProps {
   className?: string
   removable?: boolean
   clickable?: boolean
+  title?: string
 }
 
 export const Tag = ({
@@ -19,7 +20,8 @@ export const Tag = ({
   variant = "default",
   className,
   removable = true,
-  clickable = false
+  clickable = false,
+  title
 }: TagProps) => {
   const baseClasses = "inline-flex items-center gap-0.5 px-0.5 py-0.5 text-xs rounded-md font-medium"
 
@@ -46,6 +48,7 @@ export const Tag = ({
     <span
       className={cn(baseClasses, variantClasses[variant], clickableClasses, className)}
       onClick={clickable ? handleTagClick : undefined}
+      title={title}
     >
       <span className="truncate max-w-[200px]">{children}</span>
       {removable && onRemove && (

@@ -42,6 +42,13 @@ export const ContextTags = ({
 }: ContextTagsProps) => {
   const selectedFileNames = Array.from(selectedFiles)
   const hasSelection = selectedText?.hasSelection || false
+  const getBaseName = (fileName: string) => fileName.split(/[\/]/).pop() || fileName
+  const baseNameTotals = selectedFileNames.reduce<Map<string, number>>((acc, fileName) => {
+    const baseName = getBaseName(fileName)
+    acc.set(baseName, (acc.get(baseName) || 0) + 1)
+    return acc
+  }, new Map())
+  const baseNameIndexes = new Map<string, number>()
 
   // 如果没有任何标签要显示，返回 null
   if ((!showFileNames || selectedFileNames.length === 0) &&
@@ -67,17 +74,26 @@ export const ContextTags = ({
         )}
         
         {/* 文件标签 */}
-        {showFileNames && selectedFileNames.map((fileName) => (
-          <Tag
-            key={fileName}
-            variant="file"
-            onRemove={onRemoveFile ? () => onRemoveFile(fileName) : undefined}
-            removable={!!onRemoveFile}
-            clickable={false}
-          >
-            📄 {fileName}
-          </Tag>
-        ))}
+        {showFileNames && selectedFileNames.map((fileName) => {
+          const baseName = getBaseName(fileName)
+          const nextIndex = (baseNameIndexes.get(baseName) || 0) + 1
+          baseNameIndexes.set(baseName, nextIndex)
+          const needsIndex = (baseNameTotals.get(baseName) || 0) > 1
+          const displayName = needsIndex ? `${baseName} ${nextIndex}` : baseName
+
+          return (
+            <Tag
+              key={fileName}
+              variant="file"
+              onRemove={onRemoveFile ? () => onRemoveFile(fileName) : undefined}
+              removable={!!onRemoveFile}
+              clickable={false}
+              title={fileName}
+            >
+              📄 {displayName}
+            </Tag>
+          )
+        })}
 
         {/* 图片标签 */}
         {showImages && uploadedImages.map((imageInfo) => (

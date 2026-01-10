@@ -37,6 +37,8 @@ export const AutoSizedFileList = ({
   const maxHeight = Math.floor(window.innerHeight * 1 / 2)
   const HEADER_HEIGHT = 40 // 头部高度约40px
 
+  const sortedFiles = [...extractedFiles].sort((a, b) => a.name.localeCompare(b.name))
+
 
 
   if (extractedFiles.length === 0) {
@@ -88,7 +90,7 @@ export const AutoSizedFileList = ({
         className="overflow-y-auto bg-white"
         style={{ maxHeight: `${maxHeight - HEADER_HEIGHT}px` }}
       >
-          {extractedFiles.map((file, index) => {
+          {sortedFiles.map((file, index) => {
             const isSelected = selectedFiles.has(file.name)
 
             return (
