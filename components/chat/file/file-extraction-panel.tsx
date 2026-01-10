@@ -1,11 +1,19 @@
 import { Button } from "~components/ui/button"
 import { Files } from "lucide-react"
-import { useFileExtraction } from "./use-file-extraction"
 import { AutoSizedFileList } from "./auto-sized-file-list"
+import type { FileInfo } from "./file-extraction-service"
 
 export interface FileExtractionPanelProps {
-  onFileSelectionChange?: (selectedFiles: Set<string>) => void
-  selectedFiles?: Set<string>
+  extractedFiles: FileInfo[]
+  selectedFiles: Set<string>
+  isExtracting: boolean
+  showFileList: boolean
+  onExtractAll: () => void
+  onCopyFile: (file: FileInfo) => void
+  onDeleteFile: (fileName: string) => void
+  onClearAllFiles: () => void
+  onSelectFile: (fileName: string, selected: boolean) => void
+  onSelectAllFiles: () => void
   className?: string
 }
 
@@ -14,25 +22,17 @@ export interface FileExtractionPanelProps {
  * 纯UI组件，通过props接收配置，通过hook获取状态和操作
  */
 export const FileExtractionPanel = ({
-  onFileSelectionChange,
-  selectedFiles: externalSelectedFiles,
+  extractedFiles,
+  selectedFiles,
+  isExtracting,
+  showFileList,
+  onExtractAll,
+  onCopyFile,
+  onDeleteFile,
+  onClearAllFiles,
+  onSelectFile,
+  onSelectAllFiles,
 }: FileExtractionPanelProps) => {
-  const {
-    // 状态
-    isExtracting,
-    extractedFiles,
-    selectedFiles,
-    showFileList,
-
-    // 操作
-    extractAll,
-    copyFile,
-    deleteFile,
-    clearAllFiles,
-    selectFile,
-    selectAllFiles
-  } = useFileExtraction(externalSelectedFiles, onFileSelectionChange)
-
   return (
     <div className="bg-blue-50 border-b border-blue-200">
       {/* 已提取文件列表 - 使用自动调整高度的组件 */}
@@ -42,19 +42,19 @@ export const FileExtractionPanel = ({
           selectedFiles={selectedFiles}
           isExtracting={isExtracting}
           showFileList={showFileList}
-          onExtractAll={extractAll}
-          onCopyFile={copyFile}
-          onDeleteFile={deleteFile}
-          onClearAllFiles={clearAllFiles}
-          onSelectFile={selectFile}
-          onSelectAllFiles={selectAllFiles}
+          onExtractAll={onExtractAll}
+          onCopyFile={onCopyFile}
+          onDeleteFile={onDeleteFile}
+          onClearAllFiles={onClearAllFiles}
+          onSelectFile={onSelectFile}
+          onSelectAllFiles={onSelectAllFiles}
         />
       ) : (
         /* 空状态 - 显示获取所有文件按钮 */
         <div className="text-center py-4">
           <p className="text-xs text-gray-500 mb-2">暂无提取的文件</p>
           <Button
-            onClick={() => extractAll()}
+            onClick={() => onExtractAll()}
             disabled={isExtracting}
             variant="outline"
             size="sm"

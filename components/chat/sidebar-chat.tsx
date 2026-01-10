@@ -80,7 +80,19 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
   const { success } = useToast()
 
   // 使用文件提取 hook（用于获取提取的文件信息）
-  const { extractedFiles, showFileList, toggleFileList: originalToggleFileList } = useFileExtraction(selectedFiles, setSelectedFiles)
+  const {
+    extractedFiles,
+    selectedFiles: syncedSelectedFiles,
+    showFileList,
+    isExtracting,
+    extractAll,
+    copyFile,
+    deleteFile,
+    clearAllFiles,
+    selectFile,
+    selectAllFiles,
+    toggleFileList: originalToggleFileList
+  } = useFileExtraction(selectedFiles, setSelectedFiles)
 
   // 使用聊天历史 hook
   const {
@@ -369,8 +381,16 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
         showFileList ? "max-h-[50vh] opacity-100" : "max-h-0 opacity-0"
       }`}>
         <FileExtractionPanel
-          selectedFiles={selectedFiles}
-          onFileSelectionChange={setSelectedFiles}
+          extractedFiles={extractedFiles}
+          selectedFiles={syncedSelectedFiles}
+          isExtracting={isExtracting}
+          showFileList={showFileList}
+          onExtractAll={extractAll}
+          onCopyFile={copyFile}
+          onDeleteFile={deleteFile}
+          onClearAllFiles={clearAllFiles}
+          onSelectFile={selectFile}
+          onSelectAllFiles={selectAllFiles}
         />
       </div>
 
@@ -452,7 +472,7 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
       <ChatInput
         messages={messages}
         onMessagesChange={setMessages}
-        selectedFiles={selectedFiles}
+        selectedFiles={syncedSelectedFiles}
         extractedFiles={extractedFiles}
         llmService={llmService}
         onFileSelectionChange={setSelectedFiles}

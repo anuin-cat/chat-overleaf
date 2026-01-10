@@ -22,6 +22,7 @@ export const useFileExtraction = (
     selectedFileNames: string[]
     updatedAt: string
   } | null>(null)
+  const lastLoggedFileNamesRef = useRef<string>("")
 
   const cacheKey = projectId ? `overleaf_file_cache:${projectId}` : null
 
@@ -142,6 +143,9 @@ export const useFileExtraction = (
       if (cached) {
         if (Array.isArray(cached.files)) {
           setExtractedFiles(cached.files)
+          const cachedNames = cached.files.map(file => file.name).sort().join("|")
+          lastLoggedFileNamesRef.current = cachedNames
+          console.log("[file-cache] loaded list:", cached.files.map(file => file.name))
         }
 
         if (Array.isArray(cached.selectedFileNames) && cached.selectedFileNames.length > 0) {
@@ -184,6 +188,11 @@ export const useFileExtraction = (
       storageUtils.set(cacheKey, payload)
     } else {
       pendingCacheRef.current = payload
+    }
+    const currentNames = extractedFiles.map(file => file.name).sort().join("|")
+    if (currentNames !== lastLoggedFileNamesRef.current) {
+      lastLoggedFileNamesRef.current = currentNames
+      console.log("[file-cache] saving list:", extractedFiles.map(file => file.name))
     }
   }, [cacheKey, extractedFiles, selectedFiles, isCacheReady])
 
