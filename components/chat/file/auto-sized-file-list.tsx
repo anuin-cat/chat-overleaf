@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { Button } from "~components/ui/button"
 import { Checkbox } from "~components/ui/checkbox"
-import { Files, Copy, Trash2, Folder, FolderOpen, FileText, ChevronRight, ChevronDown } from "lucide-react"
+import { Files, Copy, Trash2, Folder, FolderOpen, FileText, ChevronRight, ChevronDown, HelpCircle } from "lucide-react"
 import type { FileInfo } from "./file-extraction-service"
 import {
   buildFileTree,
@@ -212,7 +212,8 @@ export const AutoSizedFileList = ({
   className = ""
 }: AutoSizedFileListProps) => {
   const maxHeight = Math.floor(window.innerHeight * 1 / 2)
-  const HEADER_HEIGHT = 40
+  const HEADER_HEIGHT = 32
+  const [showHelp, setShowHelp] = useState(false)
 
   // 构建文件树
   const fileTree = useMemo(() => {
@@ -256,17 +257,46 @@ export const AutoSizedFileList = ({
   return (
     <div className={className}>
       {/* 头部操作按钮 */}
-      <div className="flex items-center justify-between px-2 py-1.5 bg-blue-100 border-b border-blue-200">
-        <span className="text-xs font-medium text-blue-800">
-          已提取文件 ({extractedFiles.length})
-        </span>
-        <div className="flex items-center gap-1">
+      <div className="flex items-center justify-between px-2 py-1 bg-blue-100 border-b border-blue-200">
+        <div className="flex items-center gap-1 relative">
+          <span className="text-xs font-medium text-blue-800">
+            已提取文件 ({extractedFiles.length})
+          </span>
+          {/* 帮助图标 */}
+          <div 
+            className="relative"
+            onMouseEnter={() => setShowHelp(true)}
+            onMouseLeave={() => setShowHelp(false)}
+          >
+            <HelpCircle className="h-3 w-3 text-blue-500 cursor-help hover:text-blue-700" />
+            {/* 帮助提示弹窗 */}
+            {showHelp && (
+              <div className="absolute left-0 top-5 z-50 w-64 p-2.5 bg-white rounded-lg shadow-lg border border-blue-200 text-xs">
+                <div className="space-y-2 text-gray-700">
+                  <div className="flex items-start gap-1.5">
+                    <span className="text-blue-500 font-bold">•</span>
+                    <span><strong>提取项目文件：</strong>获取 Overleaf 项目中的所有文件内容</span>
+                  </div>
+                  <div className="flex items-start gap-1.5">
+                    <span className="text-green-500 font-bold">•</span>
+                    <span><strong>本地缓存：</strong>所有文件内容仅缓存在本地浏览器，不会上传到任何服务器，数据安全</span>
+                  </div>
+                  <div className="flex items-start gap-1.5">
+                    <span className="text-amber-500 font-bold">•</span>
+                    <span><strong>Token 估算：</strong>显示的 token 数量通过符号预估，可能与实际使用时有偏差</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-0.5">
           <Button
             onClick={onExtractAll}
             disabled={isExtracting}
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-xs text-blue-700 hover:bg-blue-200"
+            className="h-5 px-1.5 text-xs text-blue-700 hover:bg-blue-200"
             title="获取所有文件"
           >
             <Files className="h-3 w-3" />
@@ -276,7 +306,7 @@ export const AutoSizedFileList = ({
             variant="ghost"
             size="sm"
             onClick={onSelectAllFiles}
-            className="h-6 px-2 text-xs text-blue-600 hover:bg-blue-100"
+            className="h-5 px-1.5 text-xs text-blue-600 hover:bg-blue-100"
             title="全选所有文件"
           >
             全选

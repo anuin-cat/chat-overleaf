@@ -306,7 +306,7 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
       />
 
       {/* Header */}
-      <div className="p-2 border-b border-gray-200">
+      <div className="p-2 border-b border-gray-200 relative">
         {/* 关闭按钮 + 设置按钮 + 模型选择 */}
         <div className="flex items-center justify-between mb-0 gap-1.5">
           {/* 模型选择 */}
@@ -327,15 +327,17 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
                 variant="ghost"
                 size="sm"
                 onClick={toggleFileList}
-                className={`h-7 px-1.5 flex items-center gap-0.5 transition-all ${
+                className={`h-7 px-1.5 flex items-center gap-0.5 transition-all relative z-10 ${
                   showFileList
-                    ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-b-none'
-                    : 'hover:bg-gray-100'
+                    ? 'bg-blue-100 text-blue-700 hover:bg-blue-100 rounded-b-none'
+                    : 'hover:bg-gray-100 hover:shadow-sm'
                 }`}
                 title={showFileList ? "收起文件列表" : "展开文件列表"}
               >
                 {showFileList ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                 <span className="text-xs font-medium">文件列表</span>
+                {/* 展开时向下延伸的连接条 */}
+                {showFileList && <div className="absolute -bottom-[9px] left-0 right-0 h-[10px] bg-blue-100 rounded-b-none" />}
               </Button>
             )}
             {/* 聊天历史展开按钮 - 始终显示 */}
@@ -343,15 +345,17 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
               variant="ghost"
               size="sm"
               onClick={toggleHistoryListMutex}
-              className={`h-7 px-1.5 flex items-center gap-0.5 transition-all ${
+              className={`h-7 px-1.5 flex items-center gap-0.5 transition-all relative z-10 ${
                 showHistoryList
-                  ? 'bg-green-50 text-green-700 hover:bg-green-100 rounded-b-none'
-                  : 'hover:bg-gray-100'
+                  ? 'bg-green-100 text-green-700 hover:bg-green-100 rounded-b-none'
+                  : 'hover:bg-gray-100 hover:shadow-sm'
               }`}
               title={showHistoryList ? "收起聊天历史" : "展开聊天历史"}
             >
               {showHistoryList ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               <span className="text-xs font-medium">聊天历史</span>
+              {/* 展开时向下延伸的连接条 */}
+              {showHistoryList && <div className="absolute -bottom-[9px] left-0 right-0 h-[10px] bg-green-100 rounded-b-none" />}
             </Button>
             <Button
               variant="ghost"

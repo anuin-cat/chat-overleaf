@@ -73,8 +73,9 @@ export const ModelSelect = ({
         type="button"
         onClick={handleTriggerClick}
         className={cn(
-          "flex h-9 items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background",
-          "focus:outline-none focus:ring-1 focus:ring-ring",
+          "flex h-7 items-center justify-between whitespace-nowrap rounded-md bg-transparent px-2 py-1 text-sm transition-all",
+          "hover:shadow-md hover:bg-gray-50",
+          "focus:outline-none focus:shadow-md",
           "disabled:cursor-not-allowed disabled:opacity-50",
           "min-w-[120px]"
         )}
