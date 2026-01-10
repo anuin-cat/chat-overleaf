@@ -17,6 +17,9 @@ export interface StreamResponse {
   content: string
   finished: boolean
   error?: string
+  // 思考过程相关
+  thinking?: string
+  thinkingFinished?: boolean
 }
 
 export class LLMService {

@@ -154,6 +154,8 @@ export class ApiClient {
     content: string
     finished: boolean
     error?: string
+    thinking?: string
+    thinkingFinished?: boolean
   }, void, unknown> {
     // 所有模型都使用OpenAI格式的流式响应处理
     yield* this.processOpenAIStream(response)
@@ -161,11 +163,14 @@ export class ApiClient {
 
   /**
    * 处理OpenAI格式的流式响应
+   * 支持解析 reasoning_content (OpenAI o1/o3 思考链) 和其他格式
    */
   private async *processOpenAIStream(response: Response): AsyncGenerator<{
     content: string
     finished: boolean
     error?: string
+    thinking?: string
+    thinkingFinished?: boolean
   }, void, unknown> {
     const reader = response.body?.getReader()
     if (!reader) {
@@ -175,6 +180,10 @@ export class ApiClient {
 
     const decoder = new TextDecoder()
     let fullContent = ''
+    let fullThinking = ''
+    let thinkingFinished = false
+    // 用于处理跨 chunk 的不完整数据
+    let buffer = ''
 
     try {
       while (true) {
@@ -182,34 +191,119 @@ export class ApiClient {
         if (done) break
 
         const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split('\n')
+        buffer += chunk
+        
+        // 按换行符分割，处理可能的 \r\n 或 \n
+        const lines = buffer.split(/\r?\n/)
+        // 保留最后一行（可能不完整）
+        buffer = lines.pop() || ''
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            if (data === '[DONE]') {
-              yield { content: fullContent, finished: true }
-              return
-            }
+          const trimmedLine = line.trim()
+          if (!trimmedLine) continue
+          
+          // 支持 "data: " 和 "data:" 两种格式
+          let data = ''
+          if (trimmedLine.startsWith('data: ')) {
+            data = trimmedLine.slice(6)
+          } else if (trimmedLine.startsWith('data:')) {
+            data = trimmedLine.slice(5)
+          } else {
+            continue
+          }
 
-            try {
-              const parsed = JSON.parse(data)
-              const delta = parsed.choices?.[0]?.delta?.content
-              if (delta) {
-                fullContent += delta
-                yield { content: fullContent, finished: false }
-              }
-            } catch (e) {
-              // 忽略解析错误
+          if (data === '[DONE]') {
+            yield { 
+              content: fullContent, 
+              finished: true, 
+              thinking: fullThinking || undefined, 
+              thinkingFinished: true 
             }
+            return
+          }
+
+          try {
+            const parsed = JSON.parse(data)
+            const choice = parsed.choices?.[0]
+            const delta = choice?.delta
+
+            if (delta) {
+              let hasUpdate = false
+              
+              // 解析思考内容 - 支持多种格式
+              const reasoningDelta = delta.reasoning_content ?? delta.reasoning ?? null
+              if (reasoningDelta) {
+                fullThinking += reasoningDelta
+                hasUpdate = true
+              }
+
+              // 解析正文内容
+              const contentDelta = delta.content
+              if (contentDelta) {
+                // 当开始输出正文时，标记思考已完成
+                if (fullThinking && !thinkingFinished) {
+                  thinkingFinished = true
+                }
+                fullContent += contentDelta
+                hasUpdate = true
+              }
+              
+              // 只有当有更新时才 yield
+              if (hasUpdate) {
+                yield { 
+                  content: fullContent, 
+                  finished: false, 
+                  thinking: fullThinking || undefined, 
+                  thinkingFinished 
+                }
+              }
+            }
+          } catch (e) {
+            // 忽略解析错误
           }
         }
+      }
+      
+      // 处理缓冲区中可能剩余的数据
+      const remainingLine = buffer.trim()
+      if (remainingLine) {
+        let data = ''
+        if (remainingLine.startsWith('data: ')) {
+          data = remainingLine.slice(6)
+        } else if (remainingLine.startsWith('data:')) {
+          data = remainingLine.slice(5)
+        }
+        
+        if (data && data !== '[DONE]') {
+          try {
+            const parsed = JSON.parse(data)
+            const delta = parsed.choices?.[0]?.delta
+            if (delta?.content) {
+              fullContent += delta.content
+            }
+            if (delta?.reasoning_content ?? delta?.reasoning) {
+              fullThinking += delta.reasoning_content ?? delta.reasoning
+            }
+          } catch (e) {
+            // 忽略解析错误
+          }
+        }
+      }
+      
+      // 流结束
+      yield { 
+        content: fullContent, 
+        finished: true, 
+        thinking: fullThinking || undefined, 
+        thinkingFinished: true 
       }
     } catch (error) {
       yield {
         content: fullContent,
         finished: true,
-        error: error instanceof Error ? error.message : 'Stream processing error'
+        error: error instanceof Error ? error.message : 'Stream processing error',
+        thinking: fullThinking || undefined,
+        thinkingFinished: true
       }
     }
   }

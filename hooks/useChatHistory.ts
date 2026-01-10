@@ -14,6 +14,9 @@ export interface Message {
   images?: ImageInfo[] // 添加图片信息字段
   isWaiting?: boolean
   waitingStartTime?: Date
+  // 思考过程相关
+  thinking?: string
+  thinkingFinished?: boolean
 }
 
 // 用于存储的简化消息接口（只保存核心聊天信息）
@@ -24,6 +27,8 @@ export interface StoredMessage {
   timestamp: Date
   selectedText?: string // 保存选中的文本内容
   images?: ImageInfo[] // 保存图片信息
+  // 思考过程
+  thinking?: string
 }
 
 export interface ChatHistory {
@@ -116,8 +121,9 @@ export const useChatHistory = () => {
         isUser: msg.isUser,
         timestamp: msg.timestamp,
         selectedText: msg.selectedText, // 保存选中的文本内容
-        images: msg.images // 保存图片信息
-        // 不保存 isStreaming, isWaiting, waitingStartTime 等临时状态
+        images: msg.images, // 保存图片信息
+        thinking: msg.thinking // 保存思考过程
+        // 不保存 isStreaming, isWaiting, waitingStartTime, thinkingFinished 等临时状态
       }))
 
       const finalHistoryId = historyId || `history_${generateId()}`

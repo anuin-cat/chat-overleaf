@@ -17,6 +17,9 @@ interface Message {
   images?: ImageInfo[] // 添加图片信息字段
   isWaiting?: boolean
   waitingStartTime?: Date
+  // 思考过程相关
+  thinking?: string
+  thinkingFinished?: boolean
 }
 
 interface ExtractedFile {
@@ -286,6 +289,8 @@ export const useMessageHandler = ({
 
     // 开始流式对话
     let fullContent = ""
+    let fullThinking = ""
+    let thinkingFinished = false
     let hasError = false
 
     for await (const response of llmService.streamChat(chatHistory, controller.signal)) {
@@ -296,6 +301,13 @@ export const useMessageHandler = ({
         fullContent = `❌ **API 调用出错**\n\n**错误信息：**\n${response.error}`
       } else {
         fullContent = response.content
+        // 处理思考内容
+        if (response.thinking) {
+          fullThinking = response.thinking
+        }
+        if (response.thinkingFinished !== undefined) {
+          thinkingFinished = response.thinkingFinished
+        }
       }
 
       onMessagesChange(prev => prev.map(msg =>
@@ -305,7 +317,9 @@ export const useMessageHandler = ({
               content: fullContent,
               isStreaming: !response.finished,
               isWaiting: false,
-              waitingStartTime: undefined
+              waitingStartTime: undefined,
+              thinking: fullThinking || undefined,
+              thinkingFinished
             }
           : msg
       ))
@@ -313,10 +327,6 @@ export const useMessageHandler = ({
       if (response.finished) {
         break
       }
-    }
-
-    if (hasError) {
-      console.error('LLM API Error displayed in chat')
     }
   }
 

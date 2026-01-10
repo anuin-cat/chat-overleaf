@@ -2,6 +2,7 @@ import { Marked } from 'marked'
 import markedKatex from 'marked-katex-extension'
 import { useEffect, useState, useRef } from 'react'
 import { cn } from "~lib/utils"
+import { ChevronDown, ChevronRight, Brain } from 'lucide-react'
 
 interface MarkdownMessageProps {
   content: string
@@ -10,6 +11,9 @@ interface MarkdownMessageProps {
   className?: string
   isWaiting?: boolean
   waitingStartTime?: Date
+  // 思考过程相关
+  thinking?: string
+  thinkingFinished?: boolean
 }
 
 // 创建独立的 marked 实例，避免全局配置冲突
@@ -26,12 +30,35 @@ const markedInstance = new Marked({
   strict: false, // 不严格模式，允许一些便利功能
 } as any))
 
-export const MarkdownMessage = ({ content, isUser, isStreaming, className, isWaiting, waitingStartTime }: MarkdownMessageProps) => {
+export const MarkdownMessage = ({ 
+  content, 
+  isUser, 
+  isStreaming, 
+  className, 
+  isWaiting, 
+  waitingStartTime,
+  thinking,
+  thinkingFinished 
+}: MarkdownMessageProps) => {
   // 等待时间计时器
   const [waitingTime, setWaitingTime] = useState(0)
   // 复制状态管理
   const [copiedBlocks, setCopiedBlocks] = useState<Set<string>>(new Set())
+  // 思考内容折叠状态 - 流式输出时展开，输出完毕后自动折叠
+  const [thinkingExpanded, setThinkingExpanded] = useState(true)
   const containerRef = useRef<HTMLDivElement>(null)
+  const thinkingRef = useRef<HTMLDivElement>(null)
+  
+  // 当思考完成时自动折叠
+  useEffect(() => {
+    if (thinkingFinished && thinking) {
+      // 延迟一小段时间后折叠，给用户看到最终结果
+      const timer = setTimeout(() => {
+        setThinkingExpanded(false)
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [thinkingFinished, thinking])
 
   // 更新等待时间
   useEffect(() => {
@@ -179,13 +206,72 @@ export const MarkdownMessage = ({ content, isUser, isStreaming, className, isWai
     }
   }
 
+  // 渲染思考内容区域
+  const renderThinkingSection = () => {
+    if (!thinking || isUser) return null
+    
+    const isThinking = !thinkingFinished
+    
+    return (
+      <div className="mb-2">
+        {/* 思考按钮/标题 */}
+        <button
+          onClick={() => setThinkingExpanded(!thinkingExpanded)}
+          className={cn(
+            "flex items-center gap-1.5 text-xs font-medium transition-colors rounded px-2 py-1",
+            isThinking 
+              ? "text-amber-600 bg-amber-50 hover:bg-amber-100" 
+              : "text-gray-500 bg-gray-50 hover:bg-gray-100"
+          )}
+        >
+          {thinkingExpanded ? (
+            <ChevronDown className="w-3 h-3" />
+          ) : (
+            <ChevronRight className="w-3 h-3" />
+          )}
+          <Brain className="w-3 h-3" />
+          <span>
+            {isThinking ? "思考中..." : "思考过程"}
+          </span>
+          {isThinking && (
+            <div className="flex space-x-0.5 ml-1">
+              <div className="w-1 h-1 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+              <div className="w-1 h-1 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+              <div className="w-1 h-1 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            </div>
+          )}
+        </button>
+        
+        {/* 思考内容 */}
+        <div
+          className={cn(
+            "overflow-hidden transition-all duration-300 ease-in-out",
+            thinkingExpanded ? "max-h-[500px] opacity-100 mt-2" : "max-h-0 opacity-0"
+          )}
+        >
+          <div
+            ref={thinkingRef}
+            className={cn(
+              "text-xs text-gray-600 bg-gradient-to-br from-gray-50 to-slate-50",
+              "border-l-2 border-amber-300 pl-3 pr-2 py-2 rounded-r",
+              "max-h-[400px] overflow-y-auto",
+              "whitespace-pre-wrap break-words leading-relaxed"
+            )}
+          >
+            {thinking}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={cn("text-sm", className)}>
       {isUser ? (
         // 用户消息直接显示文本，保留换行符
         <span className="whitespace-pre-wrap">{content}</span>
-      ) : isWaiting ? (
-        // 等待状态显示等待中
+      ) : isWaiting && !thinking ? (
+        // 等待状态显示等待中（如果没有思考内容）
         <div className="flex items-center space-x-2 text-gray-500">
           <span>{waitingTime}s 思考中</span>
           <div className="flex space-x-1">
@@ -195,14 +281,27 @@ export const MarkdownMessage = ({ content, isUser, isStreaming, className, isWai
           </div>
         </div>
       ) : (
-        // AI 消息使用 Markdown 渲染
-        <div
-          ref={containerRef}
-          className="markdown-content max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
-          dangerouslySetInnerHTML={renderMarkdown(content)}
-        />
+        // AI 消息
+        <>
+          {/* 思考过程区域 - 放在顶部左上角 */}
+          {renderThinkingSection()}
+          
+          {/* 正文内容 */}
+          {content && (
+            <div
+              ref={containerRef}
+              className="markdown-content max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+              dangerouslySetInnerHTML={renderMarkdown(content)}
+            />
+          )}
+          
+          {/* 如果只有思考内容，没有正文，且还在思考中 */}
+          {!content && thinking && !thinkingFinished && (
+            <div className="text-xs text-gray-400 italic">正在生成回复...</div>
+          )}
+        </>
       )}
-      {isStreaming && !isWaiting && (
+      {isStreaming && !isWaiting && content && (
         <span className="inline-block w-2 h-4 bg-current opacity-75 animate-pulse ml-1">|</span>
       )}
     </div>

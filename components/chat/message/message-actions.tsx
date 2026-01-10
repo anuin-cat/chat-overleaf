@@ -74,16 +74,16 @@ export const MessageActions: React.FC<MessageActionsProps> = ({
   }
 
   return (
-    <div className={`flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ${className}`}>
+    <div className={`flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${className}`}>
       {/* 复制按钮 */}
       <Button
         variant="ghost"
         size="sm"
         onClick={handleCopyMessage}
-        className="h-6 w-6 p-0 hover:bg-gray-200"
+        className="h-5 w-5 p-0 hover:bg-gray-200/50"
         title="复制消息"
       >
-        <Copy className="h-3 w-3" />
+        <Copy className="h-2.5 w-2.5" />
       </Button>
 
       {/* 删除按钮 */}
@@ -91,10 +91,10 @@ export const MessageActions: React.FC<MessageActionsProps> = ({
         variant="ghost"
         size="sm"
         onClick={handleDeleteMessage}
-        className="h-6 w-6 p-0 hover:bg-red-100 text-red-600 hover:text-red-700"
+        className="h-5 w-5 p-0 hover:bg-red-100/50 text-red-500 hover:text-red-600"
         title="删除消息"
       >
-        <Trash2 className="h-3 w-3" />
+        <Trash2 className="h-2.5 w-2.5" />
       </Button>
 
       {/* 分支按钮 */}
@@ -102,10 +102,10 @@ export const MessageActions: React.FC<MessageActionsProps> = ({
         variant="ghost"
         size="sm"
         onClick={handleBranchFromMessage}
-        className="h-6 w-6 p-0 hover:bg-green-100 text-green-600 hover:text-green-700"
+        className="h-5 w-5 p-0 hover:bg-green-100/50 text-green-500 hover:text-green-600"
         title="从此处创建分支"
       >
-        <GitBranch className="h-3 w-3" />
+        <GitBranch className="h-2.5 w-2.5" />
       </Button>
     </div>
   )

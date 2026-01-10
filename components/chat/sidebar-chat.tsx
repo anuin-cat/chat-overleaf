@@ -30,6 +30,9 @@ interface Message {
   images?: import("~lib/image-utils").ImageInfo[] // 添加图片信息字段
   isWaiting?: boolean // 是否在等待第一个token
   waitingStartTime?: Date // 等待开始时间
+  // 思考过程相关
+  thinking?: string
+  thinkingFinished?: boolean
 }
 
 interface SidebarChatProps {
@@ -189,6 +192,9 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
       selectedText: msg.selectedText,
       // 恢复图片信息
       images: msg.images,
+      // 恢复思考过程
+      thinking: msg.thinking,
+      thinkingFinished: true, // 恢复时思考已完成
       // 恢复时不需要临时状态
       isStreaming: false,
       isWaiting: false,
@@ -420,53 +426,52 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-2">
-        <div className="space-y-4">
+      <ScrollArea className="flex-1 px-2.5 py-2">
+        <div className="space-y-1">
           {messages.map((message) => (
             <div
               key={message.id}
-              className={`flex ${message.isUser ? "justify-end" : "justify-start"}`}
+              className={`flex flex-col group ${message.isUser ? "items-end" : "items-start"}`}
             > 
+              {/* 消息气泡 */}
               <div
-                className={`${message.isUser ? "max-w-[80%]" : "max-w-full"} rounded-lg px-3 py-2 relative group ${
+                className={`max-w-[90%] rounded-xl px-3 py-1.5 transition-shadow ${
                   message.isUser
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-100 text-gray-800"
+                    ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm"
+                    : "bg-white border border-gray-100 text-gray-700 shadow-sm"
                 }`}
               >
                 <MarkdownMessage
                   content={message.content}
                   isUser={message.isUser}
                   isStreaming={message.isStreaming}
-                  className={message.isUser ? "text-white" : "text-gray-800"}
+                  className={message.isUser ? "text-white" : "text-gray-700"}
                   isWaiting={message.isWaiting}
                   waitingStartTime={message.waitingStartTime}
+                  thinking={message.thinking}
+                  thinkingFinished={message.thinkingFinished}
                 />
-                <div className="flex items-center justify-between mt-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs opacity-70">
-                      {message.timestamp.toLocaleTimeString()}
-                    </p>
-                    {/* 显示上下文标签（选中文本和图片） */}
-                    {message.isUser && (message.selectedText || message.images) && (
-                      <MessageContextTags
-                        selectedText={message.selectedText}
-                        images={message.images}
-                        className="text-xs"
-                      />
-                    )}
+                {/* 显示上下文标签（选中文本和图片） */}
+                {message.isUser && (message.selectedText || message.images) && (
+                  <div className="mt-1">
+                    <MessageContextTags
+                      selectedText={message.selectedText}
+                      images={message.images}
+                      className="text-[10px]"
+                    />
                   </div>
-                  {/* 消息操作按钮 */}
-                  <MessageActions
-                    messageId={message.id}
-                    messageContent={message.content}
-                    isUser={message.isUser}
-                    isStreaming={message.isStreaming}
-                    onDeleteMessage={handleDeleteMessage}
-                    onBranchFromMessage={handleBranchFromMessage}
-                  />
-                </div>
+                )}
               </div>
+              {/* 操作按钮 - 在气泡下方 */}
+              <MessageActions
+                messageId={message.id}
+                messageContent={message.content}
+                isUser={message.isUser}
+                isStreaming={message.isStreaming}
+                onDeleteMessage={handleDeleteMessage}
+                onBranchFromMessage={handleBranchFromMessage}
+                className="mt-0.5"
+              />
             </div>
           ))}
         </div>
