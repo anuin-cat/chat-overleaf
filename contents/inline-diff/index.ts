@@ -3,7 +3,7 @@
  * 在编辑器中显示修改建议，支持接受/拒绝操作
  */
 
-import type { InlineDiff } from './types'
+import type { InlineDiff, WordDiffSegment } from './types'
 import { injectInlineDiffStyles } from './styles'
 import { computeDiff, computeWordDiff, escapeHtml, renderNewDiffHtml } from './diff-algorithm'
 import { getCodeMirrorEditor, findMatchPositions, replaceInEditor } from './editor-utils'
@@ -22,7 +22,7 @@ interface HighlightBounds {
 }
 
 /**
- * 创建持久高亮覆盖层（支持多行）
+ * 创建持久高亮覆盖层（支持多行和单词级别高亮）
  * 返回高亮区域的边界信息用于定位弹出框
  */
 function createHighlightOverlay(
@@ -30,7 +30,8 @@ function createHighlightOverlay(
   from: number,
   to: number,
   editorView: any,
-  scroller: HTMLElement
+  scroller: HTMLElement,
+  oldSegments?: WordDiffSegment[]
 ): HighlightBounds | null {
   // 移除之前的高亮覆盖层
   removeHighlightOverlay(id)
@@ -53,102 +54,16 @@ function createHighlightOverlay(
     
     scroller.style.position = 'relative'
     
-    // 判断是否跨行（比较 top 值）
-    const isSingleLine = Math.abs(startCoords.top - endCoords.top) < 5
+    // 1. 创建整体淡色背景覆盖层
+    const bgBounds = createBackgroundOverlays(id, from, to, editorView, scroller, scrollerRect, overlays)
+    if (bgBounds) {
+      minLeft = bgBounds.minLeft
+      maxBottom = bgBounds.maxBottom
+    }
     
-    if (isSingleLine) {
-      // 单行：创建一个覆盖层
-      const left = startCoords.left - scrollerRect.left
-      const top = startCoords.top - scrollerRect.top + scroller.scrollTop
-      const height = startCoords.bottom - startCoords.top
-      
-      const overlay = createSingleOverlay(
-        id, 0,
-        left,
-        top,
-        endCoords.right - startCoords.left,
-        height
-      )
-      scroller.appendChild(overlay)
-      overlays.push(overlay)
-      
-      // 更新边界信息
-      minLeft = left
-      maxBottom = top + height
-    } else {
-      // 多行：为每一行创建覆盖层
-      const lineHeight = startCoords.bottom - startCoords.top
-      let currentPos = from
-      let lineIndex = 0
-      
-      while (currentPos < to) {
-        const lineStartCoords = editorView.coordsAtPos(currentPos)
-        if (!lineStartCoords) break
-        
-        // 找到当前行的结束位置
-        let lineEndPos = currentPos
-        let lineEndCoords = lineStartCoords
-        
-        for (let pos = currentPos; pos <= to; pos++) {
-          const coords = editorView.coordsAtPos(pos)
-          if (!coords) break
-          
-          // 如果 top 值变化，说明换行了
-          if (Math.abs(coords.top - lineStartCoords.top) > 5) {
-            break
-          }
-          lineEndPos = pos
-          lineEndCoords = coords
-        }
-        
-        // 计算这一行的覆盖层
-        const isFirstLine = currentPos === from
-        const isLastLine = lineEndPos >= to - 1
-        
-        // 第一行从 startCoords.left 开始，最后一行到 endCoords.right 结束
-        // 中间行需要覆盖整行宽度
-        let left: number, width: number
-        
-        if (isFirstLine) {
-          left = lineStartCoords.left - scrollerRect.left
-          if (isLastLine) {
-            // 单行的情况（不应该到这里，但以防万一）
-            width = endCoords.right - lineStartCoords.left
-          } else {
-            // 第一行：从起始位置到行尾
-            width = lineEndCoords.right - lineStartCoords.left + 10
-          }
-        } else if (isLastLine) {
-          // 最后一行：从行首到结束位置
-          const lineInfo = editorView.state.doc.lineAt(to)
-          const lineStartPos = lineInfo.from
-          const lineStartPosCoords = editorView.coordsAtPos(lineStartPos)
-          left = lineStartPosCoords ? lineStartPosCoords.left - scrollerRect.left : 0
-          width = endCoords.right - (lineStartPosCoords?.left || scrollerRect.left)
-        } else {
-          // 中间行：整行
-          left = lineStartCoords.left - scrollerRect.left
-          width = lineEndCoords.right - lineStartCoords.left + 10
-        }
-        
-        const top = lineStartCoords.top - scrollerRect.top + scroller.scrollTop
-        
-        const overlay = createSingleOverlay(id, lineIndex, left, top, width, lineHeight)
-        scroller.appendChild(overlay)
-        overlays.push(overlay)
-        
-        // 更新边界信息
-        if (left < minLeft) minLeft = left
-        const bottom = top + lineHeight
-        if (bottom > maxBottom) maxBottom = bottom
-        
-        // 移动到下一行
-        currentPos = lineEndPos + 1
-        lineIndex++
-        
-        // 安全检查：防止无限循环
-        if (lineIndex > 100) break
-      }
+    // 2. 如果有单词差异信息，为被修改的单词创建深色覆盖层
+    if (oldSegments && oldSegments.length > 0) {
+      createWordHighlights(id, from, oldSegments, editorView, scroller, scrollerRect, overlays)
     }
     
     highlightOverlays.set(id, overlays)
@@ -162,22 +77,195 @@ function createHighlightOverlay(
 }
 
 /**
+ * 创建整体背景覆盖层（淡色）
+ */
+function createBackgroundOverlays(
+  id: string,
+  from: number,
+  to: number,
+  editorView: any,
+  scroller: HTMLElement,
+  scrollerRect: DOMRect,
+  overlays: HTMLElement[]
+): HighlightBounds | null {
+  const startCoords = editorView.coordsAtPos(from)
+  const endCoords = editorView.coordsAtPos(to)
+  
+  if (!startCoords || !endCoords) return null
+  
+  let minLeft = Infinity
+  let maxBottom = 0
+  
+  const isSingleLine = Math.abs(startCoords.top - endCoords.top) < 5
+  
+  if (isSingleLine) {
+    const left = startCoords.left - scrollerRect.left
+    const top = startCoords.top - scrollerRect.top + scroller.scrollTop
+    const height = startCoords.bottom - startCoords.top
+    
+    const overlay = createSingleOverlay(id, 'bg-0', left, top, endCoords.right - startCoords.left, height, false)
+    scroller.appendChild(overlay)
+    overlays.push(overlay)
+    
+    minLeft = left
+    maxBottom = top + height
+  } else {
+    const lineHeight = startCoords.bottom - startCoords.top
+    let currentPos = from
+    let lineIndex = 0
+    
+    while (currentPos < to) {
+      const lineStartCoords = editorView.coordsAtPos(currentPos)
+      if (!lineStartCoords) break
+      
+      let lineEndPos = currentPos
+      let lineEndCoords = lineStartCoords
+      
+      for (let pos = currentPos; pos <= to; pos++) {
+        const coords = editorView.coordsAtPos(pos)
+        if (!coords) break
+        if (Math.abs(coords.top - lineStartCoords.top) > 5) break
+        lineEndPos = pos
+        lineEndCoords = coords
+      }
+      
+      const isFirstLine = currentPos === from
+      const isLastLine = lineEndPos >= to - 1
+      let left: number, width: number
+      
+      if (isFirstLine) {
+        left = lineStartCoords.left - scrollerRect.left
+        width = isLastLine ? endCoords.right - lineStartCoords.left : lineEndCoords.right - lineStartCoords.left + 10
+      } else if (isLastLine) {
+        const lineInfo = editorView.state.doc.lineAt(to)
+        const lineStartPosCoords = editorView.coordsAtPos(lineInfo.from)
+        left = lineStartPosCoords ? lineStartPosCoords.left - scrollerRect.left : 0
+        width = endCoords.right - (lineStartPosCoords?.left || scrollerRect.left)
+      } else {
+        left = lineStartCoords.left - scrollerRect.left
+        width = lineEndCoords.right - lineStartCoords.left + 10
+      }
+      
+      const top = lineStartCoords.top - scrollerRect.top + scroller.scrollTop
+      const overlay = createSingleOverlay(id, `bg-${lineIndex}`, left, top, width, lineHeight, false)
+      scroller.appendChild(overlay)
+      overlays.push(overlay)
+      
+      if (left < minLeft) minLeft = left
+      const bottom = top + lineHeight
+      if (bottom > maxBottom) maxBottom = bottom
+      
+      currentPos = lineEndPos + 1
+      lineIndex++
+      if (lineIndex > 100) break
+    }
+  }
+  
+  return { minLeft, maxBottom }
+}
+
+/**
+ * 为被修改的单词创建深色高亮覆盖层
+ */
+function createWordHighlights(
+  id: string,
+  from: number,
+  oldSegments: WordDiffSegment[],
+  editorView: any,
+  scroller: HTMLElement,
+  scrollerRect: DOMRect,
+  overlays: HTMLElement[]
+): void {
+  let currentPos = from
+  let wordIndex = 0
+  
+  for (const segment of oldSegments) {
+    const segmentLen = segment.text.length
+    
+    if (segment.type === 'changed' && segmentLen > 0) {
+      // 为这个被修改的单词/片段创建深色覆盖层
+      const segStart = currentPos
+      const segEnd = currentPos + segmentLen
+      
+      try {
+        const startCoords = editorView.coordsAtPos(segStart)
+        const endCoords = editorView.coordsAtPos(segEnd)
+        
+        if (startCoords && endCoords) {
+          // 检查是否跨行
+          const isSingleLine = Math.abs(startCoords.top - endCoords.top) < 5
+          
+          if (isSingleLine) {
+            const left = startCoords.left - scrollerRect.left
+            const top = startCoords.top - scrollerRect.top + scroller.scrollTop
+            const width = endCoords.right - startCoords.left
+            const height = startCoords.bottom - startCoords.top
+            
+            const overlay = createSingleOverlay(id, `word-${wordIndex}`, left, top, width, height, true)
+            scroller.appendChild(overlay)
+            overlays.push(overlay)
+          } else {
+            // 单词跨行（少见，但处理一下）
+            let pos = segStart
+            let subIndex = 0
+            while (pos < segEnd) {
+              const posCoords = editorView.coordsAtPos(pos)
+              if (!posCoords) break
+              
+              let lineEnd = pos
+              for (let p = pos; p <= segEnd; p++) {
+                const c = editorView.coordsAtPos(p)
+                if (!c || Math.abs(c.top - posCoords.top) > 5) break
+                lineEnd = p
+              }
+              
+              const lineEndCoords = editorView.coordsAtPos(lineEnd)
+              if (lineEndCoords) {
+                const left = posCoords.left - scrollerRect.left
+                const top = posCoords.top - scrollerRect.top + scroller.scrollTop
+                const width = lineEndCoords.right - posCoords.left
+                const height = posCoords.bottom - posCoords.top
+                
+                const overlay = createSingleOverlay(id, `word-${wordIndex}-${subIndex}`, left, top, width, height, true)
+                scroller.appendChild(overlay)
+                overlays.push(overlay)
+              }
+              
+              pos = lineEnd + 1
+              subIndex++
+              if (subIndex > 50) break
+            }
+          }
+        }
+      } catch (e) {
+        // 忽略单个单词的错误
+      }
+      wordIndex++
+    }
+    
+    currentPos += segmentLen
+  }
+}
+
+/**
  * 创建单个覆盖层元素
+ * @param isWord - true 表示深色单词高亮，false 表示淡色背景
  */
 function createSingleOverlay(
   id: string,
-  index: number,
+  index: string,
   left: number,
   top: number,
   width: number,
-  height: number
+  height: number,
+  isWord: boolean = false
 ): HTMLElement {
   const overlay = document.createElement('div')
-  overlay.className = 'co-replace-highlight-overlay'
+  overlay.className = isWord ? 'co-replace-highlight-word' : 'co-replace-highlight-overlay'
   overlay.id = `co-highlight-${id}-${index}`
   overlay.style.left = `${Math.max(0, left)}px`
   overlay.style.top = `${top}px`
-  overlay.style.width = `${Math.max(10, width)}px`
+  overlay.style.width = `${Math.max(4, width)}px`
   overlay.style.height = `${height}px`
   return overlay
 }
@@ -260,11 +348,11 @@ function showInlineDiffWithDOM(
       
       const scrollerRect = scroller.getBoundingClientRect()
       
-      // 创建持久高亮覆盖层，并获取边界信息
-      const bounds = createHighlightOverlay(id, highlightFrom, highlightTo, editorView, scroller)
+      // 计算单词级别的差异
+      const { oldSegments, newSegments } = computeWordDiff(diff.oldDiff, diff.newDiff)
       
-      // 使用外部已计算的 diff
-      const { newSegments } = computeWordDiff(diff.oldDiff, diff.newDiff)
+      // 创建持久高亮覆盖层（包含单词级别高亮），并获取边界信息
+      const bounds = createHighlightOverlay(id, highlightFrom, highlightTo, editorView, scroller, oldSegments)
       
       // 生成弹出框中显示的内容（只显示差异部分，高亮变化的单词）
       let displayContent: string
@@ -430,10 +518,10 @@ export function removeInlineDiff(id: string): boolean {
 export function removeAllInlineDiffs(): number {
   let count = activeDiffs.size
   
-  // 移除所有高亮覆盖层
+  // 移除所有高亮覆盖层（包括淡色背景和深色单词高亮）
   highlightOverlays.forEach(overlays => overlays.forEach(overlay => overlay.remove()))
   highlightOverlays.clear()
-  document.querySelectorAll('.co-replace-highlight-overlay').forEach(el => el.remove())
+  document.querySelectorAll('.co-replace-highlight-overlay, .co-replace-highlight-word').forEach(el => el.remove())
   
   // DOM 方式移除
   activeDiffs.forEach(diff => diff.element.remove())

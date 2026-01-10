@@ -41,15 +41,23 @@ export function injectInlineDiffStyles() {
       border-radius: 2px;
     }
     
-    /* 待替换文本的持久高亮覆盖层 */
+    /* 待替换文本的持久高亮覆盖层 - 淡色背景（未修改部分） */
     .co-replace-highlight-overlay {
       position: absolute;
-      background: rgba(254, 202, 202, 0.6);
-      border: 1px solid rgba(239, 68, 68, 0.5);
-      border-radius: 2px;
+      background: rgba(253, 165, 165, 0.27);
       pointer-events: none;
       z-index: 5;
       box-sizing: border-box;
+    }
+    
+    /* 被修改/删除的单词 - 深色背景 */
+    .co-replace-highlight-word {
+      position: absolute;
+      background: rgba(246, 131, 131, 0.44);
+      pointer-events: none;
+      z-index: 6;
+      box-sizing: border-box;
+      border-radius: 2px;
     }
     
     .co-cm-diff-actions {
