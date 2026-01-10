@@ -6,6 +6,34 @@
 
 <p align="center"><b>Overleaf AI 助手 | 基于 Plasmo 的 Overleaf AI 对话助手</b></p>
 
+<p align="center">
+  <a href="https://chromewebstore.google.com/detail/chat-overleaf/anofakjncihlgcmndcdipflonpgcgdmk">
+    <img src="https://img.shields.io/badge/Chrome-商店安装-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Chrome Web Store" />
+  </a>
+</p>
+
+---
+
+## 📥 安装方式
+
+### 方式一：Chrome 商店安装（推荐）
+
+直接从 Chrome 网上应用店安装：
+
+👉 [**点击安装 Chat Overleaf**](https://chromewebstore.google.com/detail/chat-overleaf/anofakjncihlgcmndcdipflonpgcgdmk)
+
+### 方式二：手动加载 zip
+
+1. 下载 GitHub Releases 中的 zip 文件并解压
+
+2. 在 Chrome 浏览器中加载插件
+   - 打开 Chrome 扩展管理页面（`chrome://extensions/`）
+   - 开启右上角的「开发者模式」
+   - 点击「加载已解压的扩展程序」
+   - 选择解压目录下的 `chrome-mv3-prod` 文件夹
+
+3. 完成加载后，访问 Overleaf 网站点击右下角图标即可（注意先添加模型秘钥）
+
 ---
 
 ## 🚀 基本功能
@@ -15,11 +43,16 @@
 - 📝 <b>选中文本提问</b>：选中编辑器内容即可直接提问，自动作为上下文
 - 🖼️ <b>多模态支持</b>：支持图片上传、粘贴和拖拽，实现图文混合对话
 - 📱 <b>响应式设计</b>：支持侧边栏宽度调整，适配不同屏幕尺寸
+- 💭 <b>思考过程展示</b>：支持显示 AI 的思考过程
 
 ### 📁 文件内容管理
-- 📄 <b>智能提取</b>：自动取当前文件或手动点击即可提取整个项目内容作为 AI 上下文
+- 📄 <b>智能提取</b>：自动获取当前文件或手动点击即可提取整个项目内容作为 AI 上下文
+- 🌲 <b>文件树视图</b>：以树形结构展示项目文件，支持文件夹展开/折叠
 - 🔄 <b>实时同步</b>：编辑器内容变化时自动更新已提取的文件
 - 📋 <b>文件选择</b>：灵活选择需要包含在对话中的文件
+- 💾 <b>文件缓存</b>：按项目 ID 缓存文件列表，避免重复获取
+- 📊 <b>Token 预估</b>：显示选中文件的预估 Token 数量
+- ✅ <b>批量操作</b>：支持全选/清空文件选择
 
 ### 💾 对话历史管理
 - 📚 <b>历史记录</b>：自动保存对话历史，支持加载和管理多个会话
@@ -27,9 +60,14 @@
 - 🗑️ <b>批量管理</b>：支持删除单个或清空所有历史记录
 
 ### 🧠 模型管理
-- 🔧 <b>内置模型</b>：预配置多个国内主流 AI 模型（DeepSeek、Kimi、Qwen 等）
+- 🔧 <b>内置模型</b>：预配置多个主流 AI 模型（DeepSeek、Kimi、Qwen、Gemini 等）
 - ⚙️ <b>自定义模型</b>：支持添加自定义 AI 服务商和模型
 - 📌 <b>模型置顶</b>：常用模型可置顶显示，快速切换
+- 🔍 <b>自动获取模型列表</b>：输入模型 ID 后自动获取对应服务商的模型列表
+
+### 🎯 便捷交互
+- ⌨️ <b>@ 快捷引用</b>：使用 @ 符号快速引用文件
+- 🎨 <b>优化的 UI</b>：更紧凑的界面设计，提升使用体验
 
 ---
 
@@ -87,20 +125,6 @@ pnpm build
 
 ---
 
-## 📦 直接加载 zip
-
-1. 下载 github Releases 中的 zip 文件并解压
-
-2. 在 Chrome 浏览器中加载插件
-   - 打开 Chrome 扩展管理页面（`chrome://extensions/`）
-   - 开启右上角的「开发者模式」
-   - 点击「加载已解压的扩展程序」
-   - 选择解压目录下的 `chrome-mv3-prod` 文件夹
-
-3. 完成加载后，访问 Overleaf 网站点击右下角图标即可（注意先添加模型秘钥）
-
----
-
 ## 📋 TODO
 
 - [x] ✍️ 支持添加编辑器选中内容对话
@@ -110,10 +134,14 @@ pnpm build
 - [ ] 📝 支持自定义 prompt 模板
 - [x] 🛠️ 支持自定义添加模型
 - [x] 🖼️ 支持图文问答
+- [x] 🌲 文件树视图展示
+- [x] 💾 文件列表缓存机制
+- [x] 📊 Token 数量预估
+- [x] ⌨️ @ 快捷引用功能
+- [x] 💭 思考过程展示
+- [x] 🔍 自动获取模型列表
 
 ---
 
 ### ⚡️ 基于 [Plasmo](https://github.com/PlasmoHQ/plasmo) 构建
-
-
 
