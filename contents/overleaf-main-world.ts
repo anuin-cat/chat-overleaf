@@ -1,5 +1,14 @@
 import type { PlasmoCSConfig } from "plasmo"
-import { getFileTreeItems, clickFileTreeItem, waitForFileLoad, getCurrentFileName, isActiveTreeItemFile, expandAllFolders, collapseFolders, type FileTreeItem } from "./overleaf-filetree"
+import { getFileTreeItems, clickFileTreeItem, waitForFileLoad, getCurrentFileName, isActiveTreeItemFile, expandAllFolders, collapseFolders } from "./overleaf-filetree"
+import { 
+  getCodeMirrorEditor, 
+  replaceInEditor, 
+  highlightInEditor, 
+  showInlineDiff, 
+  removeInlineDiff, 
+  removeAllInlineDiffs,
+  initInlineDiff 
+} from "./overleaf-inline-diff"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://www.overleaf.com/*", "https://*.overleaf.com/*"],
@@ -32,37 +41,6 @@ export interface SelectedTextInfo {
 }
 
 /**
- * 获取 CodeMirror 编辑器实例
- */
-function getCodeMirrorEditor(): any | null {
-  try {
-    const editors = document.querySelectorAll('.cm-editor')
-
-    for (let i = 0; i < editors.length; i++) {
-      const editorElement = editors[i]
-      const cmContent = editorElement.querySelector('.cm-content') as any
-
-      if (cmContent?.cmView?.view) {
-        const editorView = cmContent.cmView.view
-        if (editorView.state?.doc) {
-          const content = editorView.state.doc.toString()
-
-          // 检查是否是有效的 LaTeX 内容
-          if (content.includes('\\documentclass') || content.includes('\\begin') || content.length > 200) {
-            return editorView
-          }
-        }
-      }
-    }
-
-    return null
-  } catch (error) {
-    console.error('Error getting CodeMirror editor:', error)
-    return null
-  }
-}
-
-/**
  * 获取 CodeMirror 编辑器内容
  */
 function getCodeMirrorContent(): string | null {
@@ -83,16 +61,9 @@ function getCodeMirrorContent(): string | null {
  */
 function cleanContent(content: string): string {
   if (!content) return ''
-
-  // 将 content 中任何行带有 % 开头的注释内容去掉
   let cleanedContent = content.replace(/^%.*$/gm, '')
-
-  // 将 任何连续空格接 % 开头的行去掉
   cleanedContent = cleanedContent.replace(/^\s*%.*$/gm, '')
-
-  // 将任意连续的两个空行替换为一个空行
   cleanedContent = cleanedContent.replace(/^\s*[\r\n]\s*[\r\n]/gm, '\n')
-
   return cleanedContent
 }
 
@@ -110,48 +81,23 @@ function getSelectedText(): SelectedTextInfo {
   try {
     const editorView = getCodeMirrorEditor()
     if (!editorView) {
-      return {
-        text: '',
-        fileName: '',
-        success: false,
-        error: 'No editor found'
-      }
+      return { text: '', fileName: '', success: false, error: 'No editor found' }
     }
 
     const selection = editorView.state.selection
     if (!selection || selection.ranges.length === 0) {
-      return {
-        text: '',
-        fileName: getCurrentFileName(),
-        success: true
-      }
+      return { text: '', fileName: getCurrentFileName(), success: true }
     }
 
-    // 获取主选择范围
     const mainRange = selection.main
     if (mainRange.empty) {
-      return {
-        text: '',
-        fileName: getCurrentFileName(),
-        success: true
-      }
+      return { text: '', fileName: getCurrentFileName(), success: true }
     }
 
-    // 提取选中的文本
     const selectedText = editorView.state.doc.sliceString(mainRange.from, mainRange.to)
-
-    return {
-      text: selectedText,
-      fileName: getCurrentFileName(),
-      success: true
-    }
+    return { text: selectedText, fileName: getCurrentFileName(), success: true }
   } catch (error) {
-    return {
-      text: '',
-      fileName: '',
-      success: false,
-      error: createErrorResponse(error)
-    }
+    return { text: '', fileName: '', success: false, error: createErrorResponse(error) }
   }
 }
 
@@ -160,28 +106,15 @@ function getSelectedText(): SelectedTextInfo {
  */
 function getOverleafEditorInfo(): OverleafEditorInfo {
   try {
-    // 防止用户选中的是文件夹导致复用上一份文件内容
     if (!isActiveTreeItemFile()) {
-      return {
-        content: '',
-        fileName: '',
-        length: 0,
-        success: false,
-        error: '当前选中项不是文件'
-      }
+      return { content: '', fileName: '', length: 0, success: false, error: '当前选中项不是文件' }
     }
 
     const content = getCodeMirrorContent()
     const cleanedContent = cleanContent(content || '')
 
     if (!content) {
-      return {
-        content: '',
-        fileName: '',
-        length: 0,
-        success: false,
-        error: 'No content found'
-      }
+      return { content: '', fileName: '', length: 0, success: false, error: 'No content found' }
     }
 
     return {
@@ -191,13 +124,7 @@ function getOverleafEditorInfo(): OverleafEditorInfo {
       success: true
     }
   } catch (error) {
-    return {
-      content: '',
-      fileName: '',
-      length: 0,
-      success: false,
-      error: createErrorResponse(error)
-    }
+    return { content: '', fileName: '', length: 0, success: false, error: createErrorResponse(error) }
   }
 }
 
@@ -206,16 +133,11 @@ function getOverleafEditorInfo(): OverleafEditorInfo {
  */
 async function getAllFilesContent(): Promise<AllFilesInfo> {
   try {
-    // 先展开所有文件夹，保证隐藏文件节点加载到 DOM 中
     const expandedFolders = await expandAllFolders()
     const fileItems = getFileTreeItems()
 
     if (fileItems.length === 0) {
-      return {
-        files: [],
-        success: false,
-        error: '未找到任何文件'
-      }
+      return { files: [], success: false, error: '未找到任何文件' }
     }
 
     const files: Array<{ name: string; content: string; length: number }> = []
@@ -223,66 +145,36 @@ async function getAllFilesContent(): Promise<AllFilesInfo> {
     try {
       for (const fileItem of fileItems) {
         try {
-          // 点击文件
           const clicked = await clickFileTreeItem(fileItem)
-          if (!clicked) {
-            console.warn(`Failed to click file: ${fileItem.name}`)
-            continue
-          }
+          if (!clicked) continue
 
-          // 等待文件加载
           await waitForFileLoad(2000)
 
-          // 确认当前选中的是文件而非文件夹
-          if (!isActiveTreeItemFile()) {
-            console.warn(`Skip item ${fileItem.name}, active tree item is not a file`)
-            continue
-          }
+          if (!isActiveTreeItemFile()) continue
 
-          // 再次确认当前打开的确实是目标文件，防止文件夹误入
           const activeFileName = getCurrentFileName()
-          if (activeFileName !== fileItem.name) {
-            console.warn(`Skip item ${fileItem.name}, active file is ${activeFileName}`)
-            continue
-          }
+          if (activeFileName !== fileItem.name) continue
 
-          // 获取内容
           const content = getCodeMirrorContent()
           if (content) {
             const cleanedContent = cleanContent(content)
-            files.push({
-              name: activeFileName,
-              content: cleanedContent,
-              length: cleanedContent.length
-            })
+            files.push({ name: activeFileName, content: cleanedContent, length: cleanedContent.length })
           }
         } catch (error) {
           console.error(`Error processing file ${fileItem.name}:`, error)
         }
       }
     } finally {
-      // 提取完成后收起刚刚展开的文件夹，减少界面干扰
       await collapseFolders(expandedFolders)
     }
 
-    return {
-      files,
-      success: true
-    }
+    return { files, success: true }
   } catch (error) {
-    return {
-      files: [],
-      success: false,
-      error: createErrorResponse(error)
-    }
+    return { files: [], success: false, error: createErrorResponse(error) }
   }
 }
 
-// 存储选中文本的状态
-let currentSelectedText = ''
-let selectionChangeTimeout: NodeJS.Timeout | null = null
-
-// 存储编辑器内容状态
+// 存储编辑器状态
 let currentEditorContent = ''
 let currentFileName = ''
 let contentChangeTimeout: NodeJS.Timeout | null = null
@@ -292,43 +184,28 @@ let contentChangeTimeout: NodeJS.Timeout | null = null
  */
 function checkContentChange() {
   try {
-    // 选中的是文件夹则不触发内容变更事件
-    if (!isActiveTreeItemFile()) {
-      return
-    }
+    if (!isActiveTreeItemFile()) return
 
     const content = getCodeMirrorContent()
     const fileName = getCurrentFileName()
 
     if (content && (content !== currentEditorContent || fileName !== currentFileName)) {
-      // 简单验证：确保获取到的文件名和编辑器内容是对应的
-      // 通过检查内容长度和文件名是否有效来判断
       const isContentValid = content.length > 0
       const isFileNameValid = fileName && fileName.trim().length > 0
 
-      // 只有当文件名和内容都有效时才更新
       if (isContentValid && isFileNameValid) {
         currentEditorContent = content
         currentFileName = fileName
 
-        // 防抖处理，避免频繁更新
-        if (contentChangeTimeout) {
-          clearTimeout(contentChangeTimeout)
-        }
+        if (contentChangeTimeout) clearTimeout(contentChangeTimeout)
 
         contentChangeTimeout = setTimeout(() => {
           const cleanedContent = cleanContent(content)
-
-          // 通知插件内容变化
           window.postMessage({
             type: 'OVERLEAF_CONTENT_CHANGED',
-            data: {
-              fileName: fileName,
-              content: cleanedContent,
-              length: cleanedContent.length
-            }
+            data: { fileName, content: cleanedContent, length: cleanedContent.length }
           }, '*')
-        }, 300) // 减少防抖时间到300ms，提高响应速度
+        }, 300)
       }
     }
   } catch (error) {
@@ -343,23 +220,18 @@ function setupSelectionListener() {
   try {
     const editorView = getCodeMirrorEditor()
     if (!editorView) {
-      console.log('No editor found, retrying in 2 seconds...')
+      console.log('[ChatOverleaf] No editor found, retrying in 2 seconds...')
       setTimeout(setupSelectionListener, 2000)
       return
     }
 
-    console.log('Setting up selection listener for CodeMirror editor')
-
-    // 使用 document 事件监听作为备选方案
+    console.log('[ChatOverleaf] Setting up selection listener')
     let lastSelection = ''
 
     const checkSelection = () => {
       const selectedInfo = getSelectedText()
       if (selectedInfo.success && selectedInfo.text !== lastSelection) {
         lastSelection = selectedInfo.text
-        currentSelectedText = selectedInfo.text
-
-        // 通知插件选择变化
         window.postMessage({
           type: 'OVERLEAF_SELECTION_CHANGED',
           data: {
@@ -371,35 +243,134 @@ function setupSelectionListener() {
       }
     }
 
-    // 监听鼠标和键盘事件
-    document.addEventListener('mouseup', () => {
-      setTimeout(checkSelection, 10)
-    })
-
+    document.addEventListener('mouseup', () => setTimeout(checkSelection, 10))
     document.addEventListener('keyup', () => {
       setTimeout(checkSelection, 10)
-      // 同时检查内容变化
       setTimeout(checkContentChange, 10)
     })
 
-    // 定期检查选择变化和内容变化（作为备选）
     setInterval(() => {
       checkSelection()
       checkContentChange()
-    }, 300) // 每0.5秒检查一次，提高响应速度
+    }, 300)
 
   } catch (error) {
     console.error('Error setting up selection listener:', error)
   }
 }
 
+/**
+ * 点击并打开指定文件
+ */
+async function navigateToFile(filePath: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const fileItems = getFileTreeItems()
+    const targetFile = fileItems.find(item => 
+      item.path === filePath || 
+      item.name === filePath ||
+      item.path.endsWith('/' + filePath) ||
+      item.name.endsWith('/' + filePath)
+    )
+    
+    if (!targetFile) {
+      return { success: false, error: `未找到文件: ${filePath}` }
+    }
+    
+    const clicked = await clickFileTreeItem(targetFile)
+    if (!clicked) {
+      return { success: false, error: '无法点击文件' }
+    }
+    
+    await waitForFileLoad(1500)
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : '导航失败' }
+  }
+}
+
 // 监听消息
 window.addEventListener('message', async (event) => {
+  // 忽略非对象消息
+  if (!event.data || typeof event.data !== 'object' || !event.data.type) return
+  
+  // 调试日志
+  if (event.data.type?.startsWith('NAVIGATE') || 
+      event.data.type?.startsWith('REPLACE') || 
+      event.data.type?.startsWith('HIGHLIGHT') || 
+      event.data.type?.startsWith('SHOW_INLINE') ||
+      event.data.type?.startsWith('REMOVE')) {
+    console.log('[ChatOverleaf MainWorld] Received message:', event.data.type, event.data)
+  }
+  
+  if (event.data.type === 'NAVIGATE_TO_FILE') {
+    const result = await navigateToFile(event.data.filePath)
+    window.postMessage({
+      type: 'NAVIGATE_TO_FILE_RESPONSE',
+      requestId: event.data.requestId,
+      data: result
+    }, '*')
+    return
+  }
+  
+  if (event.data.type === 'REPLACE_IN_EDITOR') {
+    const { search, replace, isRegex } = event.data
+    const result = replaceInEditor(search, replace, isRegex)
+    window.postMessage({
+      type: 'REPLACE_IN_EDITOR_RESPONSE',
+      requestId: event.data.requestId,
+      data: result
+    }, '*')
+    return
+  }
+  
+  if (event.data.type === 'HIGHLIGHT_IN_EDITOR') {
+    const { search, isRegex } = event.data
+    const result = highlightInEditor(search, isRegex)
+    window.postMessage({
+      type: 'HIGHLIGHT_IN_EDITOR_RESPONSE',
+      requestId: event.data.requestId,
+      data: result
+    }, '*')
+    return
+  }
+  
+  if (event.data.type === 'SHOW_INLINE_DIFF') {
+    const { id, search, replace, isRegex } = event.data
+    console.log('[ChatOverleaf] Received SHOW_INLINE_DIFF:', { id, search: search?.substring(0, 30) })
+    const result = showInlineDiff(id, search, replace, isRegex)
+    window.postMessage({
+      type: 'SHOW_INLINE_DIFF_RESPONSE',
+      requestId: event.data.requestId,
+      data: result
+    }, '*')
+    return
+  }
+  
+  if (event.data.type === 'REMOVE_INLINE_DIFF') {
+    const { id } = event.data
+    const success = removeInlineDiff(id)
+    window.postMessage({
+      type: 'REMOVE_INLINE_DIFF_RESPONSE',
+      requestId: event.data.requestId,
+      data: { success }
+    }, '*')
+    return
+  }
+  
+  if (event.data.type === 'REMOVE_ALL_INLINE_DIFFS') {
+    const count = removeAllInlineDiffs()
+    window.postMessage({
+      type: 'REMOVE_ALL_INLINE_DIFFS_RESPONSE',
+      requestId: event.data.requestId,
+      data: { success: true, count }
+    }, '*')
+    return
+  }
+  
   if (event.data.type === 'GET_OVERLEAF_CONTENT') {
     const mode = event.data.mode || 'current'
 
     if (mode === 'all') {
-      // 提取所有文件
       const allFilesInfo = await getAllFilesContent()
       window.postMessage({
         type: 'OVERLEAF_CONTENT_RESPONSE',
@@ -412,7 +383,6 @@ window.addEventListener('message', async (event) => {
         }
       }, '*')
     } else {
-      // 提取当前文件
       const info = getOverleafEditorInfo()
       window.postMessage({
         type: 'OVERLEAF_CONTENT_RESPONSE',
@@ -421,7 +391,6 @@ window.addEventListener('message', async (event) => {
       }, '*')
     }
   } else if (event.data.type === 'GET_SELECTED_TEXT') {
-    // 获取选中文本
     const selectedInfo = getSelectedText()
     window.postMessage({
       type: 'SELECTED_TEXT_RESPONSE',
@@ -431,13 +400,17 @@ window.addEventListener('message', async (event) => {
   }
 })
 
-// 页面加载完成后设置选择监听器
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(setupSelectionListener, 1000) // 延迟1秒确保编辑器加载完成
-  })
-} else {
+// 初始化
+function initialize() {
+  console.log('[ChatOverleaf] Initializing...')
+  initInlineDiff()
   setTimeout(setupSelectionListener, 1000)
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initialize)
+} else {
+  initialize()
 }
 
 export {}

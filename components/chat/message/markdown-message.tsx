@@ -1,8 +1,10 @@
 import { Marked } from 'marked'
 import markedKatex from 'marked-katex-extension'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { cn } from "~lib/utils"
 import { ChevronDown, ChevronRight, Brain } from 'lucide-react'
+import { ReplaceBlock } from './replace-block'
+import { parseReplaceCommands, hasReplaceCommands, type ReplaceCommand } from '~lib/replace-service'
 
 interface MarkdownMessageProps {
   content: string
@@ -14,6 +16,14 @@ interface MarkdownMessageProps {
   // 思考过程相关
   thinking?: string
   thinkingFinished?: boolean
+  // 替换相关
+  replaceCommands?: Map<string, ReplaceCommand>
+  onAcceptReplace?: (command: ReplaceCommand) => void
+  onRejectReplace?: (command: ReplaceCommand) => void
+  onNavigateToFile?: (filePath: string) => void
+  onShowInlineDiff?: (command: ReplaceCommand) => void
+  getFileContent?: (filePath: string) => string | undefined
+  applyingCommandId?: string | null
 }
 
 // 创建独立的 marked 实例，避免全局配置冲突
@@ -38,7 +48,14 @@ export const MarkdownMessage = ({
   isWaiting, 
   waitingStartTime,
   thinking,
-  thinkingFinished 
+  thinkingFinished,
+  replaceCommands,
+  onAcceptReplace,
+  onRejectReplace,
+  onNavigateToFile,
+  onShowInlineDiff,
+  getFileContent,
+  applyingCommandId
 }: MarkdownMessageProps) => {
   // 等待时间计时器
   const [waitingTime, setWaitingTime] = useState(0)
@@ -206,6 +223,68 @@ export const MarkdownMessage = ({
     }
   }
 
+  // 解析并渲染包含替换块的内容
+  const parsedContent = useMemo(() => {
+    if (isUser || !content || !hasReplaceCommands(content)) {
+      return null
+    }
+    return parseReplaceCommands(content)
+  }, [content, isUser])
+
+  // 渲染替换块
+  const renderReplaceBlock = (commandId: string) => {
+    // 优先从外部传入的 replaceCommands 获取最新状态
+    const command = replaceCommands?.get(commandId) || 
+      parsedContent?.commands.find(c => c.id === commandId)
+    
+    if (!command) return null
+
+    return (
+      <ReplaceBlock
+        key={commandId}
+        command={command}
+        fileContent={getFileContent?.(command.file)}
+        onAccept={(cmd) => onAcceptReplace?.(cmd)}
+        onReject={(cmd) => onRejectReplace?.(cmd)}
+        onNavigateToFile={(path) => onNavigateToFile?.(path)}
+        onShowInlineDiff={onShowInlineDiff ? (cmd) => onShowInlineDiff(cmd) : undefined}
+        isApplying={applyingCommandId === commandId}
+      />
+    )
+  }
+
+  // 渲染混合内容（包含替换块）
+  const renderContentWithReplaceBlocks = () => {
+    if (!parsedContent) return null
+
+    const { cleanContent } = parsedContent
+    // 按照替换块占位符分割内容
+    const parts = cleanContent.split(/\[\[REPLACE_BLOCK:([a-z0-9]+)\]\]/g)
+    
+    return (
+      <>
+        {parts.map((part, index) => {
+          // 奇数索引是替换块 ID
+          if (index % 2 === 1) {
+            return renderReplaceBlock(part)
+          }
+          // 偶数索引是普通文本
+          if (part.trim()) {
+            return (
+              <div
+                key={`text-${index}`}
+                ref={index === 0 ? containerRef : undefined}
+                className="markdown-content max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                dangerouslySetInnerHTML={renderMarkdown(part)}
+              />
+            )
+          }
+          return null
+        })}
+      </>
+    )
+  }
+
   // 渲染思考内容区域
   const renderThinkingSection = () => {
     if (!thinking || isUser) return null
@@ -286,13 +365,19 @@ export const MarkdownMessage = ({
           {/* 思考过程区域 - 放在顶部左上角 */}
           {renderThinkingSection()}
           
-          {/* 正文内容 */}
+          {/* 正文内容 - 支持替换块 */}
           {content && (
-            <div
-              ref={containerRef}
-              className="markdown-content max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
-              dangerouslySetInnerHTML={renderMarkdown(content)}
-            />
+            parsedContent ? (
+              // 包含替换块的内容
+              renderContentWithReplaceBlocks()
+            ) : (
+              // 普通 Markdown 内容
+              <div
+                ref={containerRef}
+                className="markdown-content max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                dangerouslySetInnerHTML={renderMarkdown(content)}
+              />
+            )
           )}
           
           {/* 如果只有思考内容，没有正文，且还在思考中 */}

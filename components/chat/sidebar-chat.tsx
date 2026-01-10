@@ -14,6 +14,7 @@ import { LLMService } from "~lib/llm-service"
 
 import { useModels } from "~hooks/useModels"
 import { useSettings } from "~hooks/useSettings"
+import { useReplaceHandler } from "~hooks/useReplaceHandler"
 
 import { MarkdownMessage } from "./message/markdown-message"
 import { useToast } from "~components/ui/sonner"
@@ -110,6 +111,17 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
     createBranchChat,
     isOnlyInitialMessage
   } = useChatHistory()
+
+  // 使用替换处理 hook
+  const {
+    replaceCommands,
+    updateCommandStatus,
+    getFileContent,
+    navigateToFile,
+    applyReplace,
+    showInlineDiff,
+    applyingCommandId
+  } = useReplaceHandler({ extractedFiles })
 
   // 初始化设置
   useEffect(() => {
@@ -450,6 +462,35 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
                   waitingStartTime={message.waitingStartTime}
                   thinking={message.thinking}
                   thinkingFinished={message.thinkingFinished}
+                  // 替换相关 props
+                  replaceCommands={replaceCommands}
+                  onAcceptReplace={async (cmd) => {
+                    const result = await applyReplace(cmd)
+                    if (result.success) {
+                      success(`已成功替换 ${cmd.file} 中的内容`, { title: '替换成功' })
+                    } else {
+                      // 错误已在 hook 中处理
+                    }
+                  }}
+                  onRejectReplace={(cmd) => {
+                    updateCommandStatus(cmd.id, 'rejected')
+                  }}
+                  onNavigateToFile={async (filePath) => {
+                    const result = await navigateToFile(filePath)
+                    if (!result.success) {
+                      console.error('Navigate to file failed:', result.error)
+                    }
+                  }}
+                  onShowInlineDiff={async (cmd) => {
+                    const result = await showInlineDiff(cmd)
+                    if (result.success) {
+                      success(`已在编辑器中显示差异预览 (${result.matchCount} 处匹配)`, { title: '预览' })
+                    } else {
+                      console.error('Show inline diff failed:', result.error)
+                    }
+                  }}
+                  getFileContent={getFileContent}
+                  applyingCommandId={applyingCommandId}
                 />
                 {/* 显示上下文标签（选中文本和图片） */}
                 {message.isUser && (message.selectedText || message.images) && (
