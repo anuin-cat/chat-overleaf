@@ -465,16 +465,16 @@ export const ChatInput = ({
             rows={1}
           />
           {isMentionListOpen && (
-            <div className="absolute left-0 right-0 bottom-full z-50 mb-2 overflow-hidden rounded-md border bg-white shadow-lg">
+            <div className="absolute left-0 right-0 bottom-full z-50 mb-1 overflow-hidden rounded-md border bg-white shadow-lg">
               {mentionOptions.length > 0 ? (
                 <ScrollArea className="max-h-60">
-                  <div className="py-1">
+                  <div className="py-0.5">
                     {mentionOptions.map((option, index) => (
                       <button
                         key={option.path}
                         ref={el => { mentionItemRefs.current[option.path] = el }}
                         type="button"
-                        className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-gray-100 ${
+                        className={`flex w-full items-center gap-1.5 px-2 py-1 text-left text-xs hover:bg-gray-100 ${
                           index === highlightedIndex ? "bg-gray-100 text-blue-600" : ""
                         }`}
                         onMouseDown={(e) => {
@@ -483,12 +483,12 @@ export const ChatInput = ({
                         }}
                       >
                         {option.isFolder ? (
-                          <Folder className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+                          <Folder className="h-3 w-3 text-amber-500 flex-shrink-0" />
                         ) : (
-                          <FileText className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                          <FileText className="h-3 w-3 text-blue-500 flex-shrink-0" />
                         )}
                         <span className="truncate flex-1">{option.isFolder ? option.path + '/' : option.name}</span>
-                        <span className="ml-2 text-[10px] text-gray-400 flex-shrink-0">
+                        <span className="ml-1 text-[10px] text-gray-400 flex-shrink-0">
                           {option.isFolder ? '选中文件夹' : '回车选择'}
                         </span>
                       </button>
@@ -496,7 +496,7 @@ export const ChatInput = ({
                   </div>
                 </ScrollArea>
               ) : (
-                <div className="px-3 py-2 text-xs text-gray-500">暂无可添加的文件</div>
+                <div className="px-2 py-1.5 text-xs text-gray-500">暂无可添加的文件</div>
               )}
             </div>
           )}
