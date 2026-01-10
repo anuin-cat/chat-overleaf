@@ -93,7 +93,7 @@ export function injectInlineDiffStyles() {
       transform: scale(1.1);
     }
     
-    /* 浮动面板样式 - 超紧凑版 */
+    /* 浮动面板样式 - 超紧凑版，无外边框 */
     .co-inline-diff-container {
       position: absolute;
       z-index: 10000;
@@ -101,14 +101,10 @@ export function injectInlineDiffStyles() {
     }
     
     .co-inline-diff-overlay {
-      background: #fff;
-      border: 1px solid #10b981;
-      border-radius: 4px;
-      padding: 4px 6px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+      position: relative;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 11px;
-      max-width: 380px;
+      max-width: 420px;
       min-width: 120px;
     }
     
@@ -126,19 +122,20 @@ export function injectInlineDiffStyles() {
     
     .co-inline-diff-text {
       flex: 1;
-      padding: 2px 4px;
-      border-radius: 3px;
+      padding: 4px 6px;
+      border-radius: 4px;
       white-space: pre-wrap;
       word-break: break-word;
-      line-height: 1.3;
+      line-height: 1.4;
       font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
       font-size: 11px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     }
     
     .co-inline-diff-text-add {
       background: #ecfdf5;
       color: #047857;
-      border: 1px solid #a7f3d0;
+      border: 1px solid #10b981;
     }
     
     /* 差异单词高亮 - 弹出框中新文本的变更单词 */
@@ -149,24 +146,25 @@ export function injectInlineDiffStyles() {
       padding: 0 1px;
     }
     
-    
+    /* 按钮放在文本框外部右下角 */
     .co-inline-diff-actions {
+      position: absolute;
+      right: 0;
+      bottom: -24px;
       display: flex;
-      justify-content: flex-start;
-      gap: 3px;
-      margin-top: 3px;
-      padding-top: 0;
-      border-top: none;
+      justify-content: flex-end;
+      gap: 4px;
     }
     
     .co-inline-diff-btn {
-      padding: 2px 8px;
-      border-radius: 3px;
-      font-size: 10px;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-size: 11px;
       font-weight: 500;
       cursor: pointer;
       transition: all 0.15s;
       border: none;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
     }
     
     .co-inline-diff-btn-accept {
@@ -176,17 +174,20 @@ export function injectInlineDiffStyles() {
     
     .co-inline-diff-btn-accept:hover {
       background: #059669;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
     }
     
     .co-inline-diff-btn-reject {
-      background: #f3f4f6;
+      background: #fff;
       color: #6b7280;
-      border: 1px solid #e5e7eb;
+      border: 1px solid #d1d5db;
     }
     
     .co-inline-diff-btn-reject:hover {
-      background: #e5e7eb;
+      background: #f3f4f6;
       color: #4b5563;
+      transform: translateY(-1px);
     }
   `
   document.head.appendChild(style)

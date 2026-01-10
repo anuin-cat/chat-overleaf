@@ -14,7 +14,16 @@ const activeDiffs = new Map<string, InlineDiff>()
 const highlightOverlays = new Map<string, HTMLElement[]>()
 
 /**
+ * 高亮区域的边界信息
+ */
+interface HighlightBounds {
+  minLeft: number
+  maxBottom: number
+}
+
+/**
  * 创建持久高亮覆盖层（支持多行）
+ * 返回高亮区域的边界信息用于定位弹出框
  */
 function createHighlightOverlay(
   id: string,
@@ -22,21 +31,25 @@ function createHighlightOverlay(
   to: number,
   editorView: any,
   scroller: HTMLElement
-): void {
+): HighlightBounds | null {
   // 移除之前的高亮覆盖层
   removeHighlightOverlay(id)
   
-  if (from >= to) return // 没有差异部分需要高亮
+  if (from >= to) return null // 没有差异部分需要高亮
   
   try {
     const scrollerRect = scroller.getBoundingClientRect()
     const overlays: HTMLElement[] = []
     
+    // 跟踪边界信息
+    let minLeft = Infinity
+    let maxBottom = 0
+    
     // 获取起始和结束坐标
     const startCoords = editorView.coordsAtPos(from)
     const endCoords = editorView.coordsAtPos(to)
     
-    if (!startCoords || !endCoords) return
+    if (!startCoords || !endCoords) return null
     
     scroller.style.position = 'relative'
     
@@ -45,15 +58,23 @@ function createHighlightOverlay(
     
     if (isSingleLine) {
       // 单行：创建一个覆盖层
+      const left = startCoords.left - scrollerRect.left
+      const top = startCoords.top - scrollerRect.top + scroller.scrollTop
+      const height = startCoords.bottom - startCoords.top
+      
       const overlay = createSingleOverlay(
         id, 0,
-        startCoords.left - scrollerRect.left,
-        startCoords.top - scrollerRect.top + scroller.scrollTop,
+        left,
+        top,
         endCoords.right - startCoords.left,
-        startCoords.bottom - startCoords.top
+        height
       )
       scroller.appendChild(overlay)
       overlays.push(overlay)
+      
+      // 更新边界信息
+      minLeft = left
+      maxBottom = top + height
     } else {
       // 多行：为每一行创建覆盖层
       const lineHeight = startCoords.bottom - startCoords.top
@@ -116,6 +137,11 @@ function createHighlightOverlay(
         scroller.appendChild(overlay)
         overlays.push(overlay)
         
+        // 更新边界信息
+        if (left < minLeft) minLeft = left
+        const bottom = top + lineHeight
+        if (bottom > maxBottom) maxBottom = bottom
+        
         // 移动到下一行
         currentPos = lineEndPos + 1
         lineIndex++
@@ -126,8 +152,12 @@ function createHighlightOverlay(
     }
     
     highlightOverlays.set(id, overlays)
+    
+    // 返回边界信息
+    return { minLeft, maxBottom }
   } catch (error) {
     console.error('[ChatOverleaf] Error creating highlight overlay:', error)
+    return null
   }
 }
 
@@ -230,8 +260,8 @@ function showInlineDiffWithDOM(
       
       const scrollerRect = scroller.getBoundingClientRect()
       
-      // 创建持久高亮覆盖层
-      createHighlightOverlay(id, highlightFrom, highlightTo, editorView, scroller)
+      // 创建持久高亮覆盖层，并获取边界信息
+      const bounds = createHighlightOverlay(id, highlightFrom, highlightTo, editorView, scroller)
       
       // 使用外部已计算的 diff
       const { newSegments } = computeWordDiff(diff.oldDiff, diff.newDiff)
@@ -251,12 +281,19 @@ function showInlineDiffWithDOM(
       diffContainer.className = 'co-inline-diff-container'
       diffContainer.id = `co-diff-${id}`
       
-      // 计算弹出框位置 - 定位在差异部分的下方
-      const diffStartPos = firstMatch.from + diff.commonPrefix.length
-      const diffCoords = editorView.coordsAtPos(diffStartPos) || coords
-      
-      const left = Math.max(10, diffCoords.left - scrollerRect.left - 10)
-      const top = diffCoords.bottom - scrollerRect.top + scroller.scrollTop + 2
+      // 计算弹出框位置 - 从高亮区域的最左下角开始
+      let left: number, top: number
+      if (bounds) {
+        // 使用高亮区域的边界信息
+        left = Math.max(10, bounds.minLeft)
+        top = bounds.maxBottom + 2
+      } else {
+        // 回退：使用差异起始位置
+        const diffStartPos = firstMatch.from + diff.commonPrefix.length
+        const diffCoords = editorView.coordsAtPos(diffStartPos) || coords
+        left = Math.max(10, diffCoords.left - scrollerRect.left - 10)
+        top = diffCoords.bottom - scrollerRect.top + scroller.scrollTop + 2
+      }
       
       diffContainer.style.left = `${left}px`
       diffContainer.style.top = `${top}px`
