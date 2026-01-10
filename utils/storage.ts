@@ -7,6 +7,10 @@ const storage = new Storage()
 
 // 需要使用大容量存储的键名
 const LARGE_STORAGE_KEYS = ['chat_history']
+const LARGE_STORAGE_PREFIXES = ['overleaf_file_cache:']
+
+const isLargeStorageKey = (key: string) =>
+  LARGE_STORAGE_KEYS.includes(key) || LARGE_STORAGE_PREFIXES.some((prefix) => key.startsWith(prefix))
 
 // 初始化大容量存储
 let indexedDBInitialized = false
@@ -29,7 +33,7 @@ export const storageUtils = {
   // 设置值（智能选择存储方式）
   set: async <T>(key: string, value: T): Promise<void> => {
     // 如果是大容量数据，使用 IndexedDB
-    if (LARGE_STORAGE_KEYS.includes(key)) {
+    if (isLargeStorageKey(key)) {
       try {
         await initIndexedDB()
         await chatHistoryStorage.set(key, value)
@@ -75,7 +79,7 @@ export const storageUtils = {
   // 获取值（智能选择存储方式）
   get: async <T>(key: string, defaultValue?: T): Promise<T | undefined> => {
     // 如果是大容量数据，优先从 IndexedDB 获取
-    if (LARGE_STORAGE_KEYS.includes(key)) {
+    if (isLargeStorageKey(key)) {
       try {
         await initIndexedDB()
         const value = await chatHistoryStorage.get<T>(key)
@@ -94,7 +98,7 @@ export const storageUtils = {
       const value = await storage.get(key)
 
       // 如果是大容量数据且在 chrome.storage 中找到了，迁移到 IndexedDB
-      if (LARGE_STORAGE_KEYS.includes(key) && value !== undefined && indexedDBInitialized) {
+      if (isLargeStorageKey(key) && value !== undefined && indexedDBInitialized) {
         try {
           await chatHistoryStorage.set(key, value)
           console.log(`Migrated ${key} from chrome.storage to IndexedDB`)
@@ -115,7 +119,7 @@ export const storageUtils = {
   // 删除值（智能选择存储方式）
   remove: async (key: string): Promise<void> => {
     // 如果是大容量数据，从 IndexedDB 删除
-    if (LARGE_STORAGE_KEYS.includes(key)) {
+    if (isLargeStorageKey(key)) {
       try {
         await initIndexedDB()
         await chatHistoryStorage.remove(key)

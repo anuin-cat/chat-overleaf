@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useToast } from "~components/ui/sonner"
 import { FileExtractionService, type FileInfo, type ExtractionResult } from "./file-extraction-service"
+import { storageUtils } from "~utils/storage"
 
 /**
  * 文件提取Hook - 管理文件提取状态和操作
@@ -14,6 +15,91 @@ export const useFileExtraction = (
   const [extractedFiles, setExtractedFiles] = useState<FileInfo[]>([])
   const [internalSelectedFiles, setInternalSelectedFiles] = useState<Set<string>>(new Set())
   const [showFileList, setShowFileList] = useState(true)
+  const [isCacheReady, setIsCacheReady] = useState(false)
+  const [projectId, setProjectId] = useState<string | null>(null)
+
+  const cacheKey = projectId ? `overleaf_file_cache:${projectId}` : null
+
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const resolveFromUrl = () => {
+      try {
+        const url = new URL(window.location.href)
+        const parts = url.pathname.split("/").filter(Boolean)
+        const projectIndex = parts.indexOf("project")
+        if (projectIndex >= 0 && parts[projectIndex + 1]) {
+          return parts[projectIndex + 1]
+        }
+        return null
+      } catch {
+        return null
+      }
+    }
+
+    const resolveFromDom = () => {
+      const selectors = [
+        'a[href*="/project/"]',
+        'a[href*="/download/project/"]'
+      ]
+      const links = Array.from(document.querySelectorAll<HTMLAnchorElement>(selectors.join(",")))
+      for (const link of links) {
+        const href = link.getAttribute("href") || ""
+        const match =
+          href.match(/\/project\/([a-f0-9]{12,})/i) ||
+          href.match(/\/download\/project\/([a-f0-9]{12,})/i)
+        if (match?.[1]) return match[1]
+      }
+      return null
+    }
+
+    const tryResolve = () => {
+      const fromUrl = resolveFromUrl()
+      if (fromUrl) return fromUrl
+      return resolveFromDom()
+    }
+
+    const resolved = tryResolve()
+    if (resolved) {
+      setProjectId(resolved)
+      return
+    }
+
+    let attempts = 0
+    const maxAttempts = 20
+    const interval = 500
+
+    const observer = new MutationObserver(() => {
+      const id = tryResolve()
+      if (id) {
+        setProjectId(id)
+        observer.disconnect()
+      }
+    })
+
+    observer.observe(document.documentElement, { childList: true, subtree: true })
+
+    const timer = window.setInterval(() => {
+      attempts += 1
+      const id = tryResolve()
+      if (id) {
+        setProjectId(id)
+        observer.disconnect()
+        window.clearInterval(timer)
+        return
+      }
+      if (attempts >= maxAttempts) {
+        observer.disconnect()
+        window.clearInterval(timer)
+      }
+    }, interval)
+
+    return () => {
+      observer.disconnect()
+      window.clearInterval(timer)
+    }
+  }, [])
 
   // 使用外部状态或内部状态
   const selectedFiles = externalSelectedFiles || internalSelectedFiles
@@ -31,6 +117,57 @@ export const useFileExtraction = (
   }, [selectedFiles, onSelectedFilesChange])
 
   const { success, error, info } = useToast()
+
+  // 启动时从缓存恢复文件列表（按项目 ID）
+  useEffect(() => {
+    let isMounted = true
+    if (!cacheKey) return
+    setIsCacheReady(false)
+
+    const loadCache = async () => {
+      const cached = await storageUtils.get<{
+        files: FileInfo[]
+        selectedFileNames: string[]
+        updatedAt: string
+      }>(cacheKey)
+
+      if (!isMounted) return
+
+      if (cached) {
+        if (Array.isArray(cached.files)) {
+          setExtractedFiles(cached.files)
+        }
+
+        if (Array.isArray(cached.selectedFileNames) && cached.selectedFileNames.length > 0) {
+          const restored = new Set(cached.selectedFileNames)
+          if (onSelectedFilesChange) {
+            onSelectedFilesChange(restored)
+          } else {
+            setInternalSelectedFiles(restored)
+          }
+        }
+      }
+
+      setIsCacheReady(true)
+    }
+
+    loadCache()
+
+    return () => {
+      isMounted = false
+    }
+  }, [cacheKey, onSelectedFilesChange])
+
+  // 文件列表或选择变化时写入缓存
+  useEffect(() => {
+    if (!cacheKey || !isCacheReady) return
+    const payload = {
+      files: extractedFiles,
+      selectedFileNames: Array.from(selectedFiles),
+      updatedAt: new Date().toISOString()
+    }
+    storageUtils.set(cacheKey, payload)
+  }, [cacheKey, extractedFiles, selectedFiles, isCacheReady])
 
   // 处理内容提取结果
   const handleContentExtracted = (result: ExtractionResult, onFileSelected?: (fileName: string) => void) => {
