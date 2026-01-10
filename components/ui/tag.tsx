@@ -23,7 +23,7 @@ export const Tag = ({
   clickable = false,
   title
 }: TagProps) => {
-  const baseClasses = "inline-flex items-center gap-0.5 px-0.5 py-0.5 text-xs rounded-md font-medium"
+  const baseClasses = "inline-flex items-center gap-0.5 px-1.5 py-0 text-[11px] rounded-full font-medium whitespace-nowrap leading-5"
 
   const variantClasses = {
     default: "bg-gray-100 text-gray-700 border border-gray-200",
@@ -50,17 +50,17 @@ export const Tag = ({
       onClick={clickable ? handleTagClick : undefined}
       title={title}
     >
-      <span className="truncate max-w-[200px]">{children}</span>
+      {children}
       {removable && onRemove && (
         <button
           onClick={(e) => {
             e.stopPropagation() // 防止触发标签点击
             onRemove()
           }}
-          className="ml-0 hover:bg-black/10 rounded-sm p-0.5 transition-colors"
+          className="ml-0 hover:bg-black/10 rounded-full p-0 transition-colors flex-shrink-0"
           type="button"
         >
-          <X className="h-3 w-3" />
+          <X className="h-2.5 w-2.5" />
         </button>
       )}
     </span>
@@ -74,7 +74,7 @@ interface TagListProps {
 
 export const TagList = ({ children, className }: TagListProps) => {
   return (
-    <div className={cn("flex flex-wrap gap-1.5", className)}>
+    <div className={cn("flex flex-wrap gap-1 items-center", className)}>
       {children}
     </div>
   )

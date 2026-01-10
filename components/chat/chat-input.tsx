@@ -4,7 +4,7 @@ import { Textarea } from "../ui/textarea"
 import { ScrollArea } from "../ui/scroll-area"
 import { ContextTags } from "./context-tags"
 import { FilePreviewModal } from "./file-preview-modal"
-import { Send, Square, Eraser } from "lucide-react"
+import { Send, Square, Eraser, Folder, FileText } from "lucide-react"
 import { LLMService } from "~lib/llm-service"
 import { type ImageInfo } from "~lib/image-utils"
 import { useToast } from "~components/ui/sonner"
@@ -13,6 +13,7 @@ import { useMessageHandler } from "~hooks/useMessageHandler"
 import { useImageHandler } from "~hooks/useImageHandler"
 import { useInputHandler } from "~hooks/useInputHandler"
 import { generateId } from "~utils/helpers"
+import { buildFileTree, getAllFilesInFolder, type TreeNode } from "./file/file-tree-utils"
 
 interface Message {
   id: string
@@ -148,16 +149,63 @@ export const ChatInput = ({
   const [highlightedIndex, setHighlightedIndex] = useState(0)
   const mentionItemRefs = useRef<Record<string, HTMLButtonElement | null>>({})
 
-  // 可供 @ 选择的文件名列表（过滤已选文件）
-  const mentionOptions = useMemo(() => {
-    const available = extractedFiles
-      .map(file => file.name)
-      .filter(name => !selectedFiles.has(name))
+  // 构建文件树用于提取文件夹
+  const fileTree = useMemo(() => {
+    return buildFileTree(extractedFiles)
+  }, [extractedFiles])
 
-    if (!mentionQuery) return available
+  // 递归收集所有文件夹节点
+  const allFolders = useMemo(() => {
+    const folders: TreeNode[] = []
+    const traverse = (nodes: TreeNode[]) => {
+      for (const node of nodes) {
+        if (node.isFolder) {
+          folders.push(node)
+          traverse(node.children)
+        }
+      }
+    }
+    traverse(fileTree)
+    return folders
+  }, [fileTree])
+
+  // @ 选项：文件夹在前，文件在后
+  interface MentionOption {
+    name: string
+    path: string
+    isFolder: boolean
+    node?: TreeNode  // 如果是文件夹，保存节点引用
+  }
+
+  const mentionOptions = useMemo(() => {
+    // 可选的文件夹（至少有一个子文件未被选中）
+    const folderOptions: MentionOption[] = allFolders
+      .filter(folder => {
+        const allFiles = getAllFilesInFolder(folder)
+        return allFiles.some(file => !selectedFiles.has(file))
+      })
+      .map(folder => ({
+        name: `📁 ${folder.path}/`,
+        path: folder.path,
+        isFolder: true,
+        node: folder
+      }))
+
+    // 可选的文件（未被选中的）
+    const fileOptions: MentionOption[] = extractedFiles
+      .filter(file => !selectedFiles.has(file.name))
+      .map(file => ({
+        name: file.name,
+        path: file.name,
+        isFolder: false
+      }))
+
+    const all = [...folderOptions, ...fileOptions]
+
+    if (!mentionQuery) return all
     const lower = mentionQuery.toLowerCase()
-    return available.filter(name => name.toLowerCase().includes(lower))
-  }, [extractedFiles, mentionQuery, selectedFiles])
+    return all.filter(opt => opt.path.toLowerCase().includes(lower))
+  }, [extractedFiles, mentionQuery, selectedFiles, allFolders])
 
   const estimatedFileTokens = useMemo(() => {
     if (selectedFiles.size === 0) return 0
@@ -204,15 +252,27 @@ export const ChatInput = ({
   }
 
   // 选择 @ 提示项
-  const handleMentionSelect = (fileName: string) => {
+  const handleMentionSelect = (option: MentionOption) => {
     if (onFileSelectionChange) {
       const newSelectedFiles = new Set(selectedFiles)
-      newSelectedFiles.add(fileName)
-      onFileSelectionChange(newSelectedFiles)
-      info(`已添加 ${fileName}`, { title: '文件已添加' })
+      
+      if (option.isFolder && option.node) {
+        // 文件夹：选中其下所有文件
+        const allFiles = getAllFilesInFolder(option.node)
+        for (const file of allFiles) {
+          newSelectedFiles.add(file)
+        }
+        onFileSelectionChange(newSelectedFiles)
+        info(`已添加文件夹 ${option.path}/ 下的 ${allFiles.length} 个文件`, { title: '文件夹已添加' })
+      } else {
+        // 单个文件
+        newSelectedFiles.add(option.path)
+        onFileSelectionChange(newSelectedFiles)
+        info(`已添加 ${option.path}`, { title: '文件已添加' })
+      }
     }
 
-    // 将输入框中的 @ 查询文本删除（不保留在输入框中）
+    // 将输入框中的 @ 查询文本删除
     if (mentionStart !== null) {
       const before = inputValue.slice(0, mentionStart)
       const after = inputValue.slice(mentionStart + mentionQuery.length + 1)
@@ -249,7 +309,8 @@ export const ChatInput = ({
       }
       if ((e.key === "Enter" || e.key === "Tab") && mentionOptions.length > 0) {
         e.preventDefault()
-        handleMentionSelect(mentionOptions[highlightedIndex] || mentionOptions[0])
+        const selected = mentionOptions[highlightedIndex] || mentionOptions[0]
+        handleMentionSelect(selected)
         return
       }
       if (e.key === "Escape") {
@@ -272,9 +333,9 @@ export const ChatInput = ({
   // 高亮项滚动到可视范围内
   useEffect(() => {
     if (!isMentionListOpen) return
-    const targetName = mentionOptions[highlightedIndex]
-    if (!targetName) return
-    const target = mentionItemRefs.current[targetName]
+    const targetOption = mentionOptions[highlightedIndex]
+    if (!targetOption) return
+    const target = mentionItemRefs.current[targetOption.path]
     if (target) {
       target.scrollIntoView({ block: "nearest" })
     }
@@ -352,6 +413,7 @@ export const ChatInput = ({
       {/* 标签区域 */}
       <ContextTags
         selectedFiles={selectedFiles}
+        extractedFiles={extractedFiles}
         fileTokenEstimate={estimatedFileTokens}
         selectedText={selectedText}
         uploadedImages={uploadedImages}
@@ -395,21 +457,28 @@ export const ChatInput = ({
               {mentionOptions.length > 0 ? (
                 <ScrollArea className="max-h-60">
                   <div className="py-1">
-                    {mentionOptions.map((fileName, index) => (
+                    {mentionOptions.map((option, index) => (
                       <button
-                        key={fileName}
-                        ref={el => { mentionItemRefs.current[fileName] = el }}
+                        key={option.path}
+                        ref={el => { mentionItemRefs.current[option.path] = el }}
                         type="button"
-                        className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-100 ${
+                        className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-gray-100 ${
                           index === highlightedIndex ? "bg-gray-100 text-blue-600" : ""
                         }`}
                         onMouseDown={(e) => {
                           e.preventDefault()
-                          handleMentionSelect(fileName)
+                          handleMentionSelect(option)
                         }}
                       >
-                        <span className="truncate">{fileName}</span>
-                        <span className="ml-2 text-[11px] text-gray-400">回车选择</span>
+                        {option.isFolder ? (
+                          <Folder className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+                        ) : (
+                          <FileText className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                        )}
+                        <span className="truncate flex-1">{option.isFolder ? option.path + '/' : option.name}</span>
+                        <span className="ml-2 text-[10px] text-gray-400 flex-shrink-0">
+                          {option.isFolder ? '选中文件夹' : '回车选择'}
+                        </span>
                       </button>
                     ))}
                   </div>
