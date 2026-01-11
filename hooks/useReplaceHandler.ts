@@ -176,7 +176,7 @@ export const useReplaceHandler = ({
         await new Promise(resolve => setTimeout(resolve, 500))
       }
       
-      // 执行替换
+      // 执行替换/插入操作
       const replaceResult = await sendMessageToMainWorld<{ 
         success: boolean
         error?: string
@@ -186,7 +186,9 @@ export const useReplaceHandler = ({
         { 
           search: command.search, 
           replace: command.replace, 
-          isRegex: command.isRegex 
+          isRegex: command.isRegex,
+          commandType: command.commandType || 'replace',
+          insertAnchor: command.insertAnchor
         }
       )
       
@@ -248,7 +250,9 @@ export const useReplaceHandler = ({
             file: command.file,
             search: command.search,
             replace: command.replace,
-            isRegex: command.isRegex
+            isRegex: command.isRegex,
+            commandType: command.commandType,
+            insertAnchor: command.insertAnchor
           }]
         }
       )
@@ -288,10 +292,12 @@ export const useReplaceHandler = ({
         { 
           commands: pendingCommands.map(cmd => ({
             id: cmd.id,
-            file: cmd.file,  // 包含文件名以便过滤
+            file: cmd.file,
             search: cmd.search,
             replace: cmd.replace,
-            isRegex: cmd.isRegex
+            isRegex: cmd.isRegex,
+            commandType: cmd.commandType,
+            insertAnchor: cmd.insertAnchor
           }))
         }
       )
@@ -310,10 +316,12 @@ export const useReplaceHandler = ({
         'REACTIVATE_HIGHLIGHT',
         { 
           id: command.id,
-          file: command.file,  // 包含文件名
+          file: command.file,
           search: command.search,
           replace: command.replace,
-          isRegex: command.isRegex
+          isRegex: command.isRegex,
+          commandType: command.commandType,
+          insertAnchor: command.insertAnchor
         }
       )
       
@@ -329,7 +337,7 @@ export const useReplaceHandler = ({
     }
   }, [updateCommandStatus])
 
-  // 撤销已应用：尝试将替换内容还原，并恢复为 pending 再重新高亮
+  // 撤销已应用：尝试将替换/插入内容还原，并恢复为 pending 再重新高亮
   const undoApply = useCallback(async (command: ReplaceCommand): Promise<{ success: boolean; error?: string }> => {
     try {
       const fileStatus = await checkCurrentFile(command.file)
@@ -341,10 +349,31 @@ export const useReplaceHandler = ({
         await new Promise(resolve => setTimeout(resolve, 200))
       }
 
-      const revertResult = await sendMessageToMainWorld<{ success: boolean; error?: string; replacedCount: number }>(
-        'REPLACE_IN_EDITOR',
-        { search: command.replace, replace: command.search, isRegex: command.isRegex }
-      )
+      let revertResult: { success: boolean; error?: string; replacedCount: number }
+      
+      if (command.commandType === 'insert') {
+        // 插入操作的撤销：删除插入的内容（搜索插入内容并替换为空）
+        revertResult = await sendMessageToMainWorld<{ success: boolean; error?: string; replacedCount: number }>(
+          'REPLACE_IN_EDITOR',
+          { 
+            search: command.replace,  // 搜索插入的内容
+            replace: '',              // 替换为空（删除）
+            isRegex: false,
+            commandType: 'replace'
+          }
+        )
+      } else {
+        // 替换操作的撤销：反向替换
+        revertResult = await sendMessageToMainWorld<{ success: boolean; error?: string; replacedCount: number }>(
+          'REPLACE_IN_EDITOR',
+          { 
+            search: command.replace, 
+            replace: command.search, 
+            isRegex: command.isRegex,
+            commandType: 'replace'
+          }
+        )
+      }
 
       if (!revertResult.success) {
         updateCommandStatus(command.id, 'error', revertResult.error)

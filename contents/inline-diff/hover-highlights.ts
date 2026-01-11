@@ -5,7 +5,7 @@
 
 import type { WordDiffSegment } from './types'
 import { computeDiff, computeWordDiff, escapeHtml, renderNewDiffHtml } from './diff-algorithm'
-import { getCodeMirrorEditor, findMatchPositions, replaceInEditor } from './editor-utils'
+import { getCodeMirrorEditor, findMatchPositions, replaceInEditor, type CommandType, type InsertAnchor } from './editor-utils'
 
 // 高亮区域数据
 interface HighlightRegion {
@@ -13,6 +13,8 @@ interface HighlightRegion {
   search: string
   replace: string
   isRegex: boolean
+  commandType: CommandType
+  insertAnchor?: InsertAnchor
   from: number
   to: number
   overlays: HTMLElement[]
@@ -228,19 +230,25 @@ function showPopover(region: HighlightRegion, scroller: HTMLElement, editorView:
   const firstOverlay = region.overlays[0]
   if (!firstOverlay) return
   
-  // 计算差异用于显示
-  const matchedText = editorView.state.doc.sliceString(region.from, region.to)
-  const replacementText = region.isRegex 
-    ? matchedText.replace(new RegExp(region.search), region.replace)
-    : region.replace
-  const diff = computeDiff(matchedText, replacementText)
-  const { newSegments } = computeWordDiff(diff.oldDiff, diff.newDiff)
-  
   let displayContent: string
-  if (diff.oldDiff.length === 0 && diff.newDiff.length === 0) {
-    displayContent = escapeHtml(replacementText)
+  
+  if (region.commandType === 'insert') {
+    // 插入操作：直接显示要插入的内容
+    displayContent = `<span class="co-insert-label">插入:</span> ${escapeHtml(region.replace)}`
   } else {
-    displayContent = renderNewDiffHtml(newSegments)
+    // 替换操作：计算差异
+    const matchedText = editorView.state.doc.sliceString(region.from, region.to)
+    const replacementText = region.isRegex 
+      ? matchedText.replace(new RegExp(region.search), region.replace)
+      : region.replace
+    const diff = computeDiff(matchedText, replacementText)
+    const { newSegments } = computeWordDiff(diff.oldDiff, diff.newDiff)
+    
+    if (diff.oldDiff.length === 0 && diff.newDiff.length === 0) {
+      displayContent = escapeHtml(replacementText)
+    } else {
+      displayContent = renderNewDiffHtml(newSegments)
+    }
   }
   
   // 计算最后一个覆盖层的底部位置
@@ -284,8 +292,14 @@ function showPopover(region: HighlightRegion, scroller: HTMLElement, editorView:
     const action = target.dataset.action
     
     if (action === 'accept') {
-      // 执行替换
-      const result = replaceInEditor(region.search, region.replace, region.isRegex)
+      // 执行替换/插入
+      const result = replaceInEditor(
+        region.search, 
+        region.replace, 
+        region.isRegex, 
+        region.commandType, 
+        region.insertAnchor
+      )
       // 更新状态
       region.status = 'accepted'
       // 移除高亮和悬浮框
@@ -416,6 +430,8 @@ export function addHighlightRegions(
     search: string
     replace: string
     isRegex: boolean
+    commandType?: CommandType
+    insertAnchor?: InsertAnchor
   }>,
   currentFileName: string
 ): { success: boolean; count: number } {
@@ -455,9 +471,15 @@ export function addHighlightRegions(
       continue
     }
     
-    const positions = findMatchPositions(content, cmd.search, cmd.isRegex)
+    // 对于插入操作，使用锚点来定位
+    let searchText = cmd.search
+    if (cmd.commandType === 'insert' && cmd.insertAnchor) {
+      searchText = cmd.insertAnchor.after || cmd.insertAnchor.before || cmd.search
+    }
+    
+    const positions = findMatchPositions(content, searchText, cmd.isRegex)
     if (positions.length === 0) {
-      console.log('[ChatOverleaf] No match found for:', cmd.search.substring(0, 50))
+      console.log('[ChatOverleaf] No match found for:', searchText.substring(0, 50))
       continue
     }
     
@@ -468,6 +490,8 @@ export function addHighlightRegions(
       search: cmd.search,
       replace: cmd.replace,
       isRegex: cmd.isRegex,
+      commandType: cmd.commandType || 'replace',
+      insertAnchor: cmd.insertAnchor,
       from: firstMatch.from,
       to: firstMatch.to,
       overlays: [],
@@ -497,12 +521,14 @@ export function reactivateHighlight(
   search: string,
   replace: string,
   isRegex: boolean,
-  currentFileName: string
+  currentFileName: string,
+  commandType?: CommandType,
+  insertAnchor?: InsertAnchor
 ): boolean {
   // 先移除旧的
   removeRegionHighlight(id)
   
-  const result = addHighlightRegions([{ id, file, search, replace, isRegex }], currentFileName)
+  const result = addHighlightRegions([{ id, file, search, replace, isRegex, commandType, insertAnchor }], currentFileName)
   return result.count > 0
 }
 

@@ -314,6 +314,26 @@ export function injectInlineDiffStyles() {
       color: #4b5563;
       transform: translateY(-1px);
     }
+    
+    /* 插入操作标签 */
+    .co-insert-label {
+      background: #dbeafe;
+      color: #1d4ed8;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 500;
+      margin-right: 4px;
+    }
+    
+    /* 插入操作的高亮背景（蓝色调） */
+    .co-hover-highlight-bg.co-insert-mode {
+      background: rgba(147, 197, 253, 0.35);
+    }
+    
+    .co-hover-highlight-bg.co-insert-mode:hover {
+      background: rgba(147, 197, 253, 0.5);
+    }
   `
   document.head.appendChild(style)
 }

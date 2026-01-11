@@ -406,8 +406,8 @@ window.addEventListener('message', async (event) => {
   }
   
   if (event.data.type === 'REPLACE_IN_EDITOR') {
-    const { search, replace, isRegex } = event.data
-    const result = replaceInEditor(search, replace, isRegex)
+    const { search, replace, isRegex, commandType, insertAnchor } = event.data
+    const result = replaceInEditor(search, replace, isRegex, commandType || 'replace', insertAnchor)
     window.postMessage({
       type: 'REPLACE_IN_EDITOR_RESPONSE',
       requestId: event.data.requestId,
@@ -446,9 +446,9 @@ window.addEventListener('message', async (event) => {
   
   // 重新激活高亮
   if (event.data.type === 'REACTIVATE_HIGHLIGHT') {
-    const { id, file, search, replace, isRegex } = event.data
+    const { id, file, search, replace, isRegex, commandType, insertAnchor } = event.data
     const currentFile = getCurrentFileName()
-    const success = reactivateHighlight(id, file, search, replace, isRegex, currentFile)
+    const success = reactivateHighlight(id, file, search, replace, isRegex, currentFile, commandType, insertAnchor)
     window.postMessage({
       type: 'REACTIVATE_HIGHLIGHT_RESPONSE',
       requestId: event.data.requestId,

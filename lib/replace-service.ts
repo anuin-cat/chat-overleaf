@@ -3,12 +3,20 @@
  * 负责解析 LLM 输出中的替换指令，校验格式，并提供辅助工具。
  */
 
+export type CommandType = 'replace' | 'insert'
+
 export interface ReplaceCommand {
   id: string
   file: string
-  search: string
-  replace: string
+  search: string        // 对于替换操作，这是搜索文本；对于插入操作，这是主锚点
+  replace: string       // 替换内容或插入内容
   isRegex: boolean
+  commandType: CommandType  // 操作类型
+  // 插入操作的锚点信息
+  insertAnchor?: {
+    after?: string      // 在此文本后插入
+    before?: string     // 在此文本前插入
+  }
   status: 'pending' | 'accepted' | 'rejected' | 'applied' | 'error'
   errorMessage?: string
   matchCount?: number
@@ -25,6 +33,8 @@ const REPLACE_BLOCK_NEW_FORMAT = /<<<REPLACE>>>\s*FILE:\s*(.+?)\s*<<<SEARCH>>>([
 const REPLACE_BLOCK_OLD_FORMAT = /<<<REPLACE>>>\s*FILE:\s*(.+?)\s*SEARCH:\s*([\s\S]*?)\s*REPLACE:\s*([\s\S]*?)\s*<<<END>>>/g
 // 正则替换模式
 const REPLACE_BLOCK_REGEX_MODE = /<<<REPLACE_REGEX>>>\s*FILE:\s*(.+?)\s*PATTERN:\s*(.+?)\s*REPLACE:\s*([\s\S]*?)\s*<<<END>>>/g
+// 统一插入模式：支持 AFTER 和 BEFORE 锚点
+const INSERT_BLOCK = /<<<INSERT>>>\s*FILE:\s*(.+?)\s*<<<AFTER>>>([\s\S]*?)<<<BEFORE>>>([\s\S]*?)<<<CONTENT>>>([\s\S]*?)<<<END>>>/g
 // 包裹指令的代码块（剥离只含替换指令的 ``` 块）
 const CODE_FENCE_WITH_COMMANDS = /```[^\n]*\n([\s\S]*?)```/g
 
@@ -33,7 +43,8 @@ function isOnlyReplaceBlocks(body: string): boolean {
   ;[
     new RegExp(REPLACE_BLOCK_NEW_FORMAT.source, 'g'),
     new RegExp(REPLACE_BLOCK_OLD_FORMAT.source, 'g'),
-    new RegExp(REPLACE_BLOCK_REGEX_MODE.source, 'g')
+    new RegExp(REPLACE_BLOCK_REGEX_MODE.source, 'g'),
+    new RegExp(INSERT_BLOCK.source, 'g')
   ].forEach(regex => {
     stripped = stripped.replace(regex, '')
   })
@@ -141,8 +152,7 @@ export function validateMatchCount(
 /**
  * 解析并添加单个替换块
  */
-function parseAndAddCommand(
-  fullMatch: string,
+function parseAndAddReplaceCommand(
   file: string,
   search: string,
   replace: string,
@@ -152,15 +162,13 @@ function parseAndAddCommand(
 ): { id: string; command: ReplaceCommand } {
   const trimmedFile = file.trim()
   const trimmedSearch = search.trim()
-  const id = generateStableId(trimmedFile, trimmedSearch)
+  const id = generateStableId(trimmedFile, trimmedSearch + 'replace')
   
-  // 避免重复加入同一命令
   if (processedIds.has(id)) {
     return { id, command: commands.find(c => c.id === id)! }
   }
   processedIds.add(id)
   
-  // 校验
   let validation: { valid: boolean; error?: string }
   if (isRegex) {
     validation = validateRegex(trimmedSearch)
@@ -174,6 +182,7 @@ function parseAndAddCommand(
     search: trimmedSearch,
     replace: replace.trim(),
     isRegex,
+    commandType: 'replace',
     status: validation.valid ? 'pending' : 'error',
     errorMessage: validation.error
   }
@@ -183,8 +192,60 @@ function parseAndAddCommand(
 }
 
 /**
- * 解析 LLM 输出中的替换指令
- * 支持新格式 <<<SEARCH>>> ... <<<WITH>>> 与旧格式 SEARCH: ... REPLACE:
+ * 解析并添加单个插入块
+ */
+function parseAndAddInsertCommand(
+  file: string,
+  afterAnchor: string,
+  beforeAnchor: string,
+  content: string,
+  commands: ReplaceCommand[],
+  processedIds: Set<string>
+): { id: string; command: ReplaceCommand } {
+  const trimmedFile = file.trim()
+  const trimmedAfter = afterAnchor.trim()
+  const trimmedBefore = beforeAnchor.trim()
+  const trimmedContent = content.trim()
+  
+  // 确定主锚点用于定位和生成 ID
+  const mainAnchor = trimmedAfter || trimmedBefore || ''
+  const id = generateStableId(trimmedFile, mainAnchor + 'insert' + trimmedContent.substring(0, 50))
+  
+  if (processedIds.has(id)) {
+    return { id, command: commands.find(c => c.id === id)! }
+  }
+  processedIds.add(id)
+  
+  // 校验：至少需要一个锚点
+  let validation: { valid: boolean; error?: string } = { valid: true }
+  if (!trimmedAfter && !trimmedBefore) {
+    validation = { valid: false, error: '插入操作至少需要指定 AFTER 或 BEFORE 锚点' }
+  } else if (mainAnchor.length < 3) {
+    validation = { valid: false, error: '锚点内容过短（至少 3 个字符）' }
+  }
+  
+  const command: ReplaceCommand = {
+    id,
+    file: trimmedFile,
+    search: mainAnchor,  // 主锚点用于兼容现有逻辑
+    replace: trimmedContent,
+    isRegex: false,
+    commandType: 'insert',
+    insertAnchor: {
+      after: trimmedAfter || undefined,
+      before: trimmedBefore || undefined
+    },
+    status: validation.valid ? 'pending' : 'error',
+    errorMessage: validation.error
+  }
+  
+  commands.push(command)
+  return { id, command }
+}
+
+/**
+ * 解析 LLM 输出中的替换/插入指令
+ * 支持格式：REPLACE、INSERT（统一插入格式）
  */
 export function parseReplaceCommands(content: string): ParseResult {
   const commands: ReplaceCommand[] = []
@@ -197,9 +258,7 @@ export function parseReplaceCommands(content: string): ParseResult {
   REPLACE_BLOCK_NEW_FORMAT.lastIndex = 0
   while ((match = REPLACE_BLOCK_NEW_FORMAT.exec(sanitizedContent)) !== null) {
     const [fullMatch, file, search, replace] = match
-    const { id } = parseAndAddCommand(
-      fullMatch, file, search, replace, false, commands, processedIds
-    )
+    const { id } = parseAndAddReplaceCommand(file, search, replace, false, commands, processedIds)
     cleanContent = cleanContent.replace(fullMatch, `[[REPLACE_BLOCK:${id}]]`)
   }
   
@@ -207,10 +266,7 @@ export function parseReplaceCommands(content: string): ParseResult {
   REPLACE_BLOCK_OLD_FORMAT.lastIndex = 0
   while ((match = REPLACE_BLOCK_OLD_FORMAT.exec(sanitizedContent)) !== null) {
     const [fullMatch, file, search, replace] = match
-    const { id } = parseAndAddCommand(
-      fullMatch, file, search, replace, false, commands, processedIds
-    )
-    // 仅在未被新格式处理时替换
+    const { id } = parseAndAddReplaceCommand(file, search, replace, false, commands, processedIds)
     if (cleanContent.includes(fullMatch)) {
       cleanContent = cleanContent.replace(fullMatch, `[[REPLACE_BLOCK:${id}]]`)
     }
@@ -220,9 +276,15 @@ export function parseReplaceCommands(content: string): ParseResult {
   REPLACE_BLOCK_REGEX_MODE.lastIndex = 0
   while ((match = REPLACE_BLOCK_REGEX_MODE.exec(sanitizedContent)) !== null) {
     const [fullMatch, file, pattern, replace] = match
-    const { id } = parseAndAddCommand(
-      fullMatch, file, pattern, replace, true, commands, processedIds
-    )
+    const { id } = parseAndAddReplaceCommand(file, pattern, replace, true, commands, processedIds)
+    cleanContent = cleanContent.replace(fullMatch, `[[REPLACE_BLOCK:${id}]]`)
+  }
+  
+  // 4. 解析统一插入块 <<<INSERT>>> ... <<<AFTER>>> ... <<<BEFORE>>> ... <<<CONTENT>>>
+  INSERT_BLOCK.lastIndex = 0
+  while ((match = INSERT_BLOCK.exec(sanitizedContent)) !== null) {
+    const [fullMatch, file, afterAnchor, beforeAnchor, insertContent] = match
+    const { id } = parseAndAddInsertCommand(file, afterAnchor, beforeAnchor, insertContent, commands, processedIds)
     cleanContent = cleanContent.replace(fullMatch, `[[REPLACE_BLOCK:${id}]]`)
   }
   
@@ -230,32 +292,75 @@ export function parseReplaceCommands(content: string): ParseResult {
 }
 
 /**
- * 检查文本中是否包含替换指令
+ * 检查文本中是否包含替换/插入指令
  */
 export function hasReplaceCommands(content: string): boolean {
   REPLACE_BLOCK_NEW_FORMAT.lastIndex = 0
   REPLACE_BLOCK_OLD_FORMAT.lastIndex = 0
   REPLACE_BLOCK_REGEX_MODE.lastIndex = 0
+  INSERT_BLOCK.lastIndex = 0
   return (
     REPLACE_BLOCK_NEW_FORMAT.test(content) || 
     REPLACE_BLOCK_OLD_FORMAT.test(content) || 
-    REPLACE_BLOCK_REGEX_MODE.test(content)
+    REPLACE_BLOCK_REGEX_MODE.test(content) ||
+    INSERT_BLOCK.test(content)
   )
 }
 
 /**
- * 执行替换操作（返回替换后的内容）
+ * 执行替换/插入操作（返回操作后的内容）
  */
 export function executeReplace(
   content: string,
   search: string,
   replace: string,
-  isRegex: boolean
-): { success: boolean; result: string; error?: string } {
+  isRegex: boolean,
+  commandType: CommandType = 'replace',
+  insertAnchor?: { after?: string; before?: string }
+): { success: boolean; result: string; error?: string; insertPosition?: number } {
   try {
     let result: string
+    let insertPosition: number | undefined
     
-    if (isRegex) {
+    if (commandType === 'insert' && insertAnchor) {
+      const { after, before } = insertAnchor
+      
+      if (after && before) {
+        // 两个锚点都有：在 after 后、before 前之间插入
+        const afterIndex = content.indexOf(after)
+        const beforeIndex = content.indexOf(before)
+        if (afterIndex === -1) {
+          return { success: false, result: content, error: '未找到 AFTER 锚点文本' }
+        }
+        if (beforeIndex === -1) {
+          return { success: false, result: content, error: '未找到 BEFORE 锚点文本' }
+        }
+        const insertPos = afterIndex + after.length
+        if (insertPos > beforeIndex) {
+          return { success: false, result: content, error: 'AFTER 锚点必须在 BEFORE 锚点之前' }
+        }
+        result = content.slice(0, insertPos) + replace + content.slice(insertPos)
+        insertPosition = insertPos
+      } else if (after) {
+        // 只有 after：在 after 文本后插入
+        const index = content.indexOf(after)
+        if (index === -1) {
+          return { success: false, result: content, error: '未找到 AFTER 锚点文本' }
+        }
+        insertPosition = index + after.length
+        result = content.slice(0, insertPosition) + replace + content.slice(insertPosition)
+      } else if (before) {
+        // 只有 before：在 before 文本前插入
+        const index = content.indexOf(before)
+        if (index === -1) {
+          return { success: false, result: content, error: '未找到 BEFORE 锚点文本' }
+        }
+        insertPosition = index
+        result = content.slice(0, index) + replace + content.slice(index)
+      } else {
+        return { success: false, result: content, error: '插入操作需要至少一个锚点' }
+      }
+    } else if (isRegex) {
       const regex = new RegExp(search, 'g')
       result = content.replace(regex, replace)
     } else {
@@ -263,12 +368,12 @@ export function executeReplace(
       result = content.split(search).join(replace)
     }
     
-    return { success: true, result }
+    return { success: true, result, insertPosition }
   } catch (e) {
     return { 
       success: false, 
       result: content, 
-      error: e instanceof Error ? e.message : '替换执行失败' 
+      error: e instanceof Error ? e.message : '操作执行失败' 
     }
   }
 }
@@ -280,10 +385,26 @@ export function highlightMatches(
   content: string,
   search: string,
   replace: string,
-  isRegex: boolean
+  isRegex: boolean,
+  commandType: CommandType = 'replace',
+  insertAnchor?: { after?: string; before?: string }
 ): string {
   try {
-    if (isRegex) {
+    if (commandType === 'insert' && insertAnchor) {
+      const { after, before } = insertAnchor
+      let result = content
+      if (after) {
+        result = result.split(after).join(
+          `<mark class="bg-blue-100">${after}</mark><mark class="bg-green-200">${replace}</mark>`
+        )
+      }
+      if (before && !after) {
+        result = result.split(before).join(
+          `<mark class="bg-green-200">${replace}</mark><mark class="bg-blue-100">${before}</mark>`
+        )
+      }
+      return result
+    } else if (isRegex) {
       const regex = new RegExp(`(${search})`, 'g')
       return content.replace(regex, '<mark class="bg-red-200 line-through">$1</mark><mark class="bg-green-200">' + replace + '</mark>')
     } else {

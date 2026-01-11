@@ -222,6 +222,11 @@ export const ReplaceBlock = ({
         <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
           <FileCode className="w-3 h-3 text-gray-500 flex-shrink-0" />
           <span className="text-xs font-medium text-gray-700 truncate">{command.file}</span>
+          {command.commandType === 'insert' && (
+            <span className="text-[10px] px-1 py-0.5 bg-blue-100 text-blue-600 rounded flex-shrink-0">
+              插入
+            </span>
+          )}
           {command.isRegex && (
             <span className="text-[10px] px-1 py-0.5 bg-purple-100 text-purple-600 rounded flex-shrink-0">
               正则
@@ -288,49 +293,91 @@ export const ReplaceBlock = ({
         </div>
       </div>
       
-      {/* 替换内容预览 - 差异高亮版 */}
+      {/* 替换/插入内容预览 */}
       <div className="px-2 py-1 bg-white/50 space-y-0.5">
-        {/* 原始内容 - 只显示差异部分 */}
-        <div className="flex items-start gap-1">
-          <span className="w-1 h-1 rounded-full bg-red-400 mt-1.5 flex-shrink-0"></span>
-          <pre className="text-[11px] text-red-700 px-1 py-0.5 rounded overflow-x-auto whitespace-pre-wrap break-all font-mono border border-red-100 flex-1 leading-tight bg-red-50/50">
-            {showCompact ? (
-              renderDiffText(
-                diffData.oldSegments,
-                diffData.diff.commonPrefix.length > 10 ? '...' : diffData.diff.commonPrefix,
-                diffData.diff.commonSuffix.length > 10 ? '...' : diffData.diff.commonSuffix,
-                'old'
-              )
-            ) : hasDiff ? (
-              renderDiffText(diffData.oldSegments, diffData.diff.commonPrefix, diffData.diff.commonSuffix, 'old')
-            ) : (
-              command.search
+        {/* 对于插入操作，显示锚点和插入内容 */}
+        {command.commandType === 'insert' ? (
+          <>
+            {/* AFTER 锚点 */}
+            {command.insertAnchor?.after && (
+              <div className="flex items-start gap-1">
+                <span className="w-1 h-1 rounded-full bg-blue-400 mt-1.5 flex-shrink-0"></span>
+                <div className="flex-1">
+                  <span className="text-[10px] text-blue-500 mr-1">AFTER ↓</span>
+                  <pre className="text-[11px] text-blue-700 px-1 py-0.5 rounded overflow-x-auto whitespace-pre-wrap break-all font-mono border border-blue-100 leading-tight bg-blue-50/50">
+                    {command.insertAnchor.after}
+                  </pre>
+                </div>
+              </div>
             )}
-          </pre>
-        </div>
-        
-        {/* 新内容 - 只显示差异部分 */}
-        <div className="flex items-start gap-1">
-          <span className="w-1 h-1 rounded-full bg-green-400 mt-1.5 flex-shrink-0"></span>
-          <pre className="text-[11px] text-green-700 px-1 py-0.5 rounded overflow-x-auto whitespace-pre-wrap break-all font-mono border border-green-100 flex-1 leading-tight bg-green-50/50">
-            {command.replace ? (
-              showCompact ? (
-                renderDiffText(
-                  diffData.newSegments,
-                  diffData.diff.commonPrefix.length > 10 ? '...' : diffData.diff.commonPrefix,
-                  diffData.diff.commonSuffix.length > 10 ? '...' : diffData.diff.commonSuffix,
-                  'new'
-                )
-              ) : hasDiff ? (
-                renderDiffText(diffData.newSegments, diffData.diff.commonPrefix, diffData.diff.commonSuffix, 'new')
-              ) : (
-                command.replace
-              )
-            ) : (
-              '(空)'
+            {/* 插入内容 */}
+            <div className="flex items-start gap-1">
+              <span className="w-1 h-1 rounded-full bg-green-400 mt-1.5 flex-shrink-0"></span>
+              <div className="flex-1">
+                <span className="text-[10px] text-green-500 mr-1">插入内容</span>
+                <pre className="text-[11px] text-green-700 px-1 py-0.5 rounded overflow-x-auto whitespace-pre-wrap break-all font-mono border border-green-100 leading-tight bg-green-50/50">
+                  {command.replace || '(空)'}
+                </pre>
+              </div>
+            </div>
+            {/* BEFORE 锚点 */}
+            {command.insertAnchor?.before && (
+              <div className="flex items-start gap-1">
+                <span className="w-1 h-1 rounded-full bg-blue-400 mt-1.5 flex-shrink-0"></span>
+                <div className="flex-1">
+                  <span className="text-[10px] text-blue-500 mr-1">↑ BEFORE</span>
+                  <pre className="text-[11px] text-blue-700 px-1 py-0.5 rounded overflow-x-auto whitespace-pre-wrap break-all font-mono border border-blue-100 leading-tight bg-blue-50/50">
+                    {command.insertAnchor.before}
+                  </pre>
+                </div>
+              </div>
             )}
-          </pre>
-        </div>
+          </>
+        ) : (
+          <>
+            {/* 原始内容 - 只显示差异部分 */}
+            <div className="flex items-start gap-1">
+              <span className="w-1 h-1 rounded-full bg-red-400 mt-1.5 flex-shrink-0"></span>
+              <pre className="text-[11px] text-red-700 px-1 py-0.5 rounded overflow-x-auto whitespace-pre-wrap break-all font-mono border border-red-100 flex-1 leading-tight bg-red-50/50">
+                {showCompact ? (
+                  renderDiffText(
+                    diffData.oldSegments,
+                    diffData.diff.commonPrefix.length > 10 ? '...' : diffData.diff.commonPrefix,
+                    diffData.diff.commonSuffix.length > 10 ? '...' : diffData.diff.commonSuffix,
+                    'old'
+                  )
+                ) : hasDiff ? (
+                  renderDiffText(diffData.oldSegments, diffData.diff.commonPrefix, diffData.diff.commonSuffix, 'old')
+                ) : (
+                  command.search
+                )}
+              </pre>
+            </div>
+            
+            {/* 新内容 - 只显示差异部分 */}
+            <div className="flex items-start gap-1">
+              <span className="w-1 h-1 rounded-full bg-green-400 mt-1.5 flex-shrink-0"></span>
+              <pre className="text-[11px] text-green-700 px-1 py-0.5 rounded overflow-x-auto whitespace-pre-wrap break-all font-mono border border-green-100 flex-1 leading-tight bg-green-50/50">
+                {command.replace ? (
+                  showCompact ? (
+                    renderDiffText(
+                      diffData.newSegments,
+                      diffData.diff.commonPrefix.length > 10 ? '...' : diffData.diff.commonPrefix,
+                      diffData.diff.commonSuffix.length > 10 ? '...' : diffData.diff.commonSuffix,
+                      'new'
+                    )
+                  ) : hasDiff ? (
+                    renderDiffText(diffData.newSegments, diffData.diff.commonPrefix, diffData.diff.commonSuffix, 'new')
+                  ) : (
+                    command.replace
+                  )
+                ) : (
+                  '(空)'
+                )}
+              </pre>
+            </div>
+          </>
+        )}
         
         {/* 错误信息 */}
         {(command.errorMessage || (matchInfo && !matchInfo.valid)) && (
