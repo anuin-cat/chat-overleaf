@@ -83,9 +83,9 @@ export function getCurrentFileName(): string {
   }
   
   // 尝试从编辑器标签获取
-  const activeTab = document.querySelector('.file-tree .active')
-  if (activeTab?.textContent?.trim()) {
-    return activeTab.textContent.trim()
+  const actTab = document.querySelector('.file-tree .active')
+  if (actTab?.textContent?.trim()) {
+    return actTab.textContent.trim()
   }
   
   return 'main.tex'
