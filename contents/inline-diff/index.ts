@@ -329,8 +329,8 @@ function showInlineDiffWithDOM(
     selection: { anchor: firstMatch.from } // 只移动光标，不选中
   })
   
-  // 等待滚动完成后创建 DOM 元素
-  setTimeout(() => {
+  // 使用 requestAnimationFrame 等待滚动完成，比 setTimeout 更快响应
+  requestAnimationFrame(() => {
     try {
       const coords = editorView.coordsAtPos(firstMatch.from)
       if (!coords) {
@@ -446,7 +446,7 @@ function showInlineDiffWithDOM(
     } catch (error) {
       console.error('[ChatOverleaf] Error creating inline diff:', error)
     }
-  }, 150)
+  })
   
   return { success: true, matchCount: positions.length }
 }

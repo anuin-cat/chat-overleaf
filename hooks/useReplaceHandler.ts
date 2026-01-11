@@ -211,6 +211,23 @@ export const useReplaceHandler = ({
     }
   }, [navigateToFile])
   
+  // 检查文件是否当前打开
+  const checkCurrentFile = useCallback(async (filePath: string): Promise<{ 
+    isCurrentFile: boolean
+    currentFile: string 
+  }> => {
+    try {
+      const result = await sendMessageToMainWorld<{ isCurrentFile: boolean; currentFile: string }>(
+        'CHECK_CURRENT_FILE',
+        { filePath }
+      )
+      return result
+    } catch (error) {
+      console.error('Error checking current file:', error)
+      return { isCurrentFile: false, currentFile: '' }
+    }
+  }, [])
+  
   // 在编辑器中显示内联差异预览
   const showInlineDiff = useCallback(async (command: ReplaceCommand): Promise<{ 
     success: boolean
@@ -220,16 +237,23 @@ export const useReplaceHandler = ({
     try {
       console.log('[ChatOverleaf Hook] showInlineDiff called:', command.id, command.file)
       
-      // 先导航到文件
-      const navResult = await navigateToFile(command.file)
-      console.log('[ChatOverleaf Hook] Navigation result:', navResult)
+      // 先检查文件是否已经打开
+      const fileCheck = await checkCurrentFile(command.file)
+      console.log('[ChatOverleaf Hook] File check result:', fileCheck)
       
-      if (!navResult.success) {
-        return { success: false, error: navResult.error, matchCount: 0 }
+      if (!fileCheck.isCurrentFile) {
+        // 文件未打开，需要导航
+        const navResult = await navigateToFile(command.file)
+        console.log('[ChatOverleaf Hook] Navigation result:', navResult)
+        
+        if (!navResult.success) {
+          return { success: false, error: navResult.error, matchCount: 0 }
+        }
+        
+        // 只有导航后才需要等待文件加载（缩短到 200ms）
+        await new Promise(resolve => setTimeout(resolve, 200))
       }
-      
-      // 等待文件加载
-      await new Promise(resolve => setTimeout(resolve, 600))
+      // 文件已打开，无需等待，直接显示预览
       
       console.log('[ChatOverleaf Hook] Sending SHOW_INLINE_DIFF message')
       
@@ -258,7 +282,7 @@ export const useReplaceHandler = ({
         matchCount: 0
       }
     }
-  }, [navigateToFile])
+  }, [navigateToFile, checkCurrentFile])
   
   // 移除内联差异预览
   const removeInlineDiff = useCallback(async (commandId: string): Promise<void> => {
@@ -284,49 +308,19 @@ export const useReplaceHandler = ({
     }
   }, [])
   
-  // 检查文件是否当前打开
-  const checkCurrentFile = useCallback(async (filePath: string): Promise<{ 
-    isCurrentFile: boolean
-    currentFile: string 
-  }> => {
-    try {
-      const result = await sendMessageToMainWorld<{ isCurrentFile: boolean; currentFile: string }>(
-        'CHECK_CURRENT_FILE',
-        { filePath }
-      )
-      return result
-    } catch (error) {
-      console.error('Error checking current file:', error)
-      return { isCurrentFile: false, currentFile: '' }
-    }
-  }, [])
-  
-  // 智能预览：如果文件已打开则预览，否则导航到文件
+  // 智能预览：导航到文件并显示预览（showInlineDiff 内部已处理导航）
   const smartPreview = useCallback(async (command: ReplaceCommand): Promise<{
     success: boolean
     error?: string
     action: 'preview' | 'navigate'
   }> => {
     try {
-      // 检查文件是否已打开
-      const { isCurrentFile } = await checkCurrentFile(command.file)
-      
-      if (isCurrentFile) {
-        // 文件已打开，直接显示预览
-        const result = await showInlineDiff(command)
-        return { 
-          success: result.success, 
-          error: result.error, 
-          action: 'preview' 
-        }
-      } else {
-        // 文件未打开，先导航到文件
-        const navResult = await navigateToFile(command.file)
-        return { 
-          success: navResult.success, 
-          error: navResult.error, 
-          action: 'navigate' 
-        }
+      // showInlineDiff 会自动导航到文件并显示预览
+      const result = await showInlineDiff(command)
+      return { 
+        success: result.success, 
+        error: result.error, 
+        action: 'preview' 
       }
     } catch (error) {
       return { 
@@ -335,7 +329,7 @@ export const useReplaceHandler = ({
         action: 'navigate'
       }
     }
-  }, [checkCurrentFile, showInlineDiff, navigateToFile])
+  }, [showInlineDiff])
   
   // 监听内联差异操作事件
   useEffect(() => {
