@@ -175,7 +175,35 @@ export const useReplaceHandler = ({
         // 导航后给编辑器一点加载时间
         await new Promise(resolve => setTimeout(resolve, 500))
       }
+
+      // 判断匹配位置是否在视口内，不在则滚动并延迟 666ms 再执行替换
+      let shouldDelay = false
+      try {
+        const visibility = await sendMessageToMainWorld<{ visible: boolean; hasMatch: boolean; pos?: number }>(
+          'CHECK_MATCH_VISIBLE',
+          { 
+            search: command.search, 
+            replace: command.replace, 
+            isRegex: command.isRegex,
+            commandType: command.commandType,
+            insertAnchor: command.insertAnchor
+          }
+        )
+        if (!visibility.visible && visibility.hasMatch && typeof visibility.pos === 'number') {
+          shouldDelay = true
+          await sendMessageToMainWorld<{ success: boolean }>(
+            'SCROLL_TO_POSITION',
+            { pos: visibility.pos }
+          )
+        }
+      } catch (error) {
+        console.warn('[ChatOverleaf] CHECK_MATCH_VISIBLE failed, fallback to immediate replace', error)
+      }
       
+      if (shouldDelay) {
+        await new Promise(resolve => setTimeout(resolve, 666))
+      }
+
       // 执行替换/插入操作
       const replaceResult = await sendMessageToMainWorld<{ 
         success: boolean

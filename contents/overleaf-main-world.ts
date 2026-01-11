@@ -186,6 +186,81 @@ let resizeObserver: ResizeObserver | null = null
 let contentObserver: MutationObserver | null = null
 
 /**
+ * 查找所有匹配位置（本文件内简化版，避免额外导出）
+ */
+function findMatchPositions(
+  content: string,
+  search: string,
+  isRegex: boolean
+): Array<{ from: number; to: number; text: string }> {
+  const positions: Array<{ from: number; to: number; text: string }> = []
+  
+  if (isRegex) {
+    const regex = new RegExp(search, 'g')
+    let match: RegExpExecArray | null
+    while ((match = regex.exec(content)) !== null) {
+      positions.push({
+        from: match.index,
+        to: match.index + match[0].length,
+        text: match[0]
+      })
+    }
+  } else {
+    let pos = 0
+    while ((pos = content.indexOf(search, pos)) !== -1) {
+      positions.push({
+        from: pos,
+        to: pos + search.length,
+        text: search
+      })
+      pos += 1
+    }
+  }
+  
+  return positions
+}
+
+/**
+ * 判断某个文档位置是否在当前视口内
+ */
+function isPositionVisible(pos: number): boolean {
+  const editorView = getCodeMirrorEditor()
+  const scroller = document.querySelector('.cm-scroller') as HTMLElement | null
+  if (!editorView || !scroller) return false
+  const coords = editorView.coordsAtPos(pos)
+  if (!coords) return false
+  const scrollerRect = scroller.getBoundingClientRect()
+  return coords.bottom > scrollerRect.top && coords.top < scrollerRect.bottom
+}
+
+/**
+ * 滚动到指定位置（居中显示）
+ */
+function scrollToPosition(pos: number): void {
+  try {
+    const editorView = getCodeMirrorEditor()
+    const scroller = document.querySelector('.cm-scroller') as HTMLElement | null
+    if (!editorView || !scroller) return
+    
+    editorView.dispatch({ selection: { anchor: pos }, scrollIntoView: true })
+    
+    requestAnimationFrame(() => {
+      const coords = editorView.coordsAtPos(pos)
+      if (!coords) return
+      const scrollerRect = scroller.getBoundingClientRect()
+      const targetY = coords.top - scrollerRect.top + scroller.scrollTop
+      const centerOffset = scroller.clientHeight / 2
+      scroller.scrollTo({
+        top: Math.max(0, targetY - centerOffset),
+        behavior: 'auto'
+      })
+    })
+  } catch (error) {
+    console.error('[ChatOverleaf] Error scrolling to position:', error)
+  }
+}
+
+/**
  * 检查内容变化
  */
 function checkContentChange() {
@@ -288,7 +363,7 @@ function setupRefreshListeners() {
     refreshTimeout = setTimeout(() => {
       refreshTimeout = null
       refreshHighlights()
-    }, 360)
+    }, 80)
   }
 
   scroller.addEventListener('scroll', throttledRefresh)
@@ -391,6 +466,48 @@ window.addEventListener('message', async (event) => {
       type: 'CHECK_CURRENT_FILE_RESPONSE',
       requestId: event.data.requestId,
       data: { isCurrentFile: isMatch, currentFile: getCurrentFileName() }
+    }, '*')
+    return
+  }
+
+  if (event.data.type === 'CHECK_MATCH_VISIBLE') {
+    const { search, replace, isRegex, commandType, insertAnchor } = event.data
+    const editorView = getCodeMirrorEditor()
+    const scroller = document.querySelector('.cm-scroller') as HTMLElement | null
+    if (!editorView || !scroller) {
+      window.postMessage({
+        type: 'CHECK_MATCH_VISIBLE_RESPONSE',
+        requestId: event.data.requestId,
+        data: { visible: false, hasMatch: false }
+      }, '*')
+      return
+    }
+
+    const content = editorView.state.doc.toString()
+    let searchText = search
+    if (commandType === 'insert' && insertAnchor) {
+      searchText = insertAnchor.after || insertAnchor.before || search
+    }
+
+    const positions = findMatchPositions(content, searchText, isRegex)
+    const first = positions[0]
+    const visible = first ? isPositionVisible(first.from) : false
+
+    window.postMessage({
+      type: 'CHECK_MATCH_VISIBLE_RESPONSE',
+      requestId: event.data.requestId,
+      data: { visible, hasMatch: !!first, pos: first?.from ?? null }
+    }, '*')
+    return
+  }
+
+  if (event.data.type === 'SCROLL_TO_POSITION') {
+    const { pos } = event.data
+    scrollToPosition(typeof pos === 'number' ? pos : 0)
+    window.postMessage({
+      type: 'SCROLL_TO_POSITION_RESPONSE',
+      requestId: event.data.requestId,
+      data: { success: true }
     }, '*')
     return
   }
