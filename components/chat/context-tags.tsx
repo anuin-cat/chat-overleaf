@@ -190,7 +190,7 @@ export const ContextTags = ({
         {/* Token 估算显示 */}
         {showFileNames && selectedFiles.size > 0 && totalTokenEstimate && totalTokenEstimate > 0 && (
           <div
-            className="relative"
+            className="relative inline-flex items-center"
             onMouseEnter={() => setHoveredToken(true)}
             onMouseLeave={() => setHoveredToken(false)}
           >
@@ -214,7 +214,7 @@ export const ContextTags = ({
         {showFileNames && mergedSelection.folders.map((folder) => (
           <div
             key={folder.path}
-            className="relative"
+            className="relative inline-flex items-center"
             onMouseEnter={() => setHoveredFolder(folder.path)}
             onMouseLeave={() => setHoveredFolder(null)}
           >
