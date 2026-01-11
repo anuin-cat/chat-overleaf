@@ -20,6 +20,8 @@ interface MarkdownMessageProps {
   replaceCommands?: Map<string, ReplaceCommand>
   onAcceptReplace?: (command: ReplaceCommand) => void
   onRejectReplace?: (command: ReplaceCommand) => void
+  onUndoApply?: (command: ReplaceCommand) => void
+  onUndoReject?: (command: ReplaceCommand) => void
   onSmartPreview?: (command: ReplaceCommand) => void
   getFileContent?: (filePath: string) => string | undefined
   applyingCommandId?: string | null
@@ -51,6 +53,8 @@ export const MarkdownMessage = ({
   replaceCommands,
   onAcceptReplace,
   onRejectReplace,
+  onUndoApply,
+  onUndoReject,
   onSmartPreview,
   getFileContent,
   applyingCommandId
@@ -244,6 +248,8 @@ export const MarkdownMessage = ({
         fileContent={getFileContent?.(command.file)}
         onAccept={(cmd) => onAcceptReplace?.(cmd)}
         onReject={(cmd) => onRejectReplace?.(cmd)}
+        onUndoApply={onUndoApply ? (cmd) => onUndoApply(cmd) : undefined}
+        onUndoReject={onUndoReject ? (cmd) => onUndoReject(cmd) : undefined}
         onSmartPreview={onSmartPreview ? (cmd) => onSmartPreview(cmd) : undefined}
         isApplying={applyingCommandId === commandId}
       />

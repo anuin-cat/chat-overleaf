@@ -22,6 +22,10 @@ interface UseReplaceHandlerReturn {
   navigateToFile: (filePath: string) => Promise<{ success: boolean; error?: string }>
   // 执行替换
   applyReplace: (command: ReplaceCommand) => Promise<{ success: boolean; error?: string }>
+  // 撤销已应用的替换
+  undoApply: (command: ReplaceCommand) => Promise<{ success: boolean; error?: string }>
+  // 撤销已拒绝的替换
+  undoReject: (command: ReplaceCommand) => Promise<{ success: boolean; error?: string }>
   // 检查文件是否当前打开
   checkCurrentFile: (filePath: string) => Promise<{ isCurrentFile: boolean; currentFile: string }>
   // 智能预览：如果文件已打开则预览，否则导航到文件
@@ -264,7 +268,7 @@ export const useReplaceHandler = ({
       }
     }
   }, [checkCurrentFile, navigateToFile])
-  
+
   // 批量高亮当前文件中的所有待替换区域
   const highlightAllPending = useCallback(async (commands: ReplaceCommand[]): Promise<{
     success: boolean
@@ -322,6 +326,51 @@ export const useReplaceHandler = ({
       return false
     }
   }, [updateCommandStatus])
+
+  // 撤销已应用：尝试将替换内容还原，并恢复为 pending 再重新高亮
+  const undoApply = useCallback(async (command: ReplaceCommand): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const fileStatus = await checkCurrentFile(command.file)
+      if (!fileStatus.isCurrentFile) {
+        const navResult = await navigateToFile(command.file)
+        if (!navResult.success) {
+          return { success: false, error: navResult.error }
+        }
+        await new Promise(resolve => setTimeout(resolve, 200))
+      }
+
+      const revertResult = await sendMessageToMainWorld<{ success: boolean; error?: string; replacedCount: number }>(
+        'REPLACE_IN_EDITOR',
+        { search: command.replace, replace: command.search, isRegex: command.isRegex }
+      )
+
+      if (!revertResult.success) {
+        updateCommandStatus(command.id, 'error', revertResult.error)
+        return { success: false, error: revertResult.error }
+      }
+
+      updateCommandStatus(command.id, 'pending')
+      await reactivateHighlight(command)
+      return { success: true }
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : '撤销失败'
+      updateCommandStatus(command.id, 'error', errMsg)
+      return { success: false, error: errMsg }
+    }
+  }, [checkCurrentFile, navigateToFile, reactivateHighlight, updateCommandStatus])
+
+  // 撤销已拒绝：恢复 pending 并重新高亮
+  const undoReject = useCallback(async (command: ReplaceCommand): Promise<{ success: boolean; error?: string }> => {
+    try {
+      updateCommandStatus(command.id, 'pending')
+      await reactivateHighlight(command)
+      return { success: true }
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : '撤销失败'
+      updateCommandStatus(command.id, 'error', errMsg)
+      return { success: false, error: errMsg }
+    }
+  }, [reactivateHighlight, updateCommandStatus])
   
   // 移除所有悬浮高亮
   const removeAllHoverHighlights = useCallback(async (): Promise<void> => {
@@ -365,6 +414,8 @@ export const useReplaceHandler = ({
     getFileContent,
     navigateToFile,
     applyReplace,
+    undoApply,
+    undoReject,
     checkCurrentFile,
     smartPreview,
     applyingCommandId,

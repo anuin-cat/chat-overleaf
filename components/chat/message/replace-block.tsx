@@ -111,6 +111,8 @@ interface ReplaceBlockProps {
   fileContent?: string // 当前文件内容（用于验证匹配）
   onAccept: (command: ReplaceCommand) => void
   onReject: (command: ReplaceCommand) => void
+  onUndoApply?: (command: ReplaceCommand) => void
+  onUndoReject?: (command: ReplaceCommand) => void
   onSmartPreview?: (command: ReplaceCommand) => void // 智能预览：自动判断查看或预览
   isApplying?: boolean
 }
@@ -120,6 +122,8 @@ export const ReplaceBlock = ({
   fileContent,
   onAccept,
   onReject,
+  onUndoApply,
+  onUndoReject,
   onSmartPreview,
   isApplying = false
 }: ReplaceBlockProps) => {
@@ -170,6 +174,8 @@ export const ReplaceBlock = ({
   
   const statusDisplay = getStatusDisplay()
   const isEditable = command.status === 'pending'
+  const canUndoApply = (command.status === 'applied' || command.status === 'accepted') && !!onUndoApply
+  const canUndoReject = command.status === 'rejected' && !!onUndoReject
   const hasValidMatch = matchInfo?.valid ?? true
   
   // 计算差异，用于高亮显示
@@ -235,49 +241,51 @@ export const ReplaceBlock = ({
           )}
         </div>
         {/* 操作按钮组 - 右上角 */}
-        {isEditable && (
-          <div className="flex items-center gap-0.5 flex-shrink-0">
-            {onSmartPreview && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-gray-500 hover:text-blue-600 hover:bg-blue-50 h-5 w-5 p-0"
-                onClick={() => onSmartPreview(command)}
-                disabled={isApplying}
-                title="点击定位到文件并预览修改"
-              >
-                <MousePointerClick className="w-3.5 h-3.5" />
-              </Button>
-            )}
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          {isEditable && onSmartPreview && (
             <Button
               variant="ghost"
               size="sm"
-              className="text-gray-500 hover:text-red-600 hover:bg-red-50 h-5 w-5 p-0"
-              onClick={() => onReject(command)}
+              className="text-gray-500 hover:text-blue-600 hover:bg-blue-50 h-5 w-5 p-0"
+              onClick={() => onSmartPreview(command)}
               disabled={isApplying}
-              title="拒绝"
+              title="点击定位到文件并预览修改"
             >
-              <X className="w-3.5 h-3.5" />
+              <MousePointerClick className="w-3.5 h-3.5" />
             </Button>
-            <Button
-              variant="default"
-              size="sm"
-              className="text-[10px] bg-green-600 hover:bg-green-700 text-white h-5 px-1.5"
-              onClick={() => onAccept(command)}
-              disabled={isApplying || !hasValidMatch || command.status === 'error'}
-              title="接受"
-            >
-              {isApplying ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <>
-                  <Check className="w-3 h-3 mr-0.5" />
-                  接受
-                </>
-              )}
-            </Button>
-          </div>
-        )}
+          )}
+          {isEditable && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-500 hover:text-red-600 hover:bg-red-50 h-5 w-5 p-0"
+                onClick={() => onReject(command)}
+                disabled={isApplying}
+                title="拒绝"
+              >
+                <X className="w-3.5 h-3.5" />
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                className="text-[10px] bg-green-600 hover:bg-green-700 text-white h-5 px-1.5"
+                onClick={() => onAccept(command)}
+                disabled={isApplying || !hasValidMatch || command.status === 'error'}
+                title="接受"
+              >
+                {isApplying ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <>
+                    <Check className="w-3 h-3 mr-0.5" />
+                    接受
+                  </>
+                )}
+              </Button>
+            </>
+          )}
+        </div>
       </div>
       
       {/* 替换内容预览 - 差异高亮版 */}
@@ -332,6 +340,46 @@ export const ReplaceBlock = ({
           </div>
         )}
       </div>
+
+      {/* 已处理状态的操作区 */}
+      {!isEditable && (
+        <div className="px-2 py-1 border-t border-gray-100 bg-white flex items-center justify-between text-[11px]">
+          <div className="flex items-center gap-1 text-gray-600">
+            {statusDisplay.icon}
+            <span>
+              {command.status === 'applied' || command.status === 'accepted'
+                ? '已应用，支持撤销恢复为候选'
+                : command.status === 'rejected'
+                  ? '已拒绝，支持撤销恢复为候选'
+                  : '已处理'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {canUndoApply && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 px-2 text-[11px] text-blue-600 border-blue-200 hover:bg-blue-50"
+                onClick={() => onUndoApply?.(command)}
+                title="撤销应用，恢复为待处理并重新高亮"
+              >
+                撤销应用
+              </Button>
+            )}
+            {canUndoReject && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 px-2 text-[11px] text-blue-600 border-blue-200 hover:bg-blue-50"
+                onClick={() => onUndoReject?.(command)}
+                title="撤销拒绝，恢复为待处理并重新高亮"
+              >
+                撤销拒绝
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

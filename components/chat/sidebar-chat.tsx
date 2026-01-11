@@ -120,6 +120,8 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
     updateCommandStatus,
     getFileContent,
     applyReplace,
+    undoApply,
+    undoReject,
     smartPreview,
     applyingCommandId,
     highlightAllPending,
@@ -524,6 +526,18 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
                   }}
                   onRejectReplace={(cmd) => {
                     updateCommandStatus(cmd.id, 'rejected')
+                  }}
+                  onUndoApply={async (cmd) => {
+                    const result = await undoApply(cmd)
+                    if (result.success) {
+                      success('已撤销应用并恢复为待处理', { title: '撤销' })
+                    }
+                  }}
+                  onUndoReject={async (cmd) => {
+                    const result = await undoReject(cmd)
+                    if (result.success) {
+                      success('已撤销拒绝并恢复为待处理', { title: '撤销' })
+                    }
                   }}
                   onSmartPreview={async (cmd) => {
                     // 如果是被拒绝的命令，重新激活高亮
