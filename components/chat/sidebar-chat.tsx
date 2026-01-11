@@ -131,6 +131,15 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
 
   const processedMessageIdsRef = useRef<Set<string>>(new Set())
 
+  // 每次切换到新的聊天（新建或加载历史）时，清空高亮与替换命令，避免残留
+  useEffect(() => {
+    processedMessageIdsRef.current = new Set()
+    resetReplaceCommands()
+    ;(async () => {
+      await removeAllHoverHighlights()
+    })()
+  }, [currentChatId, resetReplaceCommands, removeAllHoverHighlights])
+
   // 解析 AI 消息中的替换命令（避免流式消息未完成时解析）
   useEffect(() => {
     messages.forEach(message => {
