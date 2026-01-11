@@ -292,7 +292,7 @@ function removeHighlightOverlay(id: string): void {
 export * from './types'
 export { injectInlineDiffStyles } from './styles'
 export { computeDiff, computeWordDiff, escapeHtml, renderNewDiffHtml } from './diff-algorithm'
-export { getCodeMirrorEditor, findMatchPositions, replaceInEditor, highlightInEditor } from './editor-utils'
+export { getCodeMirrorEditor, findMatchPositions, replaceInEditor, highlightInEditor, scrollToPosition } from './editor-utils'
 export { 
   addHighlightRegions, 
   reactivateHighlight, 

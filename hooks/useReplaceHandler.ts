@@ -33,7 +33,7 @@ interface UseReplaceHandlerReturn {
   // 正在应用的命令 ID
   applyingCommandId: string | null
   // 批量高亮当前文件中的所有待替换区域
-  highlightAllPending: (commands: ReplaceCommand[]) => Promise<{ success: boolean; count: number }>
+  highlightAllPending: (commands: ReplaceCommand[], options?: { shouldScroll?: boolean }) => Promise<{ success: boolean; count: number }>
   // 重新激活某个高亮
   reactivateHighlight: (command: ReplaceCommand) => Promise<boolean>
   // 移除单个高亮
@@ -239,7 +239,8 @@ export const useReplaceHandler = ({
         if (!navResult.success) {
           return { success: false, error: navResult.error, action: 'navigate' }
         }
-        await new Promise(resolve => setTimeout(resolve, 200))
+        // 导航后等待编辑器加载完成
+        await new Promise(resolve => setTimeout(resolve, 600))
       }
 
       const result = await sendMessageToMainWorld<{ success: boolean; count: number }>(
@@ -253,7 +254,8 @@ export const useReplaceHandler = ({
             isRegex: command.isRegex,
             commandType: command.commandType,
             insertAnchor: command.insertAnchor
-          }]
+          }],
+          shouldScroll: true
         }
       )
 
@@ -276,10 +278,11 @@ export const useReplaceHandler = ({
   }, [checkCurrentFile, navigateToFile])
 
   // 批量高亮当前文件中的所有待替换区域
-  const highlightAllPending = useCallback(async (commands: ReplaceCommand[]): Promise<{
+  const highlightAllPending = useCallback(async (commands: ReplaceCommand[], options?: { shouldScroll?: boolean }): Promise<{
     success: boolean
     count: number
   }> => {
+    const shouldScroll = options?.shouldScroll ?? false
     try {
       // 只处理 pending 状态的命令
       const pendingCommands = commands.filter(cmd => cmd.status === 'pending')
@@ -298,10 +301,11 @@ export const useReplaceHandler = ({
             isRegex: cmd.isRegex,
             commandType: cmd.commandType,
             insertAnchor: cmd.insertAnchor
-          }))
+          })),
+          shouldScroll
         }
       )
-      
+
       return result
     } catch (error) {
       console.error('Error highlighting all pending:', error)

@@ -288,7 +288,7 @@ function setupRefreshListeners() {
     refreshTimeout = setTimeout(() => {
       refreshTimeout = null
       refreshHighlights()
-    }, 80)
+    }, 360)
   }
 
   scroller.addEventListener('scroll', throttledRefresh)
@@ -429,13 +429,14 @@ window.addEventListener('message', async (event) => {
   
   // 批量添加高亮区域
   if (event.data.type === 'ADD_HIGHLIGHT_REGIONS') {
-    const { commands } = event.data
+    const { commands, shouldScroll } = event.data
     const currentFile = getCurrentFileName()
     console.log('[ChatOverleaf] ADD_HIGHLIGHT_REGIONS:', { 
       commandsCount: commands?.length, 
-      currentFile 
+      currentFile,
+      shouldScroll
     })
-    const result = addHighlightRegions(commands || [], currentFile)
+    const result = addHighlightRegions(commands || [], currentFile, shouldScroll ?? true)
     window.postMessage({
       type: 'ADD_HIGHLIGHT_REGIONS_RESPONSE',
       requestId: event.data.requestId,

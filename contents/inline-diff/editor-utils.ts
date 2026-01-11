@@ -85,6 +85,42 @@ export interface InsertAnchor {
 }
 
 /**
+ * 滚动编辑器到指定位置（居中显示）
+ */
+export function scrollToPosition(pos: number, editorView?: any): void {
+  try {
+    const view = editorView || getCodeMirrorEditor()
+    if (!view) return
+    
+    // 先设置光标位置
+    view.dispatch({
+      selection: { anchor: pos }
+    })
+    
+    // 使用 requestAnimationFrame 等待渲染后再滚动
+    requestAnimationFrame(() => {
+      try {
+        const coords = view.coordsAtPos(pos)
+        const scroller = document.querySelector('.cm-scroller') as HTMLElement
+        if (coords && scroller) {
+          const scrollerRect = scroller.getBoundingClientRect()
+          const targetY = coords.top - scrollerRect.top + scroller.scrollTop
+          const centerOffset = scroller.clientHeight / 2
+          scroller.scrollTo({
+            top: Math.max(0, targetY - centerOffset),
+            behavior: 'auto'
+          })
+        }
+      } catch (e) {
+        // 忽略滚动错误
+      }
+    })
+  } catch (e) {
+    console.error('[ChatOverleaf] Error scrolling to position:', e)
+  }
+}
+
+/**
  * 在编辑器中执行替换/插入操作
  * @param search - 搜索文本（替换模式）或主锚点文本（插入模式，兼容用）
  * @param replace - 替换内容或插入内容
@@ -164,7 +200,16 @@ export function replaceInEditor(
       }))
     }
     
+    // 获取第一个变更位置（在反转前记录，用于滚动）
+    const firstChangePos = changes.length > 0 
+      ? Math.min(...changes.map(c => c.from))
+      : 0
+    
+    // 执行替换
     editorView.dispatch({ changes })
+    
+    // 替换后滚动到变更位置（居中显示）
+    scrollToPosition(firstChangePos, editorView)
     
     return { success: true, replacedCount: commandType === 'replace' ? changes.length : 1 }
   } catch (error) {

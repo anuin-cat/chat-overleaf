@@ -156,7 +156,7 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
   useEffect(() => {
     const pendingCommands = Array.from(replaceCommands.values()).filter(cmd => cmd.status === 'pending')
     if (pendingCommands.length > 0) {
-      highlightAllPending(pendingCommands).then(result => {
+      highlightAllPending(pendingCommands, { shouldScroll: false }).then(result => {
         if (result.count > 0) {
           console.log(`[ChatOverleaf] 已高亮 ${result.count} 个待替换区域`)
         }
@@ -171,7 +171,7 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
         // 文件内容变化，重新检查是否需要高亮
         const pendingCommands = Array.from(replaceCommands.values()).filter(cmd => cmd.status === 'pending')
         if (pendingCommands.length > 0) {
-          highlightAllPending(pendingCommands)
+          highlightAllPending(pendingCommands, { shouldScroll: false })
         }
       }
     }

@@ -5,7 +5,7 @@
 
 import type { WordDiffSegment } from './types'
 import { computeDiff, computeWordDiff, escapeHtml, renderNewDiffHtml } from './diff-algorithm'
-import { getCodeMirrorEditor, findMatchPositions, replaceInEditor, type CommandType, type InsertAnchor } from './editor-utils'
+import { getCodeMirrorEditor, findMatchPositions, replaceInEditor, scrollToPosition, type CommandType, type InsertAnchor } from './editor-utils'
 
 // 高亮区域数据
 interface HighlightRegion {
@@ -51,7 +51,16 @@ function createInteractiveOverlay(
 }
 
 /**
+ * 检查位置是否在当前视口内可见
+ */
+function isPositionVisible(pos: number, editorView: any): boolean {
+  const coords = editorView.coordsAtPos(pos)
+  return coords !== null
+}
+
+/**
  * 创建高亮区域的所有覆盖层
+ * 返回: { overlays, visible } - overlays 为覆盖层数组，visible 表示是否在视口内
  */
 function createRegionOverlays(
   region: HighlightRegion,
@@ -62,6 +71,12 @@ function createRegionOverlays(
   const overlays: HTMLElement[] = []
   
   const { from, to, id, search, replace, isRegex } = region
+  
+  // 检查区域是否在视口内（起始或结束位置任一可见即可尝试创建）
+  if (!isPositionVisible(from, editorView) && !isPositionVisible(to, editorView)) {
+    // 位置不在视口内，跳过创建但返回空数组（不删除区域数据）
+    return overlays
+  }
   
   // 计算差异
   const matchedText = editorView.state.doc.sliceString(from, to)
@@ -433,11 +448,13 @@ export function addHighlightRegions(
     commandType?: CommandType
     insertAnchor?: InsertAnchor
   }>,
-  currentFileName: string
+  currentFileName: string,
+  shouldScroll: boolean = true
 ): { success: boolean; count: number } {
   console.log('[ChatOverleaf] addHighlightRegions called:', { 
     commandsCount: commands.length, 
-    currentFileName 
+    currentFileName,
+    shouldScroll
   })
   
   const editorView = getCodeMirrorEditor()
@@ -457,14 +474,9 @@ export function addHighlightRegions(
   
   const content = editorView.state.doc.toString()
   let count = 0
+  let firstMatchPosition: { from: number; to: number } | null = null
   
   for (const cmd of commands) {
-    // 跳过已存在的
-    if (highlightRegions.has(cmd.id)) {
-      console.log('[ChatOverleaf] Region already exists:', cmd.id)
-      continue
-    }
-    
     // 检查文件是否匹配当前打开的文件
     if (!isFileMatch(cmd.file, currentFileName)) {
       console.log('[ChatOverleaf] File not match:', { cmdFile: cmd.file, currentFileName })
@@ -485,6 +497,17 @@ export function addHighlightRegions(
     
     const firstMatch = positions[0]
     
+    // 记录第一个匹配位置，用于滚动（无论区域是否已存在都记录）
+    if (!firstMatchPosition) {
+      firstMatchPosition = { from: firstMatch.from, to: firstMatch.to }
+    }
+    
+    // 检查区域是否已存在
+    if (highlightRegions.has(cmd.id)) {
+      console.log('[ChatOverleaf] Region already exists, will scroll to it:', cmd.id)
+      continue
+    }
+    
     const region: HighlightRegion = {
       id: cmd.id,
       search: cmd.search,
@@ -498,18 +521,28 @@ export function addHighlightRegions(
       status: 'pending'
     }
     
-    // 创建覆盖层
-    region.overlays = createRegionOverlays(region, editorView, scroller)
-    
-    if (region.overlays.length > 0) {
-      highlightRegions.set(cmd.id, region)
-      count++
-      console.log('[ChatOverleaf] Highlight region created:', cmd.id)
-    }
+    // 保存区域数据（无论是否能立即创建覆盖层）
+    highlightRegions.set(cmd.id, region)
+    count++
+    console.log('[ChatOverleaf] Highlight region registered:', cmd.id)
   }
   
-  console.log('[ChatOverleaf] Total highlights created:', count)
-  return { success: true, count }
+  // 滚动到第一个匹配位置（无论区域是新建还是已存在），居中显示
+  if (firstMatchPosition && shouldScroll) {
+    scrollToPosition(firstMatchPosition.from, editorView)
+    console.log('[ChatOverleaf] Scrolled to position (centered):', firstMatchPosition.from)
+    
+    // 滚动后延迟刷新，确保视口更新后再创建覆盖层
+    setTimeout(() => {
+      refreshHighlights()
+    }, 150)
+  } else if (count > 0) {
+    // 没有需要滚动的位置，但有新注册的区域，刷新高亮
+    refreshHighlights()
+  }
+  
+  console.log('[ChatOverleaf] Total highlights registered:', count)
+  return { success: true, count: count || (firstMatchPosition ? 1 : 0) }
 }
 
 /**
@@ -578,15 +611,17 @@ export function refreshHighlights(): void {
     region.overlays.forEach(overlay => overlay.remove())
     region.overlays = []
     
-    // 重新查找位置
+    // 重新查找位置（内容可能已变化）
     const positions = findMatchPositions(content, region.search, region.isRegex)
     if (positions.length > 0) {
       region.from = positions[0].from
       region.to = positions[0].to
-      // 重新创建覆盖层
+      // 重新创建覆盖层（如果在视口内）
       region.overlays = createRegionOverlays(region, editorView, scroller)
+      // 注意：即使 overlays 为空（不在视口内），也保留 region 数据
+      // 下次滚动刷新时会再次尝试创建
     } else {
-      // 找不到匹配，移除该区域
+      // 找不到匹配内容，移除该区域
       highlightRegions.delete(id)
     }
   })
