@@ -1,6 +1,6 @@
 /**
- * 文件替换服务
- * 解析 LLM 输出中的替换指令，验证正则表达式，执行替换操作
+ * 替换块解析与校验服务
+ * 负责解析 LLM 输出中的替换指令，校验格式，并提供辅助工具。
  */
 
 export interface ReplaceCommand {
@@ -16,22 +16,50 @@ export interface ReplaceCommand {
 
 export interface ParseResult {
   commands: ReplaceCommand[]
-  cleanContent: string // 移除替换块后的内容
+  cleanContent: string // 去除替换块标记后的原始文本
 }
 
-// 替换块的标记格式 - 新格式（推荐）: <<<SEARCH>>> ... <<<WITH>>>
+// 替换块标记 - 新格式：<<<SEARCH>>> ... <<<WITH>>>
 const REPLACE_BLOCK_NEW_FORMAT = /<<<REPLACE>>>\s*FILE:\s*(.+?)\s*<<<SEARCH>>>([\s\S]*?)<<<WITH>>>([\s\S]*?)<<<END>>>/g
-// 旧格式（向后兼容）: SEARCH: ... REPLACE:
+// 旧格式兼容：SEARCH: ... REPLACE:
 const REPLACE_BLOCK_OLD_FORMAT = /<<<REPLACE>>>\s*FILE:\s*(.+?)\s*SEARCH:\s*([\s\S]*?)\s*REPLACE:\s*([\s\S]*?)\s*<<<END>>>/g
 // 正则替换模式
 const REPLACE_BLOCK_REGEX_MODE = /<<<REPLACE_REGEX>>>\s*FILE:\s*(.+?)\s*PATTERN:\s*(.+?)\s*REPLACE:\s*([\s\S]*?)\s*<<<END>>>/g
+// 包裹指令的代码块（剥离只含替换指令的 ``` 块）
+const CODE_FENCE_WITH_COMMANDS = /```[^\n]*\n([\s\S]*?)```/g
+
+function isOnlyReplaceBlocks(body: string): boolean {
+  let stripped = body
+  ;[
+    new RegExp(REPLACE_BLOCK_NEW_FORMAT.source, 'g'),
+    new RegExp(REPLACE_BLOCK_OLD_FORMAT.source, 'g'),
+    new RegExp(REPLACE_BLOCK_REGEX_MODE.source, 'g')
+  ].forEach(regex => {
+    stripped = stripped.replace(regex, '')
+  })
+  return stripped.trim() === ''
+}
+
+function stripCommandCodeFences(content: string): string {
+  let result = content
+  CODE_FENCE_WITH_COMMANDS.lastIndex = 0
+  let match
+  while ((match = CODE_FENCE_WITH_COMMANDS.exec(content)) !== null) {
+    const fullMatch = match[0]
+    const body = match[1]
+    if (isOnlyReplaceBlocks(body)) {
+      result = result.replace(fullMatch, body)
+    }
+  }
+  return result
+}
 
 /**
  * 生成基于内容的稳定 ID
  * 使用文件路径和搜索内容生成确定性的 ID
  */
 function generateStableId(file: string, search: string): string {
-  // 使用简单的 hash 算法生成稳定 ID
+  // 简单 hash 生成稳定 ID
   const str = `${file}:${search}`
   let hash = 0
   for (let i = 0; i < str.length; i++) {
@@ -43,7 +71,7 @@ function generateStableId(file: string, search: string): string {
 }
 
 /**
- * 验证正则表达式是否合法
+ * 校验正则表达式
  */
 export function validateRegex(pattern: string): { valid: boolean; error?: string } {
   try {
@@ -62,18 +90,18 @@ export function validateSearchLength(search: string): { valid: boolean; error?: 
   const trimmed = search.trim()
   
   if (trimmed.length < 3) {
-    return { valid: false, error: '搜索内容过短（最少3个字符）' }
+    return { valid: false, error: '搜索内容过短（至少 3 个字符）' }
   }
   
   if (trimmed.length > 2000) {
-    return { valid: false, error: '搜索内容过长（最多2000个字符）' }
+    return { valid: false, error: '搜索内容过长（最多 2000 个字符）' }
   }
   
   return { valid: true }
 }
 
 /**
- * 验证匹配结果是否合理
+ * 校验匹配次数是否合理
  */
 export function validateMatchCount(
   content: string,
@@ -88,7 +116,7 @@ export function validateMatchCount(
       const matches = content.match(regex)
       matchCount = matches?.length || 0
     } else {
-      // 字面量匹配
+      // 普通文本匹配
       let pos = 0
       while ((pos = content.indexOf(search, pos)) !== -1) {
         matchCount++
@@ -101,17 +129,17 @@ export function validateMatchCount(
     }
     
     if (matchCount > 10) {
-      return { valid: false, matchCount, error: `匹配数量过多（${matchCount}处），请提供更精确的搜索内容` }
+      return { valid: false, matchCount, error: `匹配次数过多（${matchCount} 次），请提供更精确的搜索内容` }
     }
     
     return { valid: true, matchCount }
   } catch (e) {
-    return { valid: false, matchCount: 0, error: e instanceof Error ? e.message : '匹配验证失败' }
+    return { valid: false, matchCount: 0, error: e instanceof Error ? e.message : '匹配校验失败' }
   }
 }
 
 /**
- * 解析单个替换块并添加到命令列表
+ * 解析并添加单个替换块
  */
 function parseAndAddCommand(
   fullMatch: string,
@@ -126,13 +154,13 @@ function parseAndAddCommand(
   const trimmedSearch = search.trim()
   const id = generateStableId(trimmedFile, trimmedSearch)
   
-  // 避免重复添加相同的命令
+  // 避免重复加入同一命令
   if (processedIds.has(id)) {
     return { id, command: commands.find(c => c.id === id)! }
   }
   processedIds.add(id)
   
-  // 验证
+  // 校验
   let validation: { valid: boolean; error?: string }
   if (isRegex) {
     validation = validateRegex(trimmedSearch)
@@ -155,18 +183,19 @@ function parseAndAddCommand(
 }
 
 /**
- * 解析 LLM 输出中的替换命令
- * 支持新格式（<<<SEARCH>>> ... <<<WITH>>>）和旧格式（SEARCH: ... REPLACE:）
+ * 解析 LLM 输出中的替换指令
+ * 支持新格式 <<<SEARCH>>> ... <<<WITH>>> 与旧格式 SEARCH: ... REPLACE:
  */
 export function parseReplaceCommands(content: string): ParseResult {
   const commands: ReplaceCommand[] = []
-  let cleanContent = content
+  const sanitizedContent = stripCommandCodeFences(content)
+  let cleanContent = sanitizedContent
   const processedIds = new Set<string>()
   
-  // 1. 解析新格式字面量替换块 <<<SEARCH>>> ... <<<WITH>>>
+  // 1. 解析新格式 <<<SEARCH>>> ... <<<WITH>>>
   let match
   REPLACE_BLOCK_NEW_FORMAT.lastIndex = 0
-  while ((match = REPLACE_BLOCK_NEW_FORMAT.exec(content)) !== null) {
+  while ((match = REPLACE_BLOCK_NEW_FORMAT.exec(sanitizedContent)) !== null) {
     const [fullMatch, file, search, replace] = match
     const { id } = parseAndAddCommand(
       fullMatch, file, search, replace, false, commands, processedIds
@@ -174,14 +203,14 @@ export function parseReplaceCommands(content: string): ParseResult {
     cleanContent = cleanContent.replace(fullMatch, `[[REPLACE_BLOCK:${id}]]`)
   }
   
-  // 2. 解析旧格式字面量替换块 SEARCH: ... REPLACE:（向后兼容）
+  // 2. 解析旧格式 SEARCH: ... REPLACE:
   REPLACE_BLOCK_OLD_FORMAT.lastIndex = 0
-  while ((match = REPLACE_BLOCK_OLD_FORMAT.exec(content)) !== null) {
+  while ((match = REPLACE_BLOCK_OLD_FORMAT.exec(sanitizedContent)) !== null) {
     const [fullMatch, file, search, replace] = match
     const { id } = parseAndAddCommand(
       fullMatch, file, search, replace, false, commands, processedIds
     )
-    // 只在未被新格式处理时替换
+    // 仅在未被新格式处理时替换
     if (cleanContent.includes(fullMatch)) {
       cleanContent = cleanContent.replace(fullMatch, `[[REPLACE_BLOCK:${id}]]`)
     }
@@ -189,7 +218,7 @@ export function parseReplaceCommands(content: string): ParseResult {
   
   // 3. 解析正则替换块
   REPLACE_BLOCK_REGEX_MODE.lastIndex = 0
-  while ((match = REPLACE_BLOCK_REGEX_MODE.exec(content)) !== null) {
+  while ((match = REPLACE_BLOCK_REGEX_MODE.exec(sanitizedContent)) !== null) {
     const [fullMatch, file, pattern, replace] = match
     const { id } = parseAndAddCommand(
       fullMatch, file, pattern, replace, true, commands, processedIds
@@ -201,7 +230,7 @@ export function parseReplaceCommands(content: string): ParseResult {
 }
 
 /**
- * 检查内容中是否包含替换命令
+ * 检查文本中是否包含替换指令
  */
 export function hasReplaceCommands(content: string): boolean {
   REPLACE_BLOCK_NEW_FORMAT.lastIndex = 0
@@ -230,7 +259,7 @@ export function executeReplace(
       const regex = new RegExp(search, 'g')
       result = content.replace(regex, replace)
     } else {
-      // 字面量替换所有匹配
+      // 普通文本替换全部匹配
       result = content.split(search).join(replace)
     }
     
@@ -268,7 +297,7 @@ export function highlightMatches(
 }
 
 /**
- * 获取匹配位置信息（用于在编辑器中定位）
+ * 获取匹配位置（用于在编辑器中定位）
  */
 export function getMatchPositions(
   content: string,
@@ -305,4 +334,3 @@ export function getMatchPositions(
   
   return positions
 }
-
