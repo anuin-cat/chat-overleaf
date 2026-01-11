@@ -117,9 +117,8 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
     replaceCommands,
     updateCommandStatus,
     getFileContent,
-    navigateToFile,
     applyReplace,
-    showInlineDiff,
+    smartPreview,
     applyingCommandId
   } = useReplaceHandler({ extractedFiles })
 
@@ -475,18 +474,14 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
                   onRejectReplace={(cmd) => {
                     updateCommandStatus(cmd.id, 'rejected')
                   }}
-                  onNavigateToFile={async (filePath) => {
-                    const result = await navigateToFile(filePath)
-                    if (!result.success) {
-                      console.error('Navigate to file failed:', result.error)
-                    }
-                  }}
-                  onShowInlineDiff={async (cmd) => {
-                    const result = await showInlineDiff(cmd)
+                  onSmartPreview={async (cmd) => {
+                    const result = await smartPreview(cmd)
                     if (result.success) {
-                      success(`已在编辑器中显示差异预览 (${result.matchCount} 处匹配)`, { title: '预览' })
+                      if (result.action === 'preview') {
+                        success('已在编辑器中显示差异预览', { title: '预览' })
+                      }
                     } else {
-                      console.error('Show inline diff failed:', result.error)
+                      console.error('Smart preview failed:', result.error)
                     }
                   }}
                   getFileContent={getFileContent}

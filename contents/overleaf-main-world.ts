@@ -1,5 +1,5 @@
 import type { PlasmoCSConfig } from "plasmo"
-import { getFileTreeItems, clickFileTreeItem, waitForFileLoad, getCurrentFileName, isActiveTreeItemFile, expandAllFolders, collapseFolders } from "./overleaf-filetree"
+import { getFileTreeItems, clickFileTreeItem, waitForFileLoad, getCurrentFileName, isActiveTreeItemFile, expandAllFolders, collapseFolders, expandPathFolders } from "./overleaf-filetree"
 import { 
   getCodeMirrorEditor, 
   replaceInEditor, 
@@ -260,10 +260,40 @@ function setupSelectionListener() {
 }
 
 /**
- * 点击并打开指定文件
+ * 检查当前打开的文件是否匹配指定路径
+ */
+function isCurrentFile(filePath: string): boolean {
+  const currentFile = getCurrentFileName()
+  if (!currentFile) return false
+  
+  // 精确匹配
+  if (currentFile === filePath) return true
+  
+  // 路径后缀匹配
+  if (currentFile.endsWith('/' + filePath) || filePath.endsWith('/' + currentFile)) return true
+  
+  // 只比较文件名
+  const currentFileName = currentFile.split('/').pop()
+  const targetFileName = filePath.split('/').pop()
+  if (currentFileName === targetFileName) {
+    // 进一步验证路径
+    return currentFile.includes(filePath) || filePath.includes(currentFile)
+  }
+  
+  return false
+}
+
+/**
+ * 点击并打开指定文件（支持展开嵌套文件夹）
  */
 async function navigateToFile(filePath: string): Promise<{ success: boolean; error?: string }> {
   try {
+    // 先尝试展开路径中的所有文件夹
+    await expandPathFolders(filePath)
+    
+    // 等待文件树更新
+    await new Promise(resolve => setTimeout(resolve, 200))
+    
     const fileItems = getFileTreeItems()
     const targetFile = fileItems.find(item => 
       item.path === filePath || 
@@ -300,6 +330,16 @@ window.addEventListener('message', async (event) => {
       event.data.type?.startsWith('SHOW_INLINE') ||
       event.data.type?.startsWith('REMOVE')) {
     console.log('[ChatOverleaf MainWorld] Received message:', event.data.type, event.data)
+  }
+  
+  if (event.data.type === 'CHECK_CURRENT_FILE') {
+    const isMatch = isCurrentFile(event.data.filePath)
+    window.postMessage({
+      type: 'CHECK_CURRENT_FILE_RESPONSE',
+      requestId: event.data.requestId,
+      data: { isCurrentFile: isMatch, currentFile: getCurrentFileName() }
+    }, '*')
+    return
   }
   
   if (event.data.type === 'NAVIGATE_TO_FILE') {

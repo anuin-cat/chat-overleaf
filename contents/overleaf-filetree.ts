@@ -199,6 +199,79 @@ export async function collapseFolders(folders: HTMLElement[], delayMs = 120): Pr
 
 
 /**
+ * 展开指定路径的所有父文件夹
+ * @param filePath 文件路径，如 "chapter/A 第一章 绪论/1-背景和意义.tex"
+ * @returns 是否成功展开所有需要的文件夹
+ */
+export async function expandPathFolders(filePath: string, delayMs = 150): Promise<boolean> {
+  const treeRoot = document.querySelector('.file-tree-inner')
+  if (!treeRoot) return false
+
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+  const pathParts = filePath.split('/')
+  
+  // 如果只有文件名（没有路径），无需展开
+  if (pathParts.length <= 1) return true
+  
+  // 需要展开的文件夹路径（不包括文件名本身）
+  const folderParts = pathParts.slice(0, -1)
+  
+  for (let i = 0; i < folderParts.length; i++) {
+    const folderName = folderParts[i]
+    const currentPath = folderParts.slice(0, i + 1).join('/')
+    
+    // 查找对应的文件夹节点
+    const folderItems = Array.from(
+      treeRoot.querySelectorAll<HTMLLIElement>('li[role="treeitem"]')
+    ).filter(li => {
+      const entityDiv = li.querySelector('.entity')
+      if (entityDiv?.getAttribute('data-file-type') !== 'folder') return false
+      
+      // 检查文件夹名称
+      const label = li.getAttribute('aria-label') || ''
+      const nameSpan = li.querySelector('.item-name-button span')
+      const name = label || nameSpan?.textContent?.trim() || ''
+      
+      // 匹配名称并检查路径层级
+      if (name !== folderName) return false
+      
+      // 验证路径层级正确（通过父节点数量）
+      let parentCount = 0
+      let parentList = li.closest('ul.file-tree-folder-list')
+      while (parentList) {
+        const prevFolder = parentList.previousElementSibling
+        if (prevFolder?.matches('li[role="treeitem"]')) {
+          parentCount++
+        }
+        parentList = prevFolder?.closest('ul.file-tree-folder-list') || null
+      }
+      
+      return parentCount === i
+    })
+    
+    if (folderItems.length === 0) {
+      console.warn(`[ChatOverleaf] Folder not found: ${folderName} in path: ${currentPath}`)
+      return false
+    }
+    
+    const folder = folderItems[0]
+    const isExpanded = folder.getAttribute('aria-expanded') === 'true'
+    
+    if (!isExpanded) {
+      const toggle = folder.querySelector<HTMLElement>('.folder-expand-collapse-button') ||
+        folder.querySelector<HTMLElement>('button[aria-label="Expand"]')
+      
+      if (toggle) {
+        toggle.click()
+        await sleep(delayMs)
+      }
+    }
+  }
+  
+  return true
+}
+
+/**
  * 获取文件树中的所有文件项
  */
 export function getFileTreeItems(): FileTreeItem[] {

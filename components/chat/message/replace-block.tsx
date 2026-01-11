@@ -3,7 +3,7 @@
  * 显示文件替换预览，支持用户接受或拒绝
  */
 import { useState, useEffect, useMemo } from 'react'
-import { Check, X, FileCode, AlertCircle, Loader2, ExternalLink, Eye } from 'lucide-react'
+import { Check, X, FileCode, AlertCircle, Loader2, MousePointerClick } from 'lucide-react'
 import { Button } from '~components/ui/button'
 import type { ReplaceCommand } from '~lib/replace-service'
 import { validateMatchCount } from '~lib/replace-service'
@@ -111,8 +111,7 @@ interface ReplaceBlockProps {
   fileContent?: string // 当前文件内容（用于验证匹配）
   onAccept: (command: ReplaceCommand) => void
   onReject: (command: ReplaceCommand) => void
-  onNavigateToFile: (filePath: string) => void
-  onShowInlineDiff?: (command: ReplaceCommand) => void // 在编辑器中显示内联差异
+  onSmartPreview?: (command: ReplaceCommand) => void // 智能预览：自动判断查看或预览
   isApplying?: boolean
 }
 
@@ -121,8 +120,7 @@ export const ReplaceBlock = ({
   fileContent,
   onAccept,
   onReject,
-  onNavigateToFile,
-  onShowInlineDiff,
+  onSmartPreview,
   isApplying = false
 }: ReplaceBlockProps) => {
   const [matchInfo, setMatchInfo] = useState<{
@@ -215,27 +213,71 @@ export const ReplaceBlock = ({
     <div className={`my-1.5 rounded-md border ${statusDisplay.bgColor} overflow-hidden text-xs`}>
       {/* 头部：文件名和状态 - 紧凑版 */}
       <div className={`px-2 py-1 flex items-center justify-between ${statusDisplay.bgColor}`}>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <FileCode className="w-3 h-3 text-gray-500" />
-          <span className="text-xs font-medium text-gray-700">{command.file}</span>
+        <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
+          <FileCode className="w-3 h-3 text-gray-500 flex-shrink-0" />
+          <span className="text-xs font-medium text-gray-700 truncate">{command.file}</span>
           {command.isRegex && (
-            <span className="text-[10px] px-1 py-0.5 bg-purple-100 text-purple-600 rounded">
+            <span className="text-[10px] px-1 py-0.5 bg-purple-100 text-purple-600 rounded flex-shrink-0">
               正则
             </span>
           )}
           {matchInfo && (
-            <span className={`text-[10px] ${matchInfo.valid ? 'text-green-600' : 'text-red-500'}`}>
+            <span className={`text-[10px] flex-shrink-0 ${matchInfo.valid ? 'text-green-600' : 'text-red-500'}`}>
               ({matchInfo.matchCount}处)
             </span>
           )}
           {statusDisplay.icon}
           {command.status === 'applied' && (
-            <span className="text-[10px] text-green-600">已应用</span>
+            <span className="text-[10px] text-green-600 flex-shrink-0">已应用</span>
           )}
           {command.status === 'rejected' && (
-            <span className="text-[10px] text-gray-500">已拒绝</span>
+            <span className="text-[10px] text-gray-500 flex-shrink-0">已拒绝</span>
           )}
         </div>
+        {/* 操作按钮组 - 右上角 */}
+        {isEditable && (
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            {onSmartPreview && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-500 hover:text-blue-600 hover:bg-blue-50 h-5 w-5 p-0"
+                onClick={() => onSmartPreview(command)}
+                disabled={isApplying}
+                title="点击定位到文件并预览修改"
+              >
+                <MousePointerClick className="w-3.5 h-3.5" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-gray-500 hover:text-red-600 hover:bg-red-50 h-5 w-5 p-0"
+              onClick={() => onReject(command)}
+              disabled={isApplying}
+              title="拒绝"
+            >
+              <X className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              className="text-[10px] bg-green-600 hover:bg-green-700 text-white h-5 px-1.5"
+              onClick={() => onAccept(command)}
+              disabled={isApplying || !hasValidMatch || command.status === 'error'}
+              title="接受"
+            >
+              {isApplying ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <>
+                  <Check className="w-3 h-3 mr-0.5" />
+                  接受
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </div>
       
       {/* 替换内容预览 - 差异高亮版 */}
@@ -290,65 +332,6 @@ export const ReplaceBlock = ({
           </div>
         )}
       </div>
-      
-      {/* 操作按钮 - 紧凑版 */}
-      {isEditable && (
-        <div className="px-2 py-1 bg-gray-50/50 flex items-center justify-between border-t border-gray-100">
-          <div className="flex items-center">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-[10px] text-gray-500 hover:text-blue-600 h-6 px-1.5"
-              onClick={() => onNavigateToFile(command.file)}
-            >
-              <ExternalLink className="w-3 h-3 mr-0.5" />
-              查看
-            </Button>
-            
-            {onShowInlineDiff && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-[10px] text-gray-500 hover:text-amber-600 hover:bg-amber-50 h-6 px-1.5"
-                onClick={() => onShowInlineDiff(command)}
-                disabled={isApplying}
-              >
-                <Eye className="w-3 h-3 mr-0.5" />
-                预览
-              </Button>
-            )}
-          </div>
-          
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-[10px] text-gray-500 hover:text-red-600 hover:bg-red-50 h-6 px-1.5"
-              onClick={() => onReject(command)}
-              disabled={isApplying}
-            >
-              <X className="w-3 h-3" />
-            </Button>
-            
-            <Button
-              variant="default"
-              size="sm"
-              className="text-[10px] bg-green-600 hover:bg-green-700 text-white h-6 px-2"
-              onClick={() => onAccept(command)}
-              disabled={isApplying || !hasValidMatch || command.status === 'error'}
-            >
-              {isApplying ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <>
-                  <Check className="w-3 h-3 mr-0.5" />
-                  接受
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

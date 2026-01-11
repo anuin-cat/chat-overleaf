@@ -28,6 +28,10 @@ interface UseReplaceHandlerReturn {
   removeInlineDiff: (commandId: string) => Promise<void>
   // 移除所有内联差异预览
   removeAllInlineDiffs: () => Promise<void>
+  // 检查文件是否当前打开
+  checkCurrentFile: (filePath: string) => Promise<{ isCurrentFile: boolean; currentFile: string }>
+  // 智能预览：如果文件已打开则预览，否则导航到文件
+  smartPreview: (command: ReplaceCommand) => Promise<{ success: boolean; error?: string; action: 'preview' | 'navigate' }>
   // 正在应用的命令 ID
   applyingCommandId: string | null
 }
@@ -280,6 +284,59 @@ export const useReplaceHandler = ({
     }
   }, [])
   
+  // 检查文件是否当前打开
+  const checkCurrentFile = useCallback(async (filePath: string): Promise<{ 
+    isCurrentFile: boolean
+    currentFile: string 
+  }> => {
+    try {
+      const result = await sendMessageToMainWorld<{ isCurrentFile: boolean; currentFile: string }>(
+        'CHECK_CURRENT_FILE',
+        { filePath }
+      )
+      return result
+    } catch (error) {
+      console.error('Error checking current file:', error)
+      return { isCurrentFile: false, currentFile: '' }
+    }
+  }, [])
+  
+  // 智能预览：如果文件已打开则预览，否则导航到文件
+  const smartPreview = useCallback(async (command: ReplaceCommand): Promise<{
+    success: boolean
+    error?: string
+    action: 'preview' | 'navigate'
+  }> => {
+    try {
+      // 检查文件是否已打开
+      const { isCurrentFile } = await checkCurrentFile(command.file)
+      
+      if (isCurrentFile) {
+        // 文件已打开，直接显示预览
+        const result = await showInlineDiff(command)
+        return { 
+          success: result.success, 
+          error: result.error, 
+          action: 'preview' 
+        }
+      } else {
+        // 文件未打开，先导航到文件
+        const navResult = await navigateToFile(command.file)
+        return { 
+          success: navResult.success, 
+          error: navResult.error, 
+          action: 'navigate' 
+        }
+      }
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : '操作失败',
+        action: 'navigate'
+      }
+    }
+  }, [checkCurrentFile, showInlineDiff, navigateToFile])
+  
   // 监听内联差异操作事件
   useEffect(() => {
     const handleInlineDiffAction = (event: MessageEvent) => {
@@ -313,6 +370,8 @@ export const useReplaceHandler = ({
     showInlineDiff,
     removeInlineDiff,
     removeAllInlineDiffs,
+    checkCurrentFile,
+    smartPreview,
     applyingCommandId
   }
 }
