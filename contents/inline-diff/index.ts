@@ -288,6 +288,13 @@ export * from './types'
 export { injectInlineDiffStyles } from './styles'
 export { computeDiff, computeWordDiff, escapeHtml, renderNewDiffHtml } from './diff-algorithm'
 export { getCodeMirrorEditor, findMatchPositions, replaceInEditor, highlightInEditor } from './editor-utils'
+export { 
+  addHighlightRegions, 
+  reactivateHighlight, 
+  removeAllHoverHighlights, 
+  getHighlightStatus,
+  refreshHighlights 
+} from './hover-highlights'
 
 /**
  * 显示内联差异 - 使用 DOM 浮动面板

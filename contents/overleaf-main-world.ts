@@ -4,10 +4,11 @@ import {
   getCodeMirrorEditor, 
   replaceInEditor, 
   highlightInEditor, 
-  showInlineDiff, 
-  removeInlineDiff, 
-  removeAllInlineDiffs,
-  initInlineDiff 
+  initInlineDiff,
+  addHighlightRegions,
+  reactivateHighlight,
+  removeAllHoverHighlights,
+  refreshHighlights
 } from "./overleaf-inline-diff"
 
 export const config: PlasmoCSConfig = {
@@ -178,6 +179,10 @@ async function getAllFilesContent(): Promise<AllFilesInfo> {
 let currentEditorContent = ''
 let currentFileName = ''
 let contentChangeTimeout: NodeJS.Timeout | null = null
+let lastFileNameNotified = ''
+let refreshTimeout: NodeJS.Timeout | null = null
+let resizeObserver: ResizeObserver | null = null
+let contentObserver: MutationObserver | null = null
 
 /**
  * 检查内容变化
@@ -194,6 +199,7 @@ function checkContentChange() {
       const isFileNameValid = fileName && fileName.trim().length > 0
 
       if (isContentValid && isFileNameValid) {
+        const prevFile = currentFileName
         currentEditorContent = content
         currentFileName = fileName
 
@@ -205,6 +211,12 @@ function checkContentChange() {
             type: 'OVERLEAF_CONTENT_CHANGED',
             data: { fileName, content: cleanedContent, length: cleanedContent.length }
           }, '*')
+          // 如果切换了文件，移除旧文件的高亮
+          if (prevFile && prevFile !== fileName) {
+            removeAllHoverHighlights()
+          }
+          // 内容变化后刷新高亮位置
+          refreshHighlights()
         }, 300)
       }
     }
@@ -256,6 +268,46 @@ function setupSelectionListener() {
 
   } catch (error) {
     console.error('Error setting up selection listener:', error)
+  }
+}
+
+/**
+ * 监听滚动/窗口大小变化，实时刷新高亮位置
+ */
+function setupRefreshListeners() {
+  const scroller = document.querySelector('.cm-scroller') as HTMLElement
+  if (!scroller) {
+    // 如果编辑器尚未加载，稍后重试
+    setTimeout(setupRefreshListeners, 1000)
+    return
+  }
+
+  const throttledRefresh = () => {
+    if (refreshTimeout) return
+    refreshTimeout = setTimeout(() => {
+      refreshTimeout = null
+      refreshHighlights()
+    }, 80)
+  }
+
+  scroller.addEventListener('scroll', throttledRefresh)
+  window.addEventListener('resize', throttledRefresh)
+
+  // 观察编辑器容器尺寸变化（包括左右栏拖拽导致宽度变化）
+  if (!resizeObserver) {
+    resizeObserver = new ResizeObserver(throttledRefresh)
+    resizeObserver.observe(scroller)
+    const editor = document.querySelector('.cm-editor') as HTMLElement
+    if (editor) resizeObserver.observe(editor)
+  }
+
+  // 观察内容结构变化（用户编辑、折叠、渲染等引起的节点位置变化）
+  if (!contentObserver) {
+    const contentEl = document.querySelector('.cm-content')
+    if (contentEl) {
+      contentObserver = new MutationObserver(throttledRefresh)
+      contentObserver.observe(contentEl, { characterData: true, childList: true, subtree: true })
+    }
   }
 }
 
@@ -374,33 +426,41 @@ window.addEventListener('message', async (event) => {
     return
   }
   
-  if (event.data.type === 'SHOW_INLINE_DIFF') {
-    const { id, search, replace, isRegex } = event.data
-    console.log('[ChatOverleaf] Received SHOW_INLINE_DIFF:', { id, search: search?.substring(0, 30) })
-    const result = showInlineDiff(id, search, replace, isRegex)
+  // 批量添加高亮区域
+  if (event.data.type === 'ADD_HIGHLIGHT_REGIONS') {
+    const { commands } = event.data
+    const currentFile = getCurrentFileName()
+    console.log('[ChatOverleaf] ADD_HIGHLIGHT_REGIONS:', { 
+      commandsCount: commands?.length, 
+      currentFile 
+    })
+    const result = addHighlightRegions(commands || [], currentFile)
     window.postMessage({
-      type: 'SHOW_INLINE_DIFF_RESPONSE',
+      type: 'ADD_HIGHLIGHT_REGIONS_RESPONSE',
       requestId: event.data.requestId,
       data: result
     }, '*')
     return
   }
   
-  if (event.data.type === 'REMOVE_INLINE_DIFF') {
-    const { id } = event.data
-    const success = removeInlineDiff(id)
+  // 重新激活高亮
+  if (event.data.type === 'REACTIVATE_HIGHLIGHT') {
+    const { id, file, search, replace, isRegex } = event.data
+    const currentFile = getCurrentFileName()
+    const success = reactivateHighlight(id, file, search, replace, isRegex, currentFile)
     window.postMessage({
-      type: 'REMOVE_INLINE_DIFF_RESPONSE',
+      type: 'REACTIVATE_HIGHLIGHT_RESPONSE',
       requestId: event.data.requestId,
       data: { success }
     }, '*')
     return
   }
   
-  if (event.data.type === 'REMOVE_ALL_INLINE_DIFFS') {
-    const count = removeAllInlineDiffs()
+  // 移除所有悬浮高亮
+  if (event.data.type === 'REMOVE_ALL_HOVER_HIGHLIGHTS') {
+    const count = removeAllHoverHighlights()
     window.postMessage({
-      type: 'REMOVE_ALL_INLINE_DIFFS_RESPONSE',
+      type: 'REMOVE_ALL_HOVER_HIGHLIGHTS_RESPONSE',
       requestId: event.data.requestId,
       data: { success: true, count }
     }, '*')
@@ -445,6 +505,7 @@ function initialize() {
   console.log('[ChatOverleaf] Initializing...')
   initInlineDiff()
   setTimeout(setupSelectionListener, 1000)
+  setTimeout(setupRefreshListeners, 1200)
 }
 
 if (document.readyState === 'loading') {

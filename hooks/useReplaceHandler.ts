@@ -11,6 +11,8 @@ interface UseReplaceHandlerProps {
 interface UseReplaceHandlerReturn {
   // 解析消息中的替换命令
   parseMessage: (content: string) => ParseResult
+  // 重置替换命令（用于切换历史记录）
+  resetReplaceCommands: () => void
   // 替换命令状态管理
   replaceCommands: Map<string, ReplaceCommand>
   updateCommandStatus: (id: string, status: ReplaceCommand['status'], errorMessage?: string) => void
@@ -20,20 +22,18 @@ interface UseReplaceHandlerReturn {
   navigateToFile: (filePath: string) => Promise<{ success: boolean; error?: string }>
   // 执行替换
   applyReplace: (command: ReplaceCommand) => Promise<{ success: boolean; error?: string }>
-  // 高亮匹配内容
-  highlightMatch: (command: ReplaceCommand) => Promise<void>
-  // 在编辑器中显示内联差异预览
-  showInlineDiff: (command: ReplaceCommand) => Promise<{ success: boolean; error?: string; matchCount: number }>
-  // 移除内联差异预览
-  removeInlineDiff: (commandId: string) => Promise<void>
-  // 移除所有内联差异预览
-  removeAllInlineDiffs: () => Promise<void>
   // 检查文件是否当前打开
   checkCurrentFile: (filePath: string) => Promise<{ isCurrentFile: boolean; currentFile: string }>
   // 智能预览：如果文件已打开则预览，否则导航到文件
   smartPreview: (command: ReplaceCommand) => Promise<{ success: boolean; error?: string; action: 'preview' | 'navigate' }>
   // 正在应用的命令 ID
   applyingCommandId: string | null
+  // 批量高亮当前文件中的所有待替换区域
+  highlightAllPending: (commands: ReplaceCommand[]) => Promise<{ success: boolean; count: number }>
+  // 重新激活某个高亮
+  reactivateHighlight: (command: ReplaceCommand) => Promise<boolean>
+  // 移除所有悬浮高亮
+  removeAllHoverHighlights: () => Promise<void>
 }
 
 // 生成请求 ID
@@ -91,18 +91,24 @@ export const useReplaceHandler = ({
     // 更新命令状态映射
     if (result.commands.length > 0) {
       setReplaceCommands(prev => {
+        let hasNewCommand = false
         const newMap = new Map(prev)
         result.commands.forEach(cmd => {
           // 只添加新的命令，不覆盖已存在的
           if (!newMap.has(cmd.id)) {
             newMap.set(cmd.id, cmd)
+            hasNewCommand = true
           }
         })
-        return newMap
+        return hasNewCommand ? newMap : prev
       })
     }
     
     return result
+  }, [])
+
+  const resetReplaceCommands = useCallback(() => {
+    setReplaceCommands(new Map())
   }, [])
   
   // 更新命令状态
@@ -152,15 +158,17 @@ export const useReplaceHandler = ({
     setApplyingCommandId(command.id)
     
     try {
-      // 先导航到文件
-      const navResult = await navigateToFile(command.file)
-      if (!navResult.success) {
-        updateCommandStatus(command.id, 'error', navResult.error)
-        return navResult
+      // 若当前已打开目标文件，则无需等待；否则先导航并等待加载
+      const fileStatus = await checkCurrentFile(command.file)
+      if (!fileStatus.isCurrentFile) {
+        const navResult = await navigateToFile(command.file)
+        if (!navResult.success) {
+          updateCommandStatus(command.id, 'error', navResult.error)
+          return navResult
+        }
+        // 导航后给编辑器一点加载时间
+        await new Promise(resolve => setTimeout(resolve, 500))
       }
-      
-      // 等待文件加载
-      await new Promise(resolve => setTimeout(resolve, 500))
       
       // 执行替换
       const replaceResult = await sendMessageToMainWorld<{ 
@@ -192,25 +200,6 @@ export const useReplaceHandler = ({
     }
   }, [navigateToFile, updateCommandStatus])
   
-  // 高亮匹配内容
-  const highlightMatch = useCallback(async (command: ReplaceCommand): Promise<void> => {
-    try {
-      // 先导航到文件
-      await navigateToFile(command.file)
-      
-      // 等待文件加载
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      // 高亮匹配
-      await sendMessageToMainWorld<{ success: boolean; positions: Array<{ from: number; to: number }> }>(
-        'HIGHLIGHT_IN_EDITOR',
-        { search: command.search, isRegex: command.isRegex }
-      )
-    } catch (error) {
-      console.error('Error highlighting match:', error)
-    }
-  }, [navigateToFile])
-  
   // 检查文件是否当前打开
   const checkCurrentFile = useCallback(async (filePath: string): Promise<{ 
     isCurrentFile: boolean
@@ -228,100 +217,45 @@ export const useReplaceHandler = ({
     }
   }, [])
   
-  // 在编辑器中显示内联差异预览
-  const showInlineDiff = useCallback(async (command: ReplaceCommand): Promise<{ 
-    success: boolean
-    error?: string
-    matchCount: number 
-  }> => {
-    try {
-      console.log('[ChatOverleaf Hook] showInlineDiff called:', command.id, command.file)
-      
-      // 先检查文件是否已经打开
-      const fileCheck = await checkCurrentFile(command.file)
-      console.log('[ChatOverleaf Hook] File check result:', fileCheck)
-      
-      if (!fileCheck.isCurrentFile) {
-        // 文件未打开，需要导航
-        const navResult = await navigateToFile(command.file)
-        console.log('[ChatOverleaf Hook] Navigation result:', navResult)
-        
-        if (!navResult.success) {
-          return { success: false, error: navResult.error, matchCount: 0 }
-        }
-        
-        // 只有导航后才需要等待文件加载（缩短到 200ms）
-        await new Promise(resolve => setTimeout(resolve, 200))
-      }
-      // 文件已打开，无需等待，直接显示预览
-      
-      console.log('[ChatOverleaf Hook] Sending SHOW_INLINE_DIFF message')
-      
-      // 显示内联差异
-      const result = await sendMessageToMainWorld<{
-        success: boolean
-        error?: string
-        matchCount: number
-      }>(
-        'SHOW_INLINE_DIFF',
-        { 
-          id: command.id,
-          search: command.search, 
-          replace: command.replace,
-          isRegex: command.isRegex 
-        }
-      )
-      
-      console.log('[ChatOverleaf Hook] SHOW_INLINE_DIFF result:', result)
-      return result
-    } catch (error) {
-      console.error('[ChatOverleaf Hook] Error showing inline diff:', error)
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : '显示差异失败',
-        matchCount: 0
-      }
-    }
-  }, [navigateToFile, checkCurrentFile])
-  
-  // 移除内联差异预览
-  const removeInlineDiff = useCallback(async (commandId: string): Promise<void> => {
-    try {
-      await sendMessageToMainWorld<{ success: boolean }>(
-        'REMOVE_INLINE_DIFF',
-        { id: commandId }
-      )
-    } catch (error) {
-      console.error('Error removing inline diff:', error)
-    }
-  }, [])
-  
-  // 移除所有内联差异预览
-  const removeAllInlineDiffs = useCallback(async (): Promise<void> => {
-    try {
-      await sendMessageToMainWorld<{ success: boolean; count: number }>(
-        'REMOVE_ALL_INLINE_DIFFS',
-        {}
-      )
-    } catch (error) {
-      console.error('Error removing all inline diffs:', error)
-    }
-  }, [])
-  
-  // 智能预览：导航到文件并显示预览（showInlineDiff 内部已处理导航）
+  // 智能预览：导航到文件并显示悬浮高亮（统一 UI）
   const smartPreview = useCallback(async (command: ReplaceCommand): Promise<{
     success: boolean
     error?: string
     action: 'preview' | 'navigate'
   }> => {
     try {
-      // showInlineDiff 会自动导航到文件并显示预览
-      const result = await showInlineDiff(command)
-      return { 
-        success: result.success, 
-        error: result.error, 
-        action: 'preview' 
+      const fileCheck = await checkCurrentFile(command.file)
+
+      if (!fileCheck.isCurrentFile) {
+        const navResult = await navigateToFile(command.file)
+        if (!navResult.success) {
+          return { success: false, error: navResult.error, action: 'navigate' }
+        }
+        await new Promise(resolve => setTimeout(resolve, 200))
       }
+
+      const result = await sendMessageToMainWorld<{ success: boolean; count: number }>(
+        'ADD_HIGHLIGHT_REGIONS',
+        { 
+          commands: [{
+            id: command.id,
+            file: command.file,
+            search: command.search,
+            replace: command.replace,
+            isRegex: command.isRegex
+          }]
+        }
+      )
+
+      if (!result.success) {
+        return { success: false, error: '高亮失败', action: 'preview' }
+      }
+
+      if (result.count === 0) {
+        return { success: false, error: '未找到匹配内容', action: 'preview' }
+      }
+
+      return { success: true, action: 'preview' }
     } catch (error) {
       return { 
         success: false, 
@@ -329,12 +263,82 @@ export const useReplaceHandler = ({
         action: 'navigate'
       }
     }
-  }, [showInlineDiff])
+  }, [checkCurrentFile, navigateToFile])
   
-  // 监听内联差异操作事件
+  // 批量高亮当前文件中的所有待替换区域
+  const highlightAllPending = useCallback(async (commands: ReplaceCommand[]): Promise<{
+    success: boolean
+    count: number
+  }> => {
+    try {
+      // 只处理 pending 状态的命令
+      const pendingCommands = commands.filter(cmd => cmd.status === 'pending')
+      if (pendingCommands.length === 0) {
+        return { success: true, count: 0 }
+      }
+      
+      const result = await sendMessageToMainWorld<{ success: boolean; count: number }>(
+        'ADD_HIGHLIGHT_REGIONS',
+        { 
+          commands: pendingCommands.map(cmd => ({
+            id: cmd.id,
+            file: cmd.file,  // 包含文件名以便过滤
+            search: cmd.search,
+            replace: cmd.replace,
+            isRegex: cmd.isRegex
+          }))
+        }
+      )
+      
+      return result
+    } catch (error) {
+      console.error('Error highlighting all pending:', error)
+      return { success: false, count: 0 }
+    }
+  }, [])
+  
+  // 重新激活某个高亮（用于拒绝后重新显示）
+  const reactivateHighlight = useCallback(async (command: ReplaceCommand): Promise<boolean> => {
+    try {
+      const result = await sendMessageToMainWorld<{ success: boolean }>(
+        'REACTIVATE_HIGHLIGHT',
+        { 
+          id: command.id,
+          file: command.file,  // 包含文件名
+          search: command.search,
+          replace: command.replace,
+          isRegex: command.isRegex
+        }
+      )
+      
+      if (result.success) {
+        // 重置状态为 pending
+        updateCommandStatus(command.id, 'pending')
+      }
+      
+      return result.success
+    } catch (error) {
+      console.error('Error reactivating highlight:', error)
+      return false
+    }
+  }, [updateCommandStatus])
+  
+  // 移除所有悬浮高亮
+  const removeAllHoverHighlights = useCallback(async (): Promise<void> => {
+    try {
+      await sendMessageToMainWorld<{ success: boolean; count: number }>(
+        'REMOVE_ALL_HOVER_HIGHLIGHTS',
+        {}
+      )
+    } catch (error) {
+      console.error('Error removing hover highlights:', error)
+    }
+  }, [])
+  
+  // 监听悬浮高亮操作事件
   useEffect(() => {
-    const handleInlineDiffAction = (event: MessageEvent) => {
-      if (event.data.type === 'INLINE_DIFF_ACTION') {
+    const handleDiffAction = (event: MessageEvent) => {
+      if (event.data.type === 'HOVER_HIGHLIGHT_ACTION') {
         const { id, action, success, error } = event.data.data
         
         if (action === 'accepted') {
@@ -349,26 +353,25 @@ export const useReplaceHandler = ({
       }
     }
     
-    window.addEventListener('message', handleInlineDiffAction)
-    return () => window.removeEventListener('message', handleInlineDiffAction)
+    window.addEventListener('message', handleDiffAction)
+    return () => window.removeEventListener('message', handleDiffAction)
   }, [updateCommandStatus])
   
   return {
     parseMessage,
+    resetReplaceCommands,
     replaceCommands,
     updateCommandStatus,
     getFileContent,
     navigateToFile,
     applyReplace,
-    highlightMatch,
-    showInlineDiff,
-    removeInlineDiff,
-    removeAllInlineDiffs,
     checkCurrentFile,
     smartPreview,
-    applyingCommandId
+    applyingCommandId,
+    highlightAllPending,
+    reactivateHighlight,
+    removeAllHoverHighlights
   }
 }
 
 export default useReplaceHandler
-

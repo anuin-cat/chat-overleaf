@@ -197,7 +197,123 @@ export function injectInlineDiffStyles() {
       color: #4b5563;
       transform: translateY(-1px);
     }
+    
+    /* ========== 悬浮高亮样式 ========== */
+    
+    /* 可交互的高亮背景（淡红色） */
+    .co-hover-highlight-bg {
+      position: absolute;
+      background: rgba(253, 165, 165, 0.35);
+      pointer-events: auto;
+      cursor: pointer;
+      z-index: 5;
+      box-sizing: border-box;
+      transition: background 0.15s ease;
+    }
+    
+    .co-hover-highlight-bg:hover {
+      background: rgba(253, 165, 165, 0.5);
+    }
+    
+    /* 可交互的单词高亮（深红色） */
+    .co-hover-highlight-word {
+      position: absolute;
+      background: rgba(239, 68, 68, 0.4);
+      pointer-events: auto;
+      cursor: pointer;
+      z-index: 6;
+      box-sizing: border-box;
+      border-radius: 2px;
+      transition: background 0.15s ease;
+    }
+    
+    .co-hover-highlight-word:hover {
+      background: rgba(239, 68, 68, 0.55);
+    }
+    
+    /* 悬浮弹出框 */
+    .co-hover-popover {
+      position: absolute;
+      z-index: 10000;
+      pointer-events: auto;
+      animation: co-popover-fadein 0.12s ease-out;
+      display: inline-flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    
+    @keyframes co-popover-fadein {
+      from {
+        opacity: 0;
+        transform: translateY(-4px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .co-hover-popover-content {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .co-hover-popover-text {
+      padding: 5px 8px;
+      border-radius: 5px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.4;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      font-size: 11px;
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #10b981;
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+      max-width: 400px;
+    }
+    
+    .co-hover-popover-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 4px;
+      align-self: flex-end;
+    }
+    
+    .co-hover-popover-btn {
+      padding: 4px 12px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: none;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    }
+    
+    .co-hover-popover-btn-accept {
+      background: #10b981;
+      color: white;
+    }
+    
+    .co-hover-popover-btn-accept:hover {
+      background: #059669;
+      transform: translateY(-1px);
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+    }
+    
+    .co-hover-popover-btn-reject {
+      background: #fff;
+      color: #6b7280;
+      border: 1px solid #d1d5db;
+    }
+    
+    .co-hover-popover-btn-reject:hover {
+      background: #f3f4f6;
+      color: #4b5563;
+      transform: translateY(-1px);
+    }
   `
   document.head.appendChild(style)
 }
-

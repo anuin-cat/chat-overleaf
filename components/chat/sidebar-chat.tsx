@@ -114,13 +114,59 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
 
   // 使用替换处理 hook
   const {
+    parseMessage,
+    resetReplaceCommands,
     replaceCommands,
     updateCommandStatus,
     getFileContent,
     applyReplace,
     smartPreview,
-    applyingCommandId
+    applyingCommandId,
+    highlightAllPending,
+    reactivateHighlight,
+    removeAllHoverHighlights
   } = useReplaceHandler({ extractedFiles })
+
+  const processedMessageIdsRef = useRef<Set<string>>(new Set())
+
+  // 解析 AI 消息中的替换命令（避免流式消息未完成时解析）
+  useEffect(() => {
+    messages.forEach(message => {
+      if (message.isUser || !message.content) return
+      if (message.isStreaming || message.isWaiting) return
+      if (processedMessageIdsRef.current.has(message.id)) return
+      parseMessage(message.content)
+      processedMessageIdsRef.current.add(message.id)
+    })
+  }, [messages, parseMessage])
+  
+  // 当有新的 pending 替换命令时，自动在编辑器中高亮显示
+  useEffect(() => {
+    const pendingCommands = Array.from(replaceCommands.values()).filter(cmd => cmd.status === 'pending')
+    if (pendingCommands.length > 0) {
+      highlightAllPending(pendingCommands).then(result => {
+        if (result.count > 0) {
+          console.log(`[ChatOverleaf] 已高亮 ${result.count} 个待替换区域`)
+        }
+      })
+    }
+  }, [replaceCommands, highlightAllPending])
+  
+  // 当编辑器文件变化时，重新触发高亮（用户切换文件时）
+  useEffect(() => {
+    const handleContentChange = (event: MessageEvent) => {
+      if (event.data?.type === 'OVERLEAF_CONTENT_CHANGED') {
+        // 文件内容变化，重新检查是否需要高亮
+        const pendingCommands = Array.from(replaceCommands.values()).filter(cmd => cmd.status === 'pending')
+        if (pendingCommands.length > 0) {
+          highlightAllPending(pendingCommands)
+        }
+      }
+    }
+    
+    window.addEventListener('message', handleContentChange)
+    return () => window.removeEventListener('message', handleContentChange)
+  }, [replaceCommands, highlightAllPending])
 
   // 初始化设置
   useEffect(() => {
@@ -192,6 +238,11 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
     if (!isOnlyInitialMessage(messages)) {
       await saveChatHistory(messages, currentChatName, currentChatId)
     }
+
+    // 切换历史前清理旧的替换命令和高亮状态
+    processedMessageIdsRef.current = new Set()
+    resetReplaceCommands()
+    await removeAllHoverHighlights()
 
     // 将 StoredMessage 转换为 Message 格式
     const convertedMessages: Message[] = history.messages.map((msg: any) => ({
@@ -475,10 +526,19 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
                     updateCommandStatus(cmd.id, 'rejected')
                   }}
                   onSmartPreview={async (cmd) => {
+                    // 如果是被拒绝的命令，重新激活高亮
+                    if (cmd.status === 'rejected') {
+                      const reactivated = await reactivateHighlight(cmd)
+                      if (reactivated) {
+                        success('已重新显示修改建议', { title: '预览' })
+                      }
+                      return
+                    }
+                    // 否则使用智能预览
                     const result = await smartPreview(cmd)
                     if (result.success) {
                       if (result.action === 'preview') {
-                        success('已在编辑器中显示差异预览', { title: '预览' })
+                        success('已在编辑器中高亮修改建议', { title: '预览' })
                       }
                     } else {
                       console.error('Smart preview failed:', result.error)
