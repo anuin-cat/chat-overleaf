@@ -44,7 +44,7 @@ export function injectInlineDiffStyles() {
     /* 待替换文本的持久高亮覆盖层 - 淡色背景（未修改部分） */
     .co-replace-highlight-overlay {
       position: absolute;
-      background: rgba(253, 165, 165, 0.27);
+      background: rgba(253, 165, 165, 0.38);
       pointer-events: none;
       z-index: 5;
       box-sizing: border-box;
