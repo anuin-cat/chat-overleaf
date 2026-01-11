@@ -1,7 +1,7 @@
 {
   "name": "chat-overleaf",
   "displayName": "Chat overleaf",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "使用 plasmo 构建的 chat-overleaf 浏览器插件",
   "author": "neil",
   "scripts": {
