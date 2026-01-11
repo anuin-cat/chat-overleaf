@@ -3,10 +3,15 @@
  * 在编辑器中显示修改建议，支持接受/拒绝操作
  */
 
+import type { PlasmoCSConfig } from "plasmo"
 import type { InlineDiff, WordDiffSegment } from './types'
 import { injectInlineDiffStyles } from './styles'
 import { computeDiff, computeWordDiff, escapeHtml, renderNewDiffHtml } from './diff-algorithm'
 import { getCodeMirrorEditor, findMatchPositions, replaceInEditor } from './editor-utils'
+
+export const config: PlasmoCSConfig = {
+  matches: ["https://www.overleaf.com/*", "https://*.overleaf.com/*"]
+}
 
 // 模块状态 - 存储活跃的内联差异
 const activeDiffs = new Map<string, InlineDiff>()
