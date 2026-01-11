@@ -11,7 +11,9 @@ const initialState: SettingsState = {
   customModels: [],
   pinnedModels: [],
   settingsCategory: "model-service",
-  enabledProviders: {}
+  enabledProviders: {},
+  modelTemperature: 0.36,
+  maxTokens: 16384
 }
 
 const settingsSlice = createSlice({
@@ -59,6 +61,8 @@ const settingsSlice = createSlice({
       state.pinnedModels = []
       state.settingsCategory = "model-service"
       state.enabledProviders = {}
+      state.modelTemperature = 0.36
+      state.maxTokens = 16384
     },
 
     // 设置当前设置分类
@@ -164,6 +168,20 @@ const settingsSlice = createSlice({
         state.enabledProviders = {}
       }
       state.enabledProviders[action.payload.providerId] = action.payload.enabled
+    },
+
+    // 设置模型温度
+    setModelTemperature: (state, action: PayloadAction<number>) => {
+      const value = action.payload
+      // 约束范围 0-2，默认 0.36
+      state.modelTemperature = Math.min(2, Math.max(0, value))
+    },
+
+    // 设置最大回复长度
+    setMaxTokens: (state, action: PayloadAction<number>) => {
+      const value = action.payload
+      // 约束范围 256 - 32768，默认 16384
+      state.maxTokens = Math.min(32768, Math.max(256, Math.floor(value)))
     }
   }
 })
@@ -186,7 +204,9 @@ export const {
   toggleModelPin,
   setPinnedModels,
   toggleProviderEnabled,
-  setProviderEnabled
+  setProviderEnabled,
+  setModelTemperature,
+  setMaxTokens
 } = settingsSlice.actions
 
 export default settingsSlice.reducer

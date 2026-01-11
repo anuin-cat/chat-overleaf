@@ -1,6 +1,12 @@
 import type { ModelConfig } from './builtin-models'
 import type { ChatMessage } from './llm-service'
 
+interface ChatOptions {
+  temperature?: number
+  max_tokens?: number
+  maxTokens?: number
+}
+
 /**
  * 统一的API客户端
  * 根据不同模型的API格式发送请求
@@ -59,10 +65,11 @@ export class ApiClient {
   async sendChatRequest(
     messages: ChatMessage[],
     stream: boolean = true,
-    abortSignal?: AbortSignal
+    abortSignal?: AbortSignal,
+    options?: ChatOptions
   ): Promise<Response> {
     // 所有模型都使用OpenAI兼容格式
-    return this.sendOpenAIRequest(messages, stream, abortSignal)
+    return this.sendOpenAIRequest(messages, stream, abortSignal, options)
   }
 
   /**
@@ -71,7 +78,8 @@ export class ApiClient {
   private async sendOpenAIRequest(
     messages: ChatMessage[],
     stream: boolean,
-    abortSignal?: AbortSignal
+    abortSignal?: AbortSignal,
+    options?: ChatOptions
   ): Promise<Response> {
     const headers = new Headers()
     headers.append('Accept', 'application/json')
@@ -90,8 +98,8 @@ export class ApiClient {
       model: this.modelConfig.model_name,
       messages: convertedMessages,
       stream,
-      temperature: 0.7,
-      max_tokens: 16384   // 统一设置最大输出长度为16384
+      temperature: options?.temperature ?? 0.36,
+      max_tokens: options?.max_tokens ?? options?.maxTokens ?? 16384   // 默认最大输出长度
     })
 
     const fullUrl = this.buildUrl('/v1/chat/completions')

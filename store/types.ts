@@ -52,4 +52,7 @@ export interface SettingsState {
   pinnedModels: string[] // 存储置顶模型的ID
   settingsCategory: string // 当前选中的设置分类
   enabledProviders: Record<string, boolean> // 存储供应商的启用状态
+  // 对话生成参数
+  modelTemperature: number
+  maxTokens: number
 }

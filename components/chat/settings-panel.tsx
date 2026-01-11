@@ -1,9 +1,10 @@
 import { useState } from "react"
 import { Button } from "~components/ui/button"
 import { ScrollArea } from "~components/ui/scroll-area"
-import { X, Settings, Server, Palette, Shield, Info } from "lucide-react"
+import { X, Settings, Server, Palette, Shield, SlidersHorizontal } from "lucide-react"
 import { useSettings } from "~hooks/useSettings"
 import { ModelServiceSettings } from "./settings/model-service-settings"
+import { ModelParamsSettings } from "./settings/model-params-settings"
 import { cn } from "~lib/utils"
 
 interface SettingsPanelProps {
@@ -24,6 +25,12 @@ const settingsCategories: SettingsCategory[] = [
     name: "模型服务",
     icon: Server,
     description: "管理AI模型和API配置"
+  },
+  {
+    id: "model-params",
+    name: "对话参数",
+    icon: SlidersHorizontal,
+    description: "温度与最大回复长度"
   },
   {
     id: "appearance",
@@ -52,6 +59,8 @@ export const SettingsPanel = ({ onClose }: SettingsPanelProps) => {
     switch (currentCategory) {
       case "model-service":
         return <ModelServiceSettings />
+      case "model-params":
+        return <ModelParamsSettings />
       case "appearance":
         return <div className="p-4 text-center text-sm text-gray-500">外观设置功能开发中...</div>
       case "privacy":

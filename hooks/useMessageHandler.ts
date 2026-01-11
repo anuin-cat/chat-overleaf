@@ -52,7 +52,7 @@ export const useMessageHandler = ({
   const [isStreaming, setIsStreaming] = useState(false)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
   
-  const { getModelConfig, selectedModel } = useSettings()
+  const { getModelConfig, selectedModel, modelTemperature, maxTokens } = useSettings()
   const { allModels } = useModels()
   const { error } = useToast()
 
@@ -86,6 +86,10 @@ export const useMessageHandler = ({
 
     // 使用最新的模型配置更新 LLM 服务
     llmService.updateModel(currentModelConfig)
+    llmService.updateGenerationParams({
+      temperature: modelTemperature,
+      maxTokens
+    })
 
     // 调试信息
     console.log('Sending message with model:', currentModelConfig.display_name)

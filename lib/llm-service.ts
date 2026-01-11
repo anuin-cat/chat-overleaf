@@ -25,16 +25,31 @@ export interface StreamResponse {
 export class LLMService {
   private apiClient: ApiClient
   private model: ModelConfig
+  private generationParams: { temperature: number; maxTokens: number }
 
   constructor(model: ModelConfig) {
     this.model = model
     this.apiClient = new ApiClient(model)
+    this.generationParams = {
+      temperature: 0.36,
+      maxTokens: 16384
+    }
   }
 
   // 更新模型配置
   updateModel(model: ModelConfig) {
     this.model = model
     this.apiClient = new ApiClient(model)
+  }
+
+  // 更新生成参数（温度、最大 tokens）
+  updateGenerationParams(params: { temperature?: number; maxTokens?: number }) {
+    if (params.temperature !== undefined) {
+      this.generationParams.temperature = params.temperature
+    }
+    if (params.maxTokens !== undefined) {
+      this.generationParams.maxTokens = params.maxTokens
+    }
   }
 
   // 流式聊天
@@ -44,7 +59,15 @@ export class LLMService {
   ): AsyncGenerator<StreamResponse, void, unknown> {
     try {
       // 发送请求
-      const response = await this.apiClient.sendChatRequest(messages, true, abortSignal)
+      const response = await this.apiClient.sendChatRequest(
+        messages,
+        true,
+        abortSignal,
+        {
+          temperature: this.generationParams.temperature,
+          maxTokens: this.generationParams.maxTokens
+        }
+      )
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -81,7 +104,15 @@ export class LLMService {
   async chat(messages: ChatMessage[]): Promise<string> {
     try {
       // 发送请求
-      const response = await this.apiClient.sendChatRequest(messages, false)
+      const response = await this.apiClient.sendChatRequest(
+        messages,
+        false,
+        undefined,
+        {
+          temperature: this.generationParams.temperature,
+          maxTokens: this.generationParams.maxTokens
+        }
+      )
 
       if (!response.ok) {
         const errorText = await response.text()

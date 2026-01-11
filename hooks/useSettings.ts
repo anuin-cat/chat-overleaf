@@ -21,7 +21,9 @@ import {
   toggleModelPin,
   setPinnedModels,
   toggleProviderEnabled,
-  setProviderEnabled
+  setProviderEnabled,
+  setModelTemperature,
+  setMaxTokens
 } from "~store/slices/settings.slice"
 
 export const useSettings = () => {
@@ -38,7 +40,9 @@ export const useSettings = () => {
     customModels = [],
     pinnedModels = [],
     settingsCategory = "model-service",
-    enabledProviders = {}
+    enabledProviders = {},
+    modelTemperature = 0.36,
+    maxTokens = 16384
   } = settingsState || {}
 
   // 初始化设置 - 使用新的供应商配置系统
@@ -103,6 +107,8 @@ export const useSettings = () => {
     pinnedModels,
     settingsCategory,
     enabledProviders,
+    modelTemperature,
+    maxTokens,
 
     // 方法
     setApiKey: (provider: string, apiKey: string) =>
@@ -134,6 +140,10 @@ export const useSettings = () => {
       dispatch(toggleProviderEnabled(providerId)),
     setProviderEnabled: (providerId: string, enabled: boolean) =>
       dispatch(setProviderEnabled({ providerId, enabled })),
+    setModelTemperature: (value: number) =>
+      dispatch(setModelTemperature(value)),
+    setMaxTokens: (value: number) =>
+      dispatch(setMaxTokens(value)),
     isProviderEnabled,
     initializeSettings,
     getModelConfig,
