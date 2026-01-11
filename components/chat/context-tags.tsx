@@ -13,6 +13,9 @@ interface ContextTagsProps {
   selectedFiles: Set<string>
   extractedFiles?: FileInfo[]
   fileTokenEstimate?: number
+  historyTokenEstimate?: number
+  systemPromptTokenEstimate?: number
+  totalTokenEstimate?: number
   selectedText?: {
     text: string
     fileName: string
@@ -30,6 +33,45 @@ interface ContextTagsProps {
   showSelectedText?: boolean
   showImages?: boolean
   className?: string
+}
+
+/**
+ * Token 悬浮提示组件
+ */
+const TokenTooltip = ({ 
+  fileTokens, 
+  historyTokens, 
+  systemPromptTokens 
+}: { 
+  fileTokens: number
+  historyTokens: number
+  systemPromptTokens: number
+}) => {
+  const total = fileTokens + historyTokens + systemPromptTokens
+  
+  return (
+    <div className="absolute bottom-full left-0 mb-1 z-50 bg-gray-900 text-white text-[11px] rounded-md px-2.5 py-2 shadow-lg whitespace-nowrap">
+      <div className="font-semibold mb-1.5 text-gray-100 border-b border-gray-700 pb-1">Token 分布详情</div>
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-gray-300">文件内容:</span>
+          <span className="text-blue-400 font-medium">{fileTokens.toLocaleString()}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-gray-300">历史消息:</span>
+          <span className="text-green-400 font-medium">{historyTokens.toLocaleString()}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-gray-300">系统提示:</span>
+          <span className="text-purple-400 font-medium">{systemPromptTokens.toLocaleString()}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3 pt-1 mt-1 border-t border-gray-700">
+          <span className="text-gray-100 font-medium">总计:</span>
+          <span className="text-yellow-400 font-semibold">{total.toLocaleString()}</span>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 /**
@@ -55,6 +97,9 @@ export const ContextTags = ({
   selectedFiles,
   extractedFiles = [],
   fileTokenEstimate,
+  historyTokenEstimate,
+  systemPromptTokenEstimate,
+  totalTokenEstimate,
   selectedText,
   uploadedImages = [],
   onRemoveFile,
@@ -70,6 +115,7 @@ export const ContextTags = ({
   className
 }: ContextTagsProps) => {
   const [hoveredFolder, setHoveredFolder] = useState<string | null>(null)
+  const [hoveredToken, setHoveredToken] = useState(false)
   
   const hasSelection = selectedText?.hasSelection || false
   const getBaseName = (fileName: string) => fileName.split(/[\/]/).pop() || fileName
@@ -142,13 +188,26 @@ export const ContextTags = ({
         )}
         
         {/* Token 估算显示 */}
-        {showFileNames && selectedFiles.size > 0 && fileTokenEstimate && fileTokenEstimate > 0 && (
-          <Tag
-            variant="default"
-            removable={false}
+        {showFileNames && selectedFiles.size > 0 && totalTokenEstimate && totalTokenEstimate > 0 && (
+          <div
+            className="relative"
+            onMouseEnter={() => setHoveredToken(true)}
+            onMouseLeave={() => setHoveredToken(false)}
           >
-            约 {fileTokenEstimate} token
-          </Tag>
+            <Tag
+              variant="default"
+              removable={false}
+            >
+              约 {totalTokenEstimate.toLocaleString()} token
+            </Tag>
+            {hoveredToken && fileTokenEstimate !== undefined && historyTokenEstimate !== undefined && systemPromptTokenEstimate !== undefined && (
+              <TokenTooltip 
+                fileTokens={fileTokenEstimate}
+                historyTokens={historyTokenEstimate}
+                systemPromptTokens={systemPromptTokenEstimate}
+              />
+            )}
+          </div>
         )}
         
         {/* 文件夹标签（合并显示） */}

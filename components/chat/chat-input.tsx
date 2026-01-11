@@ -6,6 +6,7 @@ import { ContextTags } from "./context-tags"
 import { FilePreviewModal } from "./file-preview-modal"
 import { Send, Square, Eraser, Folder, FileText } from "lucide-react"
 import { LLMService } from "~lib/llm-service"
+import { SYSTEM_PROMPT } from "~lib/system-prompt"
 import { type ImageInfo } from "~lib/image-utils"
 import { useSelectedText } from "~hooks/useSelectedText"
 import { useMessageHandler } from "~hooks/useMessageHandler"
@@ -215,6 +216,36 @@ export const ChatInput = ({
     return weight > 0 ? Math.max(1, Math.ceil(weight)) : 0
   }, [selectedFiles, extractedFiles])
 
+  // 计算历史消息的 token 数
+  const estimatedHistoryTokens = useMemo(() => {
+    const recentMessages = messages.slice(-10).filter(msg => !msg.isStreaming)
+    let weight = 0
+    for (const msg of recentMessages) {
+      // 计算消息内容
+      if (msg.content) {
+        weight += estimateTokenWeight(msg.content)
+      }
+      // 计算选中文本
+      if (msg.selectedText) {
+        weight += estimateTokenWeight(msg.selectedText)
+      }
+      // 简单估算图片 token（每张图片约 85 token）
+      if (msg.images && msg.images.length > 0) {
+        weight += msg.images.length * 85
+      }
+    }
+    return weight > 0 ? Math.max(1, Math.ceil(weight)) : 0
+  }, [messages])
+
+  // 计算 system prompt 的 token 数
+  const estimatedSystemPromptTokens = useMemo(() => {
+    const weight = estimateTokenWeight(SYSTEM_PROMPT)
+    return weight > 0 ? Math.max(1, Math.ceil(weight)) : 0
+  }, [])
+
+  // 计算总 token 数
+  const totalTokens = estimatedFileTokens + estimatedHistoryTokens + estimatedSystemPromptTokens
+
   // 输入时更新 @ 状态
   const updateMentionState = (value: string, cursor: number) => {
     if (extractedFiles.length === 0) {
@@ -418,6 +449,9 @@ export const ChatInput = ({
         selectedFiles={selectedFiles}
         extractedFiles={extractedFiles}
         fileTokenEstimate={estimatedFileTokens}
+        historyTokenEstimate={estimatedHistoryTokens}
+        systemPromptTokenEstimate={estimatedSystemPromptTokens}
+        totalTokenEstimate={totalTokens}
         selectedText={selectedText}
         uploadedImages={uploadedImages}
         onRemoveFile={handleRemoveFile}
