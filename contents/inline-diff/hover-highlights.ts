@@ -334,7 +334,7 @@ function hidePopover(): void {
 /**
  * 移除单个区域的高亮
  */
-function removeRegionHighlight(id: string): void {
+export function removeRegionHighlight(id: string): void {
   const region = highlightRegions.get(id)
   if (region) {
     region.overlays.forEach(overlay => overlay.remove())
@@ -342,6 +342,10 @@ function removeRegionHighlight(id: string): void {
   }
   // 也通过选择器清理
   document.querySelectorAll(`[data-highlight-id="${id}"]`).forEach(el => el.remove())
+  // 如果当前悬浮框是这个区域的，也关闭
+  if (currentPopoverId === id) {
+    hidePopover()
+  }
 }
 
 /**

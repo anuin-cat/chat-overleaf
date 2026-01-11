@@ -36,6 +36,8 @@ interface UseReplaceHandlerReturn {
   highlightAllPending: (commands: ReplaceCommand[]) => Promise<{ success: boolean; count: number }>
   // 重新激活某个高亮
   reactivateHighlight: (command: ReplaceCommand) => Promise<boolean>
+  // 移除单个高亮
+  removeHighlight: (id: string) => Promise<void>
   // 移除所有悬浮高亮
   removeAllHoverHighlights: () => Promise<void>
 }
@@ -372,6 +374,18 @@ export const useReplaceHandler = ({
     }
   }, [reactivateHighlight, updateCommandStatus])
   
+  // 移除单个高亮
+  const removeHighlight = useCallback(async (id: string): Promise<void> => {
+    try {
+      await sendMessageToMainWorld<{ success: boolean }>(
+        'REMOVE_HIGHLIGHT',
+        { id }
+      )
+    } catch (error) {
+      console.error('Error removing highlight:', error)
+    }
+  }, [])
+  
   // 移除所有悬浮高亮
   const removeAllHoverHighlights = useCallback(async (): Promise<void> => {
     try {
@@ -421,6 +435,7 @@ export const useReplaceHandler = ({
     applyingCommandId,
     highlightAllPending,
     reactivateHighlight,
+    removeHighlight,
     removeAllHoverHighlights
   }
 }

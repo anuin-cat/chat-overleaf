@@ -126,6 +126,7 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
     applyingCommandId,
     highlightAllPending,
     reactivateHighlight,
+    removeHighlight,
     removeAllHoverHighlights
   } = useReplaceHandler({ extractedFiles })
 
@@ -525,13 +526,16 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
                   onAcceptReplace={async (cmd) => {
                     const result = await applyReplace(cmd)
                     if (result.success) {
+                      // 替换成功后移除高亮
+                      await removeHighlight(cmd.id)
                       success(`已成功替换 ${cmd.file} 中的内容`, { title: '替换成功' })
                     } else {
                       // 错误已在 hook 中处理
                     }
                   }}
-                  onRejectReplace={(cmd) => {
+                  onRejectReplace={async (cmd) => {
                     updateCommandStatus(cmd.id, 'rejected')
+                    await removeHighlight(cmd.id)
                   }}
                   onUndoApply={async (cmd) => {
                     const result = await undoApply(cmd)

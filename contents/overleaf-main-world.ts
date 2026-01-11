@@ -8,6 +8,7 @@ import {
   addHighlightRegions,
   reactivateHighlight,
   removeAllHoverHighlights,
+  removeRegionHighlight,
   refreshHighlights
 } from "./overleaf-inline-diff"
 
@@ -463,6 +464,18 @@ window.addEventListener('message', async (event) => {
       type: 'REMOVE_ALL_HOVER_HIGHLIGHTS_RESPONSE',
       requestId: event.data.requestId,
       data: { success: true, count }
+    }, '*')
+    return
+  }
+  
+  // 移除单个高亮区域
+  if (event.data.type === 'REMOVE_HIGHLIGHT') {
+    const { id } = event.data
+    removeRegionHighlight(id)
+    window.postMessage({
+      type: 'REMOVE_HIGHLIGHT_RESPONSE',
+      requestId: event.data.requestId,
+      data: { success: true }
     }, '*')
     return
   }

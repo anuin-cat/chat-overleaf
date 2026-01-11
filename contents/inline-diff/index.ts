@@ -297,6 +297,7 @@ export {
   addHighlightRegions, 
   reactivateHighlight, 
   removeAllHoverHighlights, 
+  removeRegionHighlight,
   getHighlightStatus,
   refreshHighlights 
 } from './hover-highlights'
