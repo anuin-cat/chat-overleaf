@@ -3,22 +3,6 @@ import type { CustomProvider } from "~store/types"
 // 内置供应商配置 - 固定的baseUrl配置
 export const builtinProviders: CustomProvider[] = [
   {
-    id: "siliconflow",
-    name: "硅基流动",
-    baseUrl: "https://api.siliconflow.cn/v1",
-    apiKeyLabel: "API Key",
-    isCustom: false,
-    enabled: true
-  },
-  {
-    id: "deepseek",
-    name: "DeepSeek",
-    baseUrl: "https://api.deepseek.com/v1",
-    apiKeyLabel: "API Key",
-    isCustom: false,
-    enabled: true
-  },
-  {
     id: "yunwu",
     name: "云雾",
     baseUrl: "https://yunwu.ai/v1",
@@ -27,9 +11,9 @@ export const builtinProviders: CustomProvider[] = [
     enabled: true
   },
   {
-    id: "Gemini 官方",
-    name: "Gemini 官方",
-    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    id: "modelscope",
+    name: "魔搭",
+    baseUrl: "https://api-inference.modelscope.cn/v1",
     apiKeyLabel: "API Key",
     isCustom: false,
     enabled: true
@@ -40,16 +24,48 @@ export const builtinProviders: CustomProvider[] = [
     baseUrl: "https://open.bigmodel.cn/api/paas/v4",
     apiKeyLabel: "API Key",
     isCustom: false,
-    enabled: true
+    enabled: false
   },
   {
-    id: "alibaba",
-    name: "阿里云",
-    baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    id: "siliconflow",
+    name: "硅基流动",
+    baseUrl: "https://api.siliconflow.cn/v1",
     apiKeyLabel: "API Key",
     isCustom: false,
-    enabled: true
-  }
+    enabled: false
+  },
+  {
+    id: "deepseek",
+    name: "DeepSeek",
+    baseUrl: "https://api.deepseek.com/v1",
+    apiKeyLabel: "API Key",
+    isCustom: false,
+    enabled: false
+  },
+  {
+    id: "OpenAI 官方",
+    name: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    apiKeyLabel: "API Key",
+    isCustom: false,
+    enabled: false
+  },
+  {
+    id: "Gemini 官方",
+    name: "Gemini",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    apiKeyLabel: "API Key",
+    isCustom: false,
+    enabled: false
+  },
+  {
+    id: "Anthropic 官方",
+    name: "Anthropic",
+    baseUrl: "https://api.anthropic.com/v1",
+    apiKeyLabel: "API Key",
+    isCustom: false,
+    enabled: false
+  },
 ]
 
 // 根据ID获取供应商
