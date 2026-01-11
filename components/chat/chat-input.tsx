@@ -7,7 +7,6 @@ import { FilePreviewModal } from "./file-preview-modal"
 import { Send, Square, Eraser, Folder, FileText } from "lucide-react"
 import { LLMService } from "~lib/llm-service"
 import { type ImageInfo } from "~lib/image-utils"
-import { useToast } from "~components/ui/sonner"
 import { useSelectedText } from "~hooks/useSelectedText"
 import { useMessageHandler } from "~hooks/useMessageHandler"
 import { useImageHandler } from "~hooks/useImageHandler"
@@ -136,9 +135,6 @@ export const ChatInput = ({
     setInputValue
   } = useInputHandler()
 
-  // 使用 toast hook
-  const { info } = useToast()
-
   // 使用选中文本 hook
   const { selectedText, clearSelectedText, hasSelection } = useSelectedText()
 
@@ -263,12 +259,10 @@ export const ChatInput = ({
           newSelectedFiles.add(file)
         }
         onFileSelectionChange(newSelectedFiles)
-        info(`已添加文件夹 ${option.path}/ 下的 ${allFiles.length} 个文件`, { title: '文件夹已添加' })
       } else {
         // 单个文件
         newSelectedFiles.add(option.path)
         onFileSelectionChange(newSelectedFiles)
-        info(`已添加 ${option.path}`, { title: '文件已添加' })
       }
     }
 
@@ -375,7 +369,6 @@ export const ChatInput = ({
     }
 
     clearInput()
-    info('对话记录已清空', { title: '清空完成' })
   }
 
   // 处理文件删除
@@ -402,7 +395,6 @@ export const ChatInput = ({
   const handleClearAllFiles = () => {
     if (onFileSelectionChange) {
       onFileSelectionChange(new Set())
-      info('已取消所有文件选中', { title: '清空完成' })
     }
   }
 

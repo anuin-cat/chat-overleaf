@@ -207,8 +207,6 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
       setSelectedModel(modelConfig)
       llmService.updateModel(modelConfig)
 
-      success(`已切换到 ${modelConfig.display_name}`, { title: '模型切换' })
-
       // 调试信息
       console.log('Model changed to:', modelConfig.display_name)
       console.log('API Key available:', !!modelConfig.api_key)
@@ -283,7 +281,6 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
 
     // 不再自动收起历史列表，让用户手动控制
 
-    success(`已加载历史对话: ${history.name}`, { title: '加载成功' })
   }
 
   // 互斥的切换函数
