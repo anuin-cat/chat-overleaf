@@ -52,14 +52,14 @@ export const useSettings = () => {
     // 使用内置供应商的配置
     // 注意：这里我们使用供应商的name作为key来保持向后兼容性
     const builtinProviders = [
+      { name: '云雾', baseUrl: 'https://api.yunwu.ai/v1' },
+      { name: '魔搭', baseUrl: 'https://api-inference.modelscope.cn/v1' },
+      { name: '智谱AI', baseUrl: 'https://open.bigmodel.cn/api/paas/v4' },
       { name: '硅基流动', baseUrl: 'https://api.siliconflow.cn/v1' },
       { name: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1' },
-      { name: '云雾', baseUrl: 'https://api.yunwu.ai/v1' },
       { name: 'OpenAI', baseUrl: 'https://api.openai.com/v1' },
+      { name: 'Gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai' },
       { name: 'Anthropic', baseUrl: 'https://api.anthropic.com/v1' },
-      { name: 'Gemini 官方', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai' },
-      { name: '智谱AI', baseUrl: 'https://open.bigmodel.cn/api/paas/v4' },
-      { name: '阿里云', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1' }
     ]
 
     builtinProviders.forEach(provider => {
