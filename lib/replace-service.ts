@@ -33,8 +33,8 @@ const REPLACE_BLOCK_NEW_FORMAT = /<<<REPLACE>>>\s*FILE:\s*(.+?)\s*<<<SEARCH>>>([
 const REPLACE_BLOCK_OLD_FORMAT = /<<<REPLACE>>>\s*FILE:\s*(.+?)\s*SEARCH:\s*([\s\S]*?)\s*REPLACE:\s*([\s\S]*?)\s*<<<END>>>/g
 // 正则替换模式
 const REPLACE_BLOCK_REGEX_MODE = /<<<REPLACE_REGEX>>>\s*FILE:\s*(.+?)\s*PATTERN:\s*(.+?)\s*REPLACE:\s*([\s\S]*?)\s*<<<END>>>/g
-// 统一插入模式：支持 AFTER 和 BEFORE 锚点
-const INSERT_BLOCK = /<<<INSERT>>>\s*FILE:\s*(.+?)\s*<<<AFTER>>>([\s\S]*?)<<<BEFORE>>>([\s\S]*?)<<<CONTENT>>>([\s\S]*?)<<<END>>>/g
+// 统一插入模式：支持 AFTER/BEFORE 可选（可只写一个，甚至可省略空块）
+const INSERT_BLOCK = /<<<INSERT>>>\s*FILE:\s*(.+?)\s*(?:<<<AFTER>>>([\s\S]*?))?(?:<<<BEFORE>>>([\s\S]*?))?<<<CONTENT>>>([\s\S]*?)<<<END>>>/g
 // 包裹指令的代码块（剥离只含替换指令的 ``` 块）
 const CODE_FENCE_WITH_COMMANDS = /```[^\n]*\n([\s\S]*?)```/g
 
@@ -203,8 +203,8 @@ function parseAndAddInsertCommand(
   processedIds: Set<string>
 ): { id: string; command: ReplaceCommand } {
   const trimmedFile = file.trim()
-  const trimmedAfter = afterAnchor.trim()
-  const trimmedBefore = beforeAnchor.trim()
+  const trimmedAfter = (afterAnchor || '').trim()
+  const trimmedBefore = (beforeAnchor || '').trim()
   const trimmedContent = content.trim()
   
   // 确定主锚点用于定位和生成 ID
@@ -283,7 +283,11 @@ export function parseReplaceCommands(content: string): ParseResult {
   // 4. 解析统一插入块 <<<INSERT>>> ... <<<AFTER>>> ... <<<BEFORE>>> ... <<<CONTENT>>>
   INSERT_BLOCK.lastIndex = 0
   while ((match = INSERT_BLOCK.exec(sanitizedContent)) !== null) {
-    const [fullMatch, file, afterAnchor, beforeAnchor, insertContent] = match
+    const fullMatch = match[0]
+    const file = match[1]
+    const afterAnchor = match[2] || ''
+    const beforeAnchor = match[3] || ''
+    const insertContent = match[4] || ''
     const { id } = parseAndAddInsertCommand(file, afterAnchor, beforeAnchor, insertContent, commands, processedIds)
     cleanContent = cleanContent.replace(fullMatch, `[[REPLACE_BLOCK:${id}]]`)
   }
