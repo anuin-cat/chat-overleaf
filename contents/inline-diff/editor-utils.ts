@@ -7,6 +7,220 @@ import type { MatchPosition } from './types'
 // 缓存的编辑器视图
 let currentEditorView: any = null
 
+export const COMMENT_PLACEHOLDER = '%%% comment ...'
+
+type NormalizedSpan = {
+  type: 'raw' | 'comment'
+  originalStart: number
+  originalEnd: number
+  normStart: number
+  normEnd: number
+  originalText: string
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * 将内容规范化用于匹配：
+ * - 把连续的纯注释行（可含前导空格）折叠为一行 COMMENT_PLACEHOLDER
+ * - 保留其余文本和空格/换行
+ * 同时记录规范化区间与原始区间的映射。
+ */
+function normalizeForMatching(content: string): { normalized: string; spans: NormalizedSpan[] } {
+  const spans: NormalizedSpan[] = []
+  let normalized = ''
+  let normPos = 0
+
+  const lineRegex = /(.*?)(\r?\n|$)/g
+  let match: RegExpExecArray | null
+  let commentBuffer: { start: number; end: number; text: string; lastNL: string } | null = null
+
+  const flushComment = () => {
+    if (!commentBuffer) return
+    const hasTrailingNL = commentBuffer.lastNL !== ''
+    const placeholderLine = COMMENT_PLACEHOLDER + (hasTrailingNL ? commentBuffer.lastNL : '')
+    const normStart = normPos
+    normalized += placeholderLine
+    normPos = normalized.length
+    spans.push({
+      type: 'comment',
+      originalStart: commentBuffer.start,
+      originalEnd: commentBuffer.end,
+      normStart,
+      normEnd: normPos,
+      originalText: commentBuffer.text
+    })
+    commentBuffer = null
+  }
+
+  while ((match = lineRegex.exec(content)) !== null) {
+    const line = match[1]
+    const newline = match[2]
+    if (line === '' && newline === '' && match.index >= content.length) break
+    const lineStart = match.index
+    const lineEnd = lineStart + line.length + newline.length
+    const isCommentLine = line.trimStart().startsWith('%')
+
+    if (isCommentLine) {
+      if (!commentBuffer) {
+        commentBuffer = { start: lineStart, end: lineEnd, text: line + newline, lastNL: newline }
+      } else {
+        commentBuffer.end = lineEnd
+        commentBuffer.text += line + newline
+        commentBuffer.lastNL = newline
+      }
+    } else {
+      flushComment()
+      const normStart = normPos
+      normalized += line + newline
+      normPos = normalized.length
+      spans.push({
+        type: 'raw',
+        originalStart: lineStart,
+        originalEnd: lineEnd,
+        normStart,
+        normEnd: normPos,
+        originalText: line + newline
+      })
+    }
+
+    if (newline === '') break
+  }
+
+  flushComment()
+
+  return { normalized, spans }
+}
+
+/**
+ * 将规范化后的匹配区间映射回原文区间
+ */
+function mapNormalizedRangeToOriginal(
+  spans: NormalizedSpan[],
+  normStart: number,
+  normEnd: number
+): { from: number; to: number } {
+  let originalStart: number | null = null
+  let originalEnd: number | null = null
+
+  for (const span of spans) {
+    if (span.normEnd <= normStart || span.normStart >= normEnd) continue
+
+    if (span.type === 'comment') {
+      originalStart = originalStart === null ? span.originalStart : Math.min(originalStart, span.originalStart)
+      originalEnd = originalEnd === null ? span.originalEnd : Math.max(originalEnd, span.originalEnd)
+      continue
+    }
+
+    const overlapStart = Math.max(span.normStart, normStart)
+    const overlapEnd = Math.min(span.normEnd, normEnd)
+    const relativeStart = overlapStart - span.normStart
+    const relativeEnd = overlapEnd - span.normStart
+    const spanStart = span.originalStart + relativeStart
+    const spanEnd = span.originalStart + relativeEnd
+
+    originalStart = originalStart === null ? spanStart : Math.min(originalStart, spanStart)
+    originalEnd = originalEnd === null ? spanEnd : Math.max(originalEnd, spanEnd)
+  }
+
+  return {
+    from: originalStart ?? 0,
+    to: originalEnd ?? 0
+  }
+}
+
+/**
+ * 构造支持“换行块”的正则：
+ * - 搜索字符串里的每个换行，匹配时视为一个由空格/制表符与至少一个换行组成的块
+ */
+function buildFlexibleRegex(search: string): RegExp | null {
+  if (!search) return null
+  const parts = search.split(/\r?\n/)
+  const escaped = parts.map(escapeRegex)
+  const newlineBlock = '(?:[ \\t]*\\r?\\n[ \\t]*)+'
+  const pattern = escaped.join(newlineBlock)
+  return new RegExp(pattern, 'g')
+}
+
+/**
+ * 提取原文中的注释块（连续的纯注释行）
+ * 用于在替换文本中还原 COMMENT_PLACEHOLDER。
+ */
+function extractCommentBlocks(source: string): string[] {
+  const blocks: string[] = []
+  const lineRegex = /(.*?)(\r?\n|$)/g
+  let match: RegExpExecArray | null
+  let buffer: string[] = []
+
+  const flush = () => {
+    if (buffer.length > 0) {
+      blocks.push(buffer.join(''))
+      buffer = []
+    }
+  }
+
+  while ((match = lineRegex.exec(source)) !== null) {
+    const line = match[1]
+    const nl = match[2]
+    if (line === '' && nl === '' && match.index >= source.length) break
+    const isComment = line.trimStart().startsWith('%')
+
+    if (isComment) {
+      buffer.push(line + nl)
+    } else {
+      flush()
+    }
+
+    if (nl === '') break
+  }
+  flush()
+  return blocks
+}
+
+function countTrailingNewlines(str: string): number {
+  let count = 0
+  for (let i = str.length - 1; i >= 0; i--) {
+    const ch = str[i]
+    if (ch === '\n') {
+      count++
+      // handle \r\n
+      if (i > 0 && str[i - 1] === '\r') i--
+    } else {
+      break
+    }
+  }
+  return count
+}
+
+function expandPlaceholders(replaceText: string, originalSlice: string): string {
+  if (!replaceText.includes(COMMENT_PLACEHOLDER)) {
+    return replaceText
+  }
+  const commentBlocks = extractCommentBlocks(originalSlice)
+  let idx = 0
+  const parts = replaceText.split(COMMENT_PLACEHOLDER)
+  let result = parts[0]
+
+  for (let i = 1; i < parts.length; i++) {
+    const block = commentBlocks[idx++] ?? COMMENT_PLACEHOLDER
+    const trailingNewlines = countTrailingNewlines(block)
+    let nextPart = parts[i]
+
+    // If the original comment block ended with only one newline (i.e.,注释后无空行),
+    // and the replacement text begins with a newline, drop that leading newline to
+    // avoid introducing a new blank line.
+    if (trailingNewlines === 1 && nextPart.startsWith('\n')) {
+      nextPart = nextPart.replace(/^\r?\n/, '')
+    }
+
+    result += block + nextPart
+  }
+
+  return result
+}
+
 /**
  * 获取 CodeMirror 编辑器实例
  */
@@ -51,7 +265,7 @@ export function findMatchPositions(
   isRegex: boolean
 ): MatchPosition[] {
   const positions: MatchPosition[] = []
-  
+
   if (isRegex) {
     const regex = new RegExp(search, 'g')
     let match
@@ -61,19 +275,33 @@ export function findMatchPositions(
         to: match.index + match[0].length,
         text: match[0]
       })
+      if (match[0].length === 0) {
+        regex.lastIndex += 1
+      }
     }
-  } else {
-    let pos = 0
-    while ((pos = content.indexOf(search, pos)) !== -1) {
-      positions.push({
-        from: pos,
-        to: pos + search.length,
-        text: search
-      })
-      pos += 1
+    return positions
+  }
+
+  const { normalized, spans } = normalizeForMatching(content)
+  const flexibleRegex = buildFlexibleRegex(search)
+  if (!flexibleRegex) return positions
+
+  let match: RegExpExecArray | null
+  while ((match = flexibleRegex.exec(normalized)) !== null) {
+    const normStart = match.index
+    const normEnd = match.index + match[0].length
+    const { from, to } = mapNormalizedRangeToOriginal(spans, normStart, normEnd)
+    positions.push({
+      from,
+      to,
+      text: content.slice(from, to)
+    })
+
+    if (match[0].length === 0) {
+      flexibleRegex.lastIndex += 1
     }
   }
-  
+
   return positions
 }
 
@@ -196,7 +424,9 @@ export function replaceInEditor(
       changes = matches.reverse().map(m => ({
         from: m.from,
         to: m.to,
-        insert: isRegex ? m.text.replace(new RegExp(search), replace) : replace
+        insert: isRegex
+          ? m.text.replace(new RegExp(search), replace)
+          : expandPlaceholders(replace, m.text)
       }))
     }
     

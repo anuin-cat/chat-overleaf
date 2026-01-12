@@ -38,6 +38,21 @@ const INSERT_BLOCK = /<<<INSERT>>>\s*FILE:\s*(.+?)\s*(?:<<<AFTER>>>([\s\S]*?))?(
 // 包裹指令的代码块（剥离只含替换指令的 ``` 块）
 const CODE_FENCE_WITH_COMMANDS = /```[^\n]*\n([\s\S]*?)```/g
 
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * 构造支持“换行块”的正则（非正则模式下使用）：
+ * SEARCH 中的每个换行会匹配由空格/制表符与至少一个换行组成的块。
+ */
+function buildFlexibleRegex(search: string): RegExp {
+  const parts = search.split(/\r?\n/).map(escapeRegex)
+  const newlineBlock = '(?:[ \\t]*\\r?\\n[ \\t]*)+'
+  const pattern = parts.join(newlineBlock)
+  return new RegExp(pattern, 'g')
+}
+
 function isOnlyReplaceBlocks(body: string): boolean {
   let stripped = body
   ;[
@@ -104,8 +119,8 @@ export function validateSearchLength(search: string): { valid: boolean; error?: 
     return { valid: false, error: '搜索内容过短（至少 3 个字符）' }
   }
   
-  if (trimmed.length > 2000) {
-    return { valid: false, error: '搜索内容过长（最多 2000 个字符）' }
+  if (trimmed.length > 3600) {
+    return { valid: false, error: '搜索内容过长（最多 3600 个字符）' }
   }
   
   return { valid: true }
@@ -127,11 +142,11 @@ export function validateMatchCount(
       const matches = content.match(regex)
       matchCount = matches?.length || 0
     } else {
-      // 普通文本匹配
-      let pos = 0
-      while ((pos = content.indexOf(search, pos)) !== -1) {
+      const regex = buildFlexibleRegex(search)
+      let m: RegExpExecArray | null
+      while ((m = regex.exec(content)) !== null) {
         matchCount++
-        pos += 1
+        if (m[0].length === 0) regex.lastIndex += 1
       }
     }
     
@@ -432,25 +447,16 @@ export function getMatchPositions(
   const positions: Array<{ start: number; end: number; text: string }> = []
   
   try {
-    if (isRegex) {
-      const regex = new RegExp(search, 'g')
-      let match
-      while ((match = regex.exec(content)) !== null) {
-        positions.push({
-          start: match.index,
-          end: match.index + match[0].length,
-          text: match[0]
-        })
-      }
-    } else {
-      let pos = 0
-      while ((pos = content.indexOf(search, pos)) !== -1) {
-        positions.push({
-          start: pos,
-          end: pos + search.length,
-          text: search
-        })
-        pos += 1
+    const regex = isRegex ? new RegExp(search, 'g') : buildFlexibleRegex(search)
+    let match
+    while ((match = regex.exec(content)) !== null) {
+      positions.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        text: match[0]
+      })
+      if (match[0].length === 0) {
+        regex.lastIndex += 1
       }
     }
   } catch (e) {

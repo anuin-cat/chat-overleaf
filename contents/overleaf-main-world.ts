@@ -4,12 +4,14 @@ import {
   getCodeMirrorEditor, 
   replaceInEditor, 
   highlightInEditor, 
+  findMatchPositions,
   initInlineDiff,
   addHighlightRegions,
   reactivateHighlight,
   removeAllHoverHighlights,
   removeRegionHighlight,
-  refreshHighlights
+  refreshHighlights,
+  COMMENT_PLACEHOLDER
 } from "./overleaf-inline-diff"
 
 export const config: PlasmoCSConfig = {
@@ -59,14 +61,32 @@ function getCodeMirrorContent(): string | null {
 }
 
 /**
- * 清理内容（去除注释和多余空行）
+ * 清理内容：将纯注释块折叠成单行占位符，保持其余空格与换行
  */
 function cleanContent(content: string): string {
   if (!content) return ''
-  let cleanedContent = content.replace(/^%.*$/gm, '')
-  cleanedContent = cleanedContent.replace(/^\s*%.*$/gm, '')
-  cleanedContent = cleanedContent.replace(/^\s*[\r\n]\s*[\r\n]/gm, '\n')
-  return cleanedContent
+  const lines = content.split(/\r?\n/)
+  const result: string[] = []
+  let commentBuffer: string[] = []
+
+  const flush = () => {
+    if (commentBuffer.length > 0) {
+      result.push(COMMENT_PLACEHOLDER)
+      commentBuffer = []
+    }
+  }
+
+  for (const line of lines) {
+    if (line.trimStart().startsWith('%')) {
+      commentBuffer.push(line)
+    } else {
+      flush()
+      result.push(line)
+    }
+  }
+  flush()
+
+  return result.join('\n')
 }
 
 /**
@@ -184,41 +204,6 @@ let lastFileNameNotified = ''
 let refreshTimeout: NodeJS.Timeout | null = null
 let resizeObserver: ResizeObserver | null = null
 let contentObserver: MutationObserver | null = null
-
-/**
- * 查找所有匹配位置（本文件内简化版，避免额外导出）
- */
-function findMatchPositions(
-  content: string,
-  search: string,
-  isRegex: boolean
-): Array<{ from: number; to: number; text: string }> {
-  const positions: Array<{ from: number; to: number; text: string }> = []
-  
-  if (isRegex) {
-    const regex = new RegExp(search, 'g')
-    let match: RegExpExecArray | null
-    while ((match = regex.exec(content)) !== null) {
-      positions.push({
-        from: match.index,
-        to: match.index + match[0].length,
-        text: match[0]
-      })
-    }
-  } else {
-    let pos = 0
-    while ((pos = content.indexOf(search, pos)) !== -1) {
-      positions.push({
-        from: pos,
-        to: pos + search.length,
-        text: search
-      })
-      pos += 1
-    }
-  }
-  
-  return positions
-}
 
 /**
  * 判断某个文档位置是否在当前视口内
