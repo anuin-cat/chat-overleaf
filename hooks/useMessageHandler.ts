@@ -2,6 +2,7 @@ import { useState } from "react"
 import { LLMService, type ChatMessage } from "~lib/llm-service"
 import { FileContentProcessor } from "~lib/file-content-processor"
 import { SYSTEM_PROMPT } from "~lib/system-prompt"
+import { buildFileTreePrompt } from "~components/chat/file/file-tree-utils"
 import { useSettings } from "./useSettings"
 import { useModels } from "./useModels"
 import { useToast } from "~components/ui/sonner"
@@ -233,6 +234,12 @@ export const useMessageHandler = ({
       }
     })
 
+    // 生成最新文件列表提示（随用户消息一起发送，避免污染前缀缓存）
+    const fileListPromptText =
+      extractedFiles.length > 0
+        ? buildFileTreePrompt(extractedFiles).text
+        : ''
+
     // 4. 添加当前用户消息（合并选中文本、用户消息和图片）
     const currentMessageContent: Array<{
       type: 'text' | 'image_url'
@@ -273,6 +280,14 @@ export const useMessageHandler = ({
             detail: 'auto'
           }
         })
+      })
+    }
+
+    // 4.1 先推送文件列表提示（作为 user 角色，声明系统自动提供；放在最新用户消息前，避免前缀缓存失效）
+    if (fileListPromptText) {
+      chatHistory.push({
+        role: 'user',
+        content: `[系统自动提供的文件列表参考信息]\n${fileListPromptText}\n（此块为系统生成的最新文件/文件夹及 token 信息，若需访问请使用 @ 选择文件或文件夹，或通过顶部文件列表勾选。）`
       })
     }
 

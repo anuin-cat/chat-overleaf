@@ -13,7 +13,7 @@ import { useMessageHandler } from "~hooks/useMessageHandler"
 import { useImageHandler } from "~hooks/useImageHandler"
 import { useInputHandler } from "~hooks/useInputHandler"
 import { generateId } from "~utils/helpers"
-import { buildFileTree, getAllFilesInFolder, type TreeNode } from "./file/file-tree-utils"
+import { buildFileTree, getAllFilesInFolder, type TreeNode, estimateTokenWeight, buildFileTreePrompt } from "./file/file-tree-utils"
 
 interface Message {
   id: string
@@ -31,42 +31,6 @@ interface ExtractedFile {
   name: string
   content: string
   length: number
-}
-
-const isCjk = (code: number) =>
-  (code >= 0x4e00 && code <= 0x9fff) ||
-  (code >= 0x3400 && code <= 0x4dbf) ||
-  (code >= 0xf900 && code <= 0xfaff) ||
-  (code >= 0x3040 && code <= 0x30ff) ||
-  (code >= 0xac00 && code <= 0xd7af)
-
-const estimateTokenWeight = (text: string) => {
-  let weight = 0
-  for (const ch of text) {
-    const code = ch.codePointAt(0) ?? 0
-    if (ch === " " || ch === "\n" || ch === "\t" || ch === "\r") {
-      weight += 0.25
-      continue
-    }
-    if (isCjk(code)) {
-      weight += 1
-      continue
-    }
-    if (code <= 0x007f) {
-      if (
-        (code >= 0x30 && code <= 0x39) ||
-        (code >= 0x41 && code <= 0x5a) ||
-        (code >= 0x61 && code <= 0x7a)
-      ) {
-        weight += 0.25
-      } else {
-        weight += 0.5
-      }
-      continue
-    }
-    weight += 0.8
-  }
-  return weight
 }
 
 interface ChatInputProps {
@@ -150,6 +114,8 @@ export const ChatInput = ({
   const fileTree = useMemo(() => {
     return buildFileTree(extractedFiles)
   }, [extractedFiles])
+
+  const fileListPrompt = useMemo(() => buildFileTreePrompt(extractedFiles), [extractedFiles])
 
   // 递归收集所有文件夹节点
   const allFolders = useMemo(() => {
@@ -239,9 +205,10 @@ export const ChatInput = ({
 
   // 计算 system prompt 的 token 数
   const estimatedSystemPromptTokens = useMemo(() => {
-    const weight = estimateTokenWeight(SYSTEM_PROMPT)
-    return weight > 0 ? Math.max(1, Math.ceil(weight)) : 0
-  }, [])
+    const base = Math.max(1, Math.ceil(estimateTokenWeight(SYSTEM_PROMPT)))
+    const extra = fileListPrompt.tokenCount || 0
+    return base + extra
+  }, [fileListPrompt.tokenCount])
 
   // 计算总 token 数
   const totalTokens = estimatedFileTokens + estimatedHistoryTokens + estimatedSystemPromptTokens

@@ -64,6 +64,41 @@ export const estimateFileTokens = (file: FileInfo): number => {
 }
 
 /**
+ * 构建文件列表提示文本（仅名称与 token 数，供模型参考）
+ * 文件夹的 token 数为子文件递归求和
+ */
+export const buildFileTreePrompt = (files: FileInfo[]): { text: string; tokenCount: number } => {
+  if (!files || files.length === 0) {
+    return { text: '文件列表为空。', tokenCount: 0 }
+  }
+
+  const tree = buildFileTree(files)
+  const lines: string[] = []
+
+  lines.push(
+    '文件列表（供参考，文件夹 token 为子文件递归之和；若需阅读内容，请提示用户使用 @ 选择文件/文件夹或通过顶部文件列表选中）：'
+  )
+
+  const walk = (nodes: TreeNode[], depth: number) => {
+    const indent = '  '.repeat(depth)
+    for (const node of nodes) {
+      const name = node.isFolder ? `${node.name}/` : node.name
+      const tokenStr = `≈${formatNumber(node.tokenCount)} token`
+      lines.push(`${indent}- ${name} ${tokenStr}`)
+      if (node.isFolder && node.children.length > 0) {
+        walk(node.children, depth + 1)
+      }
+    }
+  }
+
+  walk(tree, 0)
+
+  const text = lines.join('\n')
+  const tokenCount = Math.max(1, Math.ceil(estimateTokenWeight(text)))
+  return { text, tokenCount }
+}
+
+/**
  * 将扁平的文件列表构建为树形结构
  */
 export const buildFileTree = (files: FileInfo[]): TreeNode[] => {

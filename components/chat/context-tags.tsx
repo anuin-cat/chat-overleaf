@@ -5,7 +5,8 @@ import { Folder } from "lucide-react"
 import {
   buildFileTree,
   analyzeMergedSelection,
-  type MergedSelection
+  type MergedSelection,
+  estimateTokenWeight
 } from "./file/file-tree-utils"
 import type { FileInfo } from "./file/file-extraction-service"
 
@@ -118,6 +119,9 @@ export const ContextTags = ({
   const [hoveredToken, setHoveredToken] = useState(false)
   
   const hasSelection = selectedText?.hasSelection || false
+  const selectionTokenCount = selectedText?.text
+    ? Math.max(1, Math.ceil(estimateTokenWeight(selectedText.text)))
+    : 0
   const getBaseName = (fileName: string) => fileName.split(/[\/]/).pop() || fileName
 
   // 分析选中文件，构建合并后的显示结构
@@ -167,7 +171,10 @@ export const ContextTags = ({
   const independentFilesDisplay = getDisplayInfo(mergedSelection.files)
 
   // 如果没有任何标签要显示，返回 null
-  if ((!showFileNames || selectedFiles.size === 0) &&
+  const hasTokenCapsule = !!totalTokenEstimate && totalTokenEstimate > 0
+
+  if (!hasTokenCapsule &&
+      (!showFileNames || selectedFiles.size === 0) &&
       (!showSelectedText || !hasSelection) &&
       (!showImages || uploadedImages.length === 0)) {
     return null
@@ -188,7 +195,7 @@ export const ContextTags = ({
         )}
         
         {/* Token 估算显示 */}
-        {showFileNames && selectedFiles.size > 0 && totalTokenEstimate && totalTokenEstimate > 0 && (
+        {hasTokenCapsule && (
           <div
             className="relative inline-flex items-center"
             onMouseEnter={() => setHoveredToken(true)}
@@ -273,7 +280,7 @@ export const ContextTags = ({
             onRemove={onRemoveSelectedText}
             removable={!!onRemoveSelectedText}
           >
-            ✂️ 选中内容 ({selectedText?.text.length || 0} 字符)
+            ✂️ 选中内容 (≈{selectionTokenCount.toLocaleString()} token)
           </Tag>
         )}
       </TagList>
@@ -297,6 +304,7 @@ export const MessageContextTags = ({
 }: MessageContextTagsProps) => {
   const hasSelectedText = selectedText && selectedText.length > 0
   const hasImages = images && images.length > 0
+  const selectionTokens = hasSelectedText ? Math.max(1, Math.ceil(estimateTokenWeight(selectedText!))) : 0
 
   if (!hasSelectedText && !hasImages) {
     return null
@@ -310,7 +318,7 @@ export const MessageContextTags = ({
           className={className}
           removable={false}
         >
-          ✂️ {selectedText.length} 字符
+          ✂️ ≈{selectionTokens.toLocaleString()} token
         </Tag>
       )}
       {hasImages && (
