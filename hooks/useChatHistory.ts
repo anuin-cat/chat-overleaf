@@ -11,7 +11,7 @@ export interface Message {
   isUser: boolean
   timestamp: Date
   isStreaming?: boolean
-  selectedText?: string
+  selectedText?: SelectedSnippet
   images?: ImageInfo[] // 添加图片信息字段
   isWaiting?: boolean
   waitingStartTime?: Date

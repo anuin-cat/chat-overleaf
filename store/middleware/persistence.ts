@@ -1,4 +1,4 @@
-import type { Middleware } from "@reduxjs/toolkit"
+import type { UnknownAction, Middleware } from "@reduxjs/toolkit"
 import type { RootState } from "../index"
 
 // 存储键名
@@ -64,7 +64,7 @@ const saveState = (state: RootState["settings"]) => {
 }
 
 // 持久化中间件
-export const persistenceMiddleware: Middleware<{}, RootState> = (store) => (next) => (action) => {
+export const persistenceMiddleware: Middleware<{}, RootState> = (store) => (next) => (action: UnknownAction) => {
   const result = next(action)
   
   // 只在settings相关的action后保存状态

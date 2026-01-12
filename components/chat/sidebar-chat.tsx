@@ -18,7 +18,7 @@ import { useReplaceHandler } from "~hooks/useReplaceHandler"
 
 import { MarkdownMessage } from "./message/markdown-message"
 import { useToast } from "~components/ui/sonner"
-import { ChatInput, ChatInputHandle } from "./chat-input"
+import { ChatInput, type ChatInputHandle } from "./chat-input"
 import { generateId } from "~utils/helpers"
 
 interface Message {

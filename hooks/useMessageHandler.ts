@@ -157,7 +157,7 @@ export const useMessageHandler = ({
 
   const processStreamingResponse = async (
     inputValue: string,
-    selectedText: string | undefined,
+    selectedText: SelectedSnippet | undefined,
     uploadedImages: ImageInfo[],
     currentModelConfig: any,
     aiMessageId: string
