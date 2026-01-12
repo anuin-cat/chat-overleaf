@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react"
 export interface SelectedTextInfo {
   text: string
   fileName: string
+  folderPath?: string
   hasSelection: boolean
 }
 
@@ -10,6 +11,7 @@ export const useSelectedText = () => {
   const [selectedText, setSelectedText] = useState<SelectedTextInfo>({
     text: '',
     fileName: '',
+    folderPath: '',
     hasSelection: false
   })
 
@@ -17,10 +19,11 @@ export const useSelectedText = () => {
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.data.type === 'OVERLEAF_SELECTION_CHANGED') {
-        const { text, fileName, hasSelection } = event.data.data
+        const { text, fileName, folderPath, hasSelection } = event.data.data
         setSelectedText({
           text,
           fileName,
+          folderPath,
           hasSelection
         })
       }
@@ -45,6 +48,7 @@ export const useSelectedText = () => {
             const result = {
               text: data.text || '',
               fileName: data.fileName || '',
+              folderPath: data.folderPath || '',
               hasSelection: (data.text || '').length > 0
             }
             setSelectedText(result)

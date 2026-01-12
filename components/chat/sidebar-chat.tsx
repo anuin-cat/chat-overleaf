@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react"
+import { useState, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from "react"
 import { Button } from "~components/ui/button"
 import { ScrollArea } from "~components/ui/scroll-area"
 import { ModelSelect } from "~components/ui/model-select"
@@ -18,7 +18,7 @@ import { useReplaceHandler } from "~hooks/useReplaceHandler"
 
 import { MarkdownMessage } from "./message/markdown-message"
 import { useToast } from "~components/ui/sonner"
-import { ChatInput } from "./chat-input"
+import { ChatInput, ChatInputHandle } from "./chat-input"
 import { generateId } from "~utils/helpers"
 
 interface Message {
@@ -27,7 +27,7 @@ interface Message {
   isUser: boolean
   timestamp: Date
   isStreaming?: boolean
-  selectedText?: string // 添加选中文本字段
+  selectedText?: import("~hooks/useMessageHandler").SelectedSnippet // 添加选中文本字段
   images?: import("~lib/image-utils").ImageInfo[] // 添加图片信息字段
   isWaiting?: boolean // 是否在等待第一个token
   waitingStartTime?: Date // 等待开始时间
@@ -42,7 +42,11 @@ interface SidebarChatProps {
   onShowSettings?: () => void
 }
 
-export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarChatProps) => {
+export interface SidebarChatHandle {
+  focusChatInput: () => void
+}
+
+export const SidebarChat = forwardRef<SidebarChatHandle, SidebarChatProps>(({ onClose, onWidthChange, onShowSettings }: SidebarChatProps, ref) => {
   // 当前聊天会话状态
   const [currentChatId, setCurrentChatId] = useState<string>(() =>
     `chat_${generateId()}`
@@ -131,6 +135,7 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
   } = useReplaceHandler({ extractedFiles })
 
   const processedMessageIdsRef = useRef<Set<string>>(new Set())
+  const chatInputRef = useRef<ChatInputHandle | null>(null)
   const isHydratingHistoryRef = useRef(false)
   const saveDebounceRef = useRef<number | null>(null)
   const lastSavedSignatureRef = useRef<string>("")
@@ -263,23 +268,28 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
 
     // 将 StoredMessage 转换为 Message 格式
     isHydratingHistoryRef.current = true
-    const convertedMessages: Message[] = history.messages.map((msg: any) => ({
-      id: msg.id,
-      content: msg.content,
-      isUser: msg.isUser,
-      timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp),
-      // 恢复选中的文本内容
-      selectedText: msg.selectedText,
-      // 恢复图片信息
-      images: msg.images,
-      // 恢复思考过程
-      thinking: msg.thinking,
-      thinkingFinished: true, // 恢复时思考已完成
-      // 恢复时不需要临时状态
-      isStreaming: false,
-      isWaiting: false,
-      waitingStartTime: undefined
-    }))
+    const convertedMessages: Message[] = history.messages.map((msg: any) => {
+      const selection = typeof msg.selectedText === 'string'
+        ? { text: msg.selectedText }
+        : msg.selectedText
+      return {
+        id: msg.id,
+        content: msg.content,
+        isUser: msg.isUser,
+        timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp),
+        // 恢复选中的文本内容
+        selectedText: selection,
+        // 恢复图片信息
+        images: msg.images,
+        // 恢复思考过程
+        thinking: msg.thinking,
+        thinkingFinished: true, // 恢复时思考已完成
+        // 恢复时不需要临时状态
+        isStreaming: false,
+        isWaiting: false,
+        waitingStartTime: undefined
+      }
+    })
 
     // 设置当前聊天的ID和名称
     setCurrentChatId(history.id)
@@ -378,6 +388,17 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
       }
     }
   }, [isResizing])
+
+  useImperativeHandle(ref, () => ({
+    focusChatInput: () => {
+      if (!showHistoryList) {
+        chatInputRef.current?.focusInput()
+      } else {
+        // 即使历史面板展开仍尝试聚焦输入
+        chatInputRef.current?.focusInput()
+      }
+    }
+  }), [showHistoryList])
 
   // 自动实时保存：每次用户提问或 AI 回复都会触发（流式写入做 500ms 防抖）
   useEffect(() => {
@@ -635,6 +656,7 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
 
       {/* Input */}
       <ChatInput
+        ref={chatInputRef}
         messages={messages}
         onMessagesChange={setMessages}
         selectedFiles={syncedSelectedFiles}
@@ -653,3 +675,4 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
   </DialogProvider>
   )
 }
+)

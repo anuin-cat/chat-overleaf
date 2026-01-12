@@ -289,7 +289,7 @@ export const ContextTags = ({
 }
 
 interface MessageContextTagsProps {
-  selectedText?: string
+  selectedText?: import("~hooks/useMessageHandler").SelectedSnippet
   images?: import("~lib/image-utils").ImageInfo[]
   className?: string
 }
@@ -302,9 +302,9 @@ export const MessageContextTags = ({
   images,
   className
 }: MessageContextTagsProps) => {
-  const hasSelectedText = selectedText && selectedText.length > 0
+  const hasSelectedText = selectedText && selectedText.text?.length > 0
   const hasImages = images && images.length > 0
-  const selectionTokens = hasSelectedText ? Math.max(1, Math.ceil(estimateTokenWeight(selectedText!))) : 0
+  const selectionTokens = hasSelectedText ? Math.max(1, Math.ceil(estimateTokenWeight(selectedText!.text))) : 0
 
   if (!hasSelectedText && !hasImages) {
     return null

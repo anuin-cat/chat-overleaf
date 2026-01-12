@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { Button } from "../ui/button"
 import { Textarea } from "../ui/textarea"
 import { ScrollArea } from "../ui/scroll-area"
@@ -21,7 +21,7 @@ interface Message {
   isUser: boolean
   timestamp: Date
   isStreaming?: boolean
-  selectedText?: string // 添加选中文本字段
+  selectedText?: import("~hooks/useMessageHandler").SelectedSnippet // 添加选中文本字段
   images?: import("~lib/image-utils").ImageInfo[] // 添加图片信息字段
   isWaiting?: boolean // 是否在等待第一个token
   waitingStartTime?: Date // 等待开始时间
@@ -49,7 +49,11 @@ interface ChatInputProps {
   onChatIdChange?: (id: string) => void
 }
 
-export const ChatInput = ({
+export interface ChatInputHandle {
+  focusInput: () => void
+}
+
+export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
   messages,
   onMessagesChange,
   selectedFiles,
@@ -63,7 +67,7 @@ export const ChatInput = ({
   currentChatName,
   onChatNameChange,
   onChatIdChange
-}: ChatInputProps) => {
+}: ChatInputProps, ref) => {
   // 使用消息处理 hook
   const { isStreaming, handleSendMessage, handleStopStreaming } = useMessageHandler({
     messages,
@@ -102,6 +106,17 @@ export const ChatInput = ({
 
   // 使用选中文本 hook
   const { selectedText, clearSelectedText, hasSelection } = useSelectedText()
+
+  // 暴露聚焦方法
+  useImperativeHandle(ref, () => ({
+    focusInput: () => {
+      const el = textareaRef.current
+      if (el) {
+        el.focus()
+        el.setSelectionRange(el.value.length, el.value.length)
+      }
+    }
+  }), [textareaRef])
 
   // @ 文件选择提示状态
   const [mentionQuery, setMentionQuery] = useState("")
@@ -192,8 +207,8 @@ export const ChatInput = ({
         weight += estimateTokenWeight(msg.content)
       }
       // 计算选中文本
-      if (msg.selectedText) {
-        weight += estimateTokenWeight(msg.selectedText)
+      if (msg.selectedText?.text) {
+        weight += estimateTokenWeight(msg.selectedText.text)
       }
       // 简单估算图片 token（每张图片约 85 token）
       if (msg.images && msg.images.length > 0) {
@@ -398,7 +413,11 @@ export const ChatInput = ({
 
   // 发送消息的包装函数
   const onSendMessage = () => {
-    const messageSelectedText = hasSelection ? selectedText.text : undefined
+    const messageSelectedText = hasSelection ? {
+      text: selectedText.text,
+      fileName: selectedText.fileName,
+      folderPath: selectedText.folderPath
+    } : undefined
     handleSendMessage(inputValue, messageSelectedText, uploadedImages)
     clearInput()
     clearImages()
@@ -517,4 +536,4 @@ export const ChatInput = ({
       </div>
     </div>
   )
-}
+})

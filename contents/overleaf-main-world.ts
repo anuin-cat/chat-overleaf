@@ -13,6 +13,7 @@ import {
   refreshHighlights,
   COMMENT_PLACEHOLDER
 } from "./overleaf-inline-diff"
+import iconUrl from "data-base64:~assets/icon.svg"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://www.overleaf.com/*", "https://*.overleaf.com/*"],
@@ -40,6 +41,7 @@ export interface AllFilesInfo {
 export interface SelectedTextInfo {
   text: string
   fileName: string
+  folderPath?: string
   success: boolean
   error?: string
 }
@@ -103,24 +105,70 @@ function getSelectedText(): SelectedTextInfo {
   try {
     const editorView = getCodeMirrorEditor()
     if (!editorView) {
-      return { text: '', fileName: '', success: false, error: 'No editor found' }
+      return { text: '', fileName: '', folderPath: '', success: false, error: 'No editor found' }
     }
 
     const selection = editorView.state.selection
     if (!selection || selection.ranges.length === 0) {
-      return { text: '', fileName: getCurrentFileName(), success: true }
+      const fileName = getCurrentFileName()
+      const folderPath = fileName.includes('/') ? fileName.slice(0, fileName.lastIndexOf('/')) : ''
+      return { text: '', fileName, folderPath, success: true }
     }
 
     const mainRange = selection.main
     if (mainRange.empty) {
-      return { text: '', fileName: getCurrentFileName(), success: true }
+      const fileName = getCurrentFileName()
+      const folderPath = fileName.includes('/') ? fileName.slice(0, fileName.lastIndexOf('/')) : ''
+      return { text: '', fileName, folderPath, success: true }
     }
 
     const selectedText = editorView.state.doc.sliceString(mainRange.from, mainRange.to)
-    return { text: selectedText, fileName: getCurrentFileName(), success: true }
+    const fileName = getCurrentFileName()
+    const folderPath = fileName.includes('/') ? fileName.slice(0, fileName.lastIndexOf('/')) : ''
+    return { text: selectedText, fileName, folderPath, success: true }
   } catch (error) {
-    return { text: '', fileName: '', success: false, error: createErrorResponse(error) }
+    return { text: '', fileName: '', folderPath: '', success: false, error: createErrorResponse(error) }
   }
+}
+
+/**
+ * 在 Overleaf 的 review tooltip 中添加 Ctrl+L 快捷按钮
+ */
+function ensureReviewShortcutButton(selection: SelectedTextInfo): void {
+  const menu = document.querySelector('.review-tooltip-menu.review-tooltip-menu-visible')
+  if (!menu) return
+
+  // 检查是否已存在
+  if (menu.querySelector('[data-chatoverleaf-shortcut="ctrl-l"]')) return
+
+  const btn = document.createElement('button')
+  btn.className = 'review-tooltip-menu-button review-tooltip-add-comment-button'
+  btn.setAttribute('data-chatoverleaf-shortcut', 'ctrl-l')
+  btn.style.marginLeft = '4px'
+
+  const icon = document.createElement('img')
+  icon.src = iconUrl
+  icon.alt = 'ChatOverleaf'
+  icon.width = 16
+  icon.height = 16
+  icon.style.width = '16px'
+  icon.style.height = '16px'
+  icon.style.marginRight = '6px'
+
+  const label = document.createElement('span')
+  label.textContent = 'Ctrl + L'
+
+  btn.appendChild(icon)
+  btn.appendChild(label)
+
+  btn.addEventListener('click', () => {
+    window.postMessage({
+      type: 'FOCUS_CHAT_INPUT',
+      data: { selection }
+    }, '*')
+  })
+
+  menu.appendChild(btn)
 }
 
 /**
@@ -303,16 +351,22 @@ function setupSelectionListener() {
 
     const checkSelection = () => {
       const selectedInfo = getSelectedText()
-      if (selectedInfo.success && selectedInfo.text !== lastSelection) {
-        lastSelection = selectedInfo.text
-        window.postMessage({
-          type: 'OVERLEAF_SELECTION_CHANGED',
-          data: {
-            text: selectedInfo.text,
-            fileName: selectedInfo.fileName,
-            hasSelection: selectedInfo.text.length > 0
-          }
-        }, '*')
+      if (selectedInfo.success) {
+        if (selectedInfo.text !== lastSelection) {
+          lastSelection = selectedInfo.text
+          window.postMessage({
+            type: 'OVERLEAF_SELECTION_CHANGED',
+            data: {
+              text: selectedInfo.text,
+              fileName: selectedInfo.fileName,
+              folderPath: selectedInfo.folderPath || '',
+              hasSelection: selectedInfo.text.length > 0
+            }
+          }, '*')
+        }
+        if (selectedInfo.text.length > 0) {
+          ensureReviewShortcutButton(selectedInfo)
+        }
       }
     }
 
@@ -622,6 +676,22 @@ function initialize() {
   initInlineDiff()
   setTimeout(setupSelectionListener, 1000)
   setTimeout(setupRefreshListeners, 1200)
+
+  // 全局快捷键：Ctrl + L 聚焦侧边栏输入框，并携带当前选中文本/路径
+  const hotkeyHandler = (event: KeyboardEvent) => {
+    if (event.ctrlKey && (event.key === 'l' || event.key === 'L')) {
+      event.preventDefault()
+      event.stopPropagation()
+      const selection = getSelectedText()
+      window.postMessage({
+        type: 'FOCUS_CHAT_INPUT',
+        data: {
+          selection
+        }
+      }, '*')
+    }
+  }
+  window.addEventListener('keydown', hotkeyHandler, { capture: true, passive: false })
 }
 
 if (document.readyState === 'loading') {

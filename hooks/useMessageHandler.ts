@@ -15,7 +15,7 @@ interface Message {
   isUser: boolean
   timestamp: Date
   isStreaming?: boolean
-  selectedText?: string
+  selectedText?: SelectedSnippet
   images?: ImageInfo[] // 添加图片信息字段
   isWaiting?: boolean
   waitingStartTime?: Date
@@ -41,6 +41,12 @@ interface UseMessageHandlerProps {
   onChatNameChange?: (name: string) => void
 }
 
+export interface SelectedSnippet {
+  text: string
+  fileName?: string
+  folderPath?: string
+}
+
 export const useMessageHandler = ({
   messages,
   onMessagesChange,
@@ -60,7 +66,7 @@ export const useMessageHandler = ({
 
   const handleSendMessage = async (
     inputValue: string,
-    selectedText?: string,
+    selectedText?: SelectedSnippet,
     uploadedImages: ImageInfo[] = []
   ) => {
     if (!inputValue.trim() || isStreaming) return
@@ -188,12 +194,19 @@ export const useMessageHandler = ({
 
         // 构建文本内容 - 使用更清晰的分隔格式
         let textContent = ""
-        if (msg.selectedText && msg.content.trim()) {
+        if (msg.selectedText && msg.selectedText.text && msg.content.trim()) {
           // 有选中内容和用户问题的情况
-          textContent = `[用户选中内容]\n${msg.selectedText}\n\n[基于选中内容的问题]\n${msg.content}`
-        } else if (msg.selectedText) {
+          textContent = `[用户选中内容]\n${msg.selectedText.text}`
+          if (msg.selectedText.fileName || msg.selectedText.folderPath) {
+            textContent += `\n\n[选中文件路径]\n${msg.selectedText.folderPath || msg.selectedText.fileName || ''}`
+          }
+          textContent += `\n\n[基于选中内容的问题]\n${msg.content}`
+        } else if (msg.selectedText && msg.selectedText.text) {
           // 只有选中内容没有问题的情况
-          textContent = `[用户选中内容]\n${msg.selectedText}`
+          textContent = `[用户选中内容]\n${msg.selectedText.text}`
+          if (msg.selectedText.fileName || msg.selectedText.folderPath) {
+            textContent += `\n\n[选中文件路径]\n${msg.selectedText.folderPath || msg.selectedText.fileName || ''}`
+          }
         } else if (msg.content.trim()) {
           // 只有问题没有选中内容的情况
           textContent = msg.content
@@ -252,12 +265,19 @@ export const useMessageHandler = ({
 
     // 构建当前消息的文本内容 - 使用特殊标记区分当前选中内容
     let currentTextContent = ""
-    if (selectedText && inputValue.trim()) {
+    if (selectedText && selectedText.text && inputValue.trim()) {
       // 有选中内容和用户问题的情况 - 使用特殊标记强调这是当前消息的选中内容
-      currentTextContent = `[当前消息的用户选中内容]\n${selectedText}\n\n[当前消息的用户问题]\n${inputValue}`
-    } else if (selectedText) {
+      currentTextContent = `[当前消息的用户选中内容]\n${selectedText.text}`
+      if (selectedText.fileName || selectedText.folderPath) {
+        currentTextContent += `\n\n[选中文件路径]\n${selectedText.folderPath || selectedText.fileName || ''}`
+      }
+      currentTextContent += `\n\n[当前消息的用户问题]\n${inputValue}`
+    } else if (selectedText && selectedText.text) {
       // 只有选中内容没有问题的情况
-      currentTextContent = `[当前消息的用户选中内容]\n${selectedText}`
+      currentTextContent = `[当前消息的用户选中内容]\n${selectedText.text}`
+      if (selectedText.fileName || selectedText.folderPath) {
+        currentTextContent += `\n\n[选中文件路径]\n${selectedText.folderPath || selectedText.fileName || ''}`
+      }
     } else if (inputValue.trim()) {
       // 只有问题没有选中内容的情况
       currentTextContent = inputValue

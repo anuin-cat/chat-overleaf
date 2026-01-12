@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react"
 import { storageUtils } from "~utils/storage"
 import { generateId, truncateText } from "~utils/helpers"
 import { type ImageInfo } from "~lib/image-utils"
+import { type SelectedSnippet } from "./useMessageHandler"
 
 // 聊天历史记录接口
 export interface Message {
@@ -25,7 +26,7 @@ export interface StoredMessage {
   content: string
   isUser: boolean
   timestamp: Date
-  selectedText?: string // 保存选中的文本内容
+  selectedText?: SelectedSnippet // 保存选中的文本内容
   images?: ImageInfo[] // 保存图片信息
   // 思考过程
   thinking?: string

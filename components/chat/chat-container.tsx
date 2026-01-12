@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import iconUrl from "data-base64:~assets/icon.svg"
 
 import { Button } from "~components/ui/button"
-import { SidebarChat } from "./sidebar-chat"
+import { SidebarChat, type SidebarChatHandle } from "./sidebar-chat"
 import { SettingsPanel } from "./settings-panel"
 
 interface ChatContainerProps {
@@ -13,6 +13,7 @@ export const ChatContainer = ({ isOverleaf }: ChatContainerProps) => {
   const [showChat, setShowChat] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(521)
   const [showSettings, setShowSettings] = useState(false)
+  const sidebarRef = useRef<SidebarChatHandle | null>(null)
 
   useEffect(() => {
     // 根据 showChat 状态和宽度调整页面 margin
@@ -59,6 +60,21 @@ export const ChatContainer = ({ isOverleaf }: ChatContainerProps) => {
     setShowSettings(false)
   }
 
+  // 监听来自 content-script 的焦点请求
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === 'FOCUS_CHAT_INPUT') {
+        setShowChat(true)
+        // 等待侧边栏完成展开再聚焦
+        setTimeout(() => {
+          sidebarRef.current?.focusChatInput?.()
+        }, 30)
+      }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [])
+
   if (!isOverleaf) {
     return null
   }
@@ -92,6 +108,7 @@ export const ChatContainer = ({ isOverleaf }: ChatContainerProps) => {
         }`}
       >
         <SidebarChat
+          ref={sidebarRef}
           onClose={handleCloseChat}
           onWidthChange={handleWidthChange}
           onShowSettings={handleShowSettings}
