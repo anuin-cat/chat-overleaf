@@ -131,6 +131,13 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
   } = useReplaceHandler({ extractedFiles })
 
   const processedMessageIdsRef = useRef<Set<string>>(new Set())
+  const isHydratingHistoryRef = useRef(false)
+  const saveDebounceRef = useRef<number | null>(null)
+  const lastSavedSignatureRef = useRef<string>("")
+
+  const buildSignature = useCallback((msgs: Message[]) => 
+    msgs.map(m => `${m.id}:${m.isUser ? 1 : 0}:${m.content}`).join('|')
+  , [])
 
   // 每次切换到新的聊天（新建或加载历史）时，清空高亮与替换命令，避免残留
   useEffect(() => {
@@ -255,6 +262,7 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
     await removeAllHoverHighlights()
 
     // 将 StoredMessage 转换为 Message 格式
+    isHydratingHistoryRef.current = true
     const convertedMessages: Message[] = history.messages.map((msg: any) => ({
       id: msg.id,
       content: msg.content,
@@ -279,6 +287,10 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
 
     // 加载历史对话
     setMessages(convertedMessages)
+
+    // 记录签名，避免立即触发自动保存
+    lastSavedSignatureRef.current = buildSignature(convertedMessages)
+    setTimeout(() => { isHydratingHistoryRef.current = false }, 0)
 
     // 不再自动收起历史列表，让用户手动控制
 
@@ -366,6 +378,30 @@ export const SidebarChat = ({ onClose, onWidthChange, onShowSettings }: SidebarC
       }
     }
   }, [isResizing])
+
+  // 自动实时保存：每次用户提问或 AI 回复都会触发（流式写入做 500ms 防抖）
+  useEffect(() => {
+    if (!saveChatHistory) return
+    if (isHydratingHistoryRef.current) return
+    if (isOnlyInitialMessage(messages)) return
+
+    const signature = buildSignature(messages)
+    if (signature === lastSavedSignatureRef.current) return
+
+    if (saveDebounceRef.current) {
+      clearTimeout(saveDebounceRef.current)
+    }
+    saveDebounceRef.current = window.setTimeout(async () => {
+      await saveChatHistory(messages, currentChatName, currentChatId)
+      lastSavedSignatureRef.current = signature
+    }, 500)
+
+    return () => {
+      if (saveDebounceRef.current) {
+        clearTimeout(saveDebounceRef.current)
+      }
+    }
+  }, [messages, currentChatName, currentChatId, saveChatHistory, isOnlyInitialMessage, buildSignature])
 
   return (
     <DialogProvider>
