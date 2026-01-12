@@ -316,7 +316,7 @@ export const AutoSizedFileList = ({
 
       {/* 文件树 */}
       <div
-        className="overflow-y-auto bg-white py-0.5"
+        className="overflow-y-auto bg-white py-0.5 scrollbar-thin"
         style={{ maxHeight: `${maxHeight - HEADER_HEIGHT}px` }}
       >
         {fileTree.map((node, index) => (

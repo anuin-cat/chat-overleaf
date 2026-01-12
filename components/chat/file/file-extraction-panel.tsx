@@ -34,7 +34,7 @@ export const FileExtractionPanel = ({
   onSelectAllFiles,
 }: FileExtractionPanelProps) => {
   return (
-    <div className="bg-blue-50 border-b border-blue-200">
+    <div className="bg-blue-50 border-4 border-blue-100 border-t-0 rounded-b-lg shadow-md overflow-hidden">
       {/* 已提取文件列表 - 使用自动调整高度的组件 */}
       {extractedFiles.length > 0 ? (
         <AutoSizedFileList

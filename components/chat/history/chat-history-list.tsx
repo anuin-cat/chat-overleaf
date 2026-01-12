@@ -124,7 +124,7 @@ export const ChatHistoryList = ({
   // 移除这个条件，让组件始终渲染
 
   return (
-    <div className={`bg-green-50 border-b border-green-200 ${className}`}>
+    <div className={`bg-green-50 border-4 border-green-100 border-t-0 rounded-b-lg shadow-md overflow-hidden ${className}`}>
       {/* 头部操作按钮 */}
       <div className="flex items-center justify-between px-2 py-1 bg-green-100 border-b border-green-200">
         <span className="text-xs font-medium text-green-800">
@@ -146,7 +146,7 @@ export const ChatHistoryList = ({
 
       {/* 历史记录列表 */}
       <div
-        className="overflow-y-auto bg-white"
+        className="overflow-y-auto bg-white scrollbar-thin"
         style={{ maxHeight: `${maxHeight - HEADER_HEIGHT}px` }}
       >
         {isLoading ? (

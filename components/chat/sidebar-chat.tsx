@@ -515,8 +515,8 @@ export const SidebarChat = forwardRef<SidebarChatHandle, SidebarChatProps>(({ on
       </div>
 
       {/* 文件提取面板 - 添加过渡动画 */}
-      <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
-        showFileList ? "max-h-[50vh] opacity-100" : "max-h-0 opacity-0"
+      <div className={`transition-all duration-300 ease-in-out ${
+        showFileList ? "max-h-[50vh] opacity-100 pb-3 overflow-visible" : "max-h-0 opacity-0 overflow-hidden"
       }`}>
         <FileExtractionPanel
           extractedFiles={extractedFiles}
@@ -533,8 +533,8 @@ export const SidebarChat = forwardRef<SidebarChatHandle, SidebarChatProps>(({ on
       </div>
 
       {/* 聊天历史面板 - 添加过渡动画 */}
-      <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
-        showHistoryList ? "max-h-[50vh] opacity-100" : "max-h-0 opacity-0"
+      <div className={`transition-all duration-300 ease-in-out ${
+        showHistoryList ? "max-h-[50vh] opacity-100 pb-3 overflow-visible" : "max-h-0 opacity-0 overflow-hidden"
       }`}>
         <ChatHistoryList
           chatHistories={chatHistories}
