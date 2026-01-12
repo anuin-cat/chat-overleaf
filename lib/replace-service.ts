@@ -119,8 +119,8 @@ export function validateSearchLength(search: string): { valid: boolean; error?: 
     return { valid: false, error: '搜索内容过短（至少 3 个字符）' }
   }
   
-  if (trimmed.length > 3600) {
-    return { valid: false, error: '搜索内容过长（最多 3600 个字符）' }
+  if (trimmed.length > 8888) {
+    return { valid: false, error: '搜索内容过长（最多 8888 个字符）' }
   }
   
   return { valid: true }
