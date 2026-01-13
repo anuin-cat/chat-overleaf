@@ -138,3 +138,10 @@ alwaysApply: true
 6. 目前的框架为 plasmo 任何代码都要确保能够在 plasmo 框架下运行。
 7. 谨慎使用 shadcn 组件，使用前可以先思考或网络检索是否能在 plasmo 框架下运行。
 8. 所有 shadcn 组件都使用相对导入，即 ../ui/xxx 这种形式
+
+# 3. MCP 工具
+
+## deepwiki:
+
+1. overleaf 相关问题可以通过 overleaf/overleaf 来访问获取
+2. paperdebugger 通过 PaperDebugger/paperdebugger 来访问获取（一个和本项目目标几乎一致的项目，实现较为完整）
