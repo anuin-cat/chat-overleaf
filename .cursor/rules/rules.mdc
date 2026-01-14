@@ -145,3 +145,4 @@ alwaysApply: true
 
 1. overleaf 相关问题可以通过 overleaf/overleaf 来访问获取
 2. paperdebugger 通过 PaperDebugger/paperdebugger 来访问获取（一个和本项目目标几乎一致的项目，实现较为完整）
+3. overleaf-workshop: 通过 overleaf-workshop/Overleaf-Workshop 来访问（包含了很多官方使用的相关 api）
