@@ -5,12 +5,13 @@ import { ModelSelect } from "~components/ui/model-select"
 import { DialogProvider } from "~components/ui/dialog"
 import { MessageContextTags } from "./context-tags"
 import { MessageActions } from "./message/message-actions"
-import { X, Settings, ChevronDown, ChevronUp } from "lucide-react"
+import { X, Settings, ChevronDown, ChevronUp, Code2 } from "lucide-react"
 import { FileExtractionPanel } from "./file/file-extraction-panel"
 import { useFileExtraction } from "./file/use-file-extraction"
 import { ChatHistoryList } from "./history/chat-history-list"
 import { useChatHistory } from "~hooks/useChatHistory"
 import { LLMService } from "~lib/llm-service"
+import { ApiTestPanel } from "./devtools/api-test-panel"
 
 import { useModels } from "~hooks/useModels"
 import { useSettings } from "~hooks/useSettings"
@@ -63,6 +64,7 @@ export const SidebarChat = forwardRef<SidebarChatHandle, SidebarChatProps>(({ on
   const [width, setWidth] = useState(521) // 默认宽度 400px
   const [isResizing, setIsResizing] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
+  const [showApiTest, setShowApiTest] = useState(false)
 
   const sidebarRef = useRef<HTMLDivElement>(null)
 
@@ -312,6 +314,10 @@ export const SidebarChat = forwardRef<SidebarChatHandle, SidebarChatProps>(({ on
     if (showHistoryList) {
       toggleHistoryList()
     }
+    // 如果 API 测试面板是打开的，先关闭它
+    if (showApiTest) {
+      setShowApiTest(false)
+    }
     originalToggleFileList()
   }
 
@@ -320,7 +326,23 @@ export const SidebarChat = forwardRef<SidebarChatHandle, SidebarChatProps>(({ on
     if (showFileList) {
       originalToggleFileList()
     }
+    // 如果 API 测试面板是打开的，先关闭它
+    if (showApiTest) {
+      setShowApiTest(false)
+    }
     toggleHistoryList()
+  }
+
+  const toggleApiTest = () => {
+    // 如果文件列表是打开的，先关闭它
+    if (showFileList) {
+      originalToggleFileList()
+    }
+    // 如果聊天历史列表是打开的，先关闭它
+    if (showHistoryList) {
+      toggleHistoryList()
+    }
+    setShowApiTest(prev => !prev)
   }
 
   // 拖拽调整大小的处理函数
@@ -453,8 +475,26 @@ export const SidebarChat = forwardRef<SidebarChatHandle, SidebarChatProps>(({ on
               showOnlyAvailable={true}
             />
           </div>
-          {/* 文件列表展开按钮 + 聊天历史按钮 + 设置按钮 + 关闭按钮 */}
+          {/* API 测试按钮 + 文件列表展开按钮 + 聊天历史按钮 + 设置按钮 + 关闭按钮 */}
           <div className="flex items-center space-x-0.5">
+            {/* API 测试按钮 */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleApiTest}
+              className={`h-7 px-1.5 flex items-center gap-0.5 transition-all relative z-10 ${
+                showApiTest
+                  ? 'bg-purple-100 text-purple-700 hover:bg-purple-100 rounded-b-none'
+                  : 'hover:bg-gray-100 hover:shadow-sm'
+              }`}
+              title={showApiTest ? "收起 API 测试" : "展开 API 测试"}
+            >
+              {showApiTest ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              <Code2 className="h-3 w-3" />
+              <span className="text-xs font-medium">API</span>
+              {/* 展开时向下延伸的连接条 */}
+              {showApiTest && <div className="absolute -bottom-[9px] left-0 right-0 h-[10px] bg-purple-100 rounded-b-none" />}
+            </Button>
             {/* 文件列表展开按钮 - 只有当有提取的文件时才显示 */}
             {extractedFiles.length > 0 && (
               <Button
@@ -512,6 +552,13 @@ export const SidebarChat = forwardRef<SidebarChatHandle, SidebarChatProps>(({ on
             )}
           </div>
         </div>
+      </div>
+
+      {/* API 测试面板 - 添加过渡动画 */}
+      <div className={`transition-all duration-300 ease-in-out ${
+        showApiTest ? "max-h-[50vh] opacity-100 overflow-visible" : "max-h-0 opacity-0 overflow-hidden"
+      }`}>
+        <ApiTestPanel showApiTest={showApiTest} />
       </div>
 
       {/* 文件提取面板 - 添加过渡动画 */}

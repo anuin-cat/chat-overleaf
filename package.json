@@ -19,6 +19,7 @@
     "@reduxjs/toolkit": "^2.8.2",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
+    "jszip": "^3.10.1",
     "katex": "^0.16.22",
     "lucide-react": "0.474.0",
     "marked": "^16.0.0",
