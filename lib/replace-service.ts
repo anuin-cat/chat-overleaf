@@ -40,19 +40,68 @@ const CREATE_FILE_BLOCK = /<<<CREATE_FILE>>>\s*FILE:\s*(.+?)\s*<<<CONTENT>>>([\s
 // 包裹指令的代码块（剥离只含替换指令的 ``` 块）
 const CODE_FENCE_WITH_COMMANDS = /```[^\n]*\n([\s\S]*?)```/g
 
+// 占位符常量，需与编辑器侧保持一致
+export const COMMENT_PLACEHOLDER = '%%% comment ...'
+
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 /**
- * 构造支持“换行块”的正则（非正则模式下使用）：
- * SEARCH 中的每个换行会匹配由空格/制表符与至少一个换行组成的块。
+ * 构造支持“换行块”和“注释块占位符”的混合正则：
+ * - 搜索字符串里的每个换行，匹配时视为一个由空格/制表符与至少一个换行组成的块
+ * - 搜索字符串里的 COMMENT_PLACEHOLDER，匹配连续的注释行块
+ * 
+ * 注意：该逻辑会在编辑器侧复用，避免正则实现漂移
  */
-function buildFlexibleRegex(search: string): RegExp {
-  const parts = search.split(/\r?\n/).map(escapeRegex)
+export function buildFlexibleRegex(search: string): RegExp {
+  // 定义子正则组件
   const newlineBlock = '(?:[ \\t]*\\r?\\n[ \\t]*)+'
+  // 匹配连续的注释行块，允许中间有换行，但不消耗块之后的换行符
+  // 逻辑：(注释行+换行)* (最后一行注释但不含换行)
+  const commentBlockRegex = '(?:(?:[ \\t]*%.*(?:\\r?\\n|$))*(?:[ \\t]*%.*(?=\\r?\\n|$)))'
+
+  // 如果包含占位符，使用混合正则逻辑
+  if (search.includes(COMMENT_PLACEHOLDER)) {
+    const parts = search.split(COMMENT_PLACEHOLDER)
+    const regexParts = parts.map(part => {
+      if (!part) return ''
+      const subParts = part.split(/\r?\n/).map(escapeRegex)
+      return subParts.join(newlineBlock)
+    })
+    const finalPattern = regexParts.join(commentBlockRegex)
+    return new RegExp(finalPattern, 'g')
+  }
+
+  // 否则使用普通的灵活换行正则
+  const parts = search.split(/\r?\n/).map(escapeRegex)
   const pattern = parts.join(newlineBlock)
   return new RegExp(pattern, 'g')
+}
+
+/**
+ * 将连续的纯注释行折叠为 COMMENT_PLACEHOLDER
+ * 仅用于与 cleanContent 后的文本对齐
+ */
+function collapseCommentBlocks(text: string): string {
+  if (!text) return text
+  const lines = text.split(/\r?\n/)
+  const result: string[] = []
+  let inCommentBlock = false
+
+  for (const line of lines) {
+    if (line.trimStart().startsWith('%')) {
+      if (!inCommentBlock) {
+        result.push(COMMENT_PLACEHOLDER)
+        inCommentBlock = true
+      }
+      continue
+    }
+    inCommentBlock = false
+    result.push(line)
+  }
+
+  return result.join('\n')
 }
 
 function isOnlyReplaceBlocks(body: string): boolean {
@@ -138,16 +187,24 @@ export function validateMatchCount(
   isRegex: boolean
 ): { valid: boolean; matchCount: number; error?: string } {
   try {
+    let targetContent = content
+    let targetSearch = search
+
+    // 如果内容来自 cleanContent（含占位符），先折叠 search 中的纯注释块，避免误判未匹配
+    if (!isRegex && content.includes(COMMENT_PLACEHOLDER)) {
+      targetSearch = collapseCommentBlocks(search)
+    }
+
     let matchCount = 0
     
     if (isRegex) {
       const regex = new RegExp(search, 'g')
-      const matches = content.match(regex)
+      const matches = targetContent.match(regex)
       matchCount = matches?.length || 0
     } else {
-      const regex = buildFlexibleRegex(search)
+      const regex = buildFlexibleRegex(targetSearch)
       let m: RegExpExecArray | null
-      while ((m = regex.exec(content)) !== null) {
+      while ((m = regex.exec(targetContent)) !== null) {
         matchCount++
         if (m[0].length === 0) regex.lastIndex += 1
       }

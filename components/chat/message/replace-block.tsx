@@ -134,9 +134,10 @@ export const ReplaceBlock = ({
     error?: string
   } | null>(null)
   
-  // 验证匹配
+  // 验证匹配（基于清洗后的内容）
   useEffect(() => {
-    if (fileContent && command.status === 'pending' && !isCreateCommand) {
+    if (typeof fileContent === 'string' && command.status === 'pending' && !isCreateCommand) {
+      // fileContent 为 cleanContent（注释块已折叠为占位符），校验逻辑需与编辑器侧保持一致
       const result = validateMatchCount(fileContent, command.search, command.isRegex)
       setMatchInfo(result)
     }

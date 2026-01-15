@@ -3,11 +3,12 @@
  */
 
 import type { MatchPosition } from './types'
+import { COMMENT_PLACEHOLDER, buildFlexibleRegex } from '~lib/replace-service'
+
+export { COMMENT_PLACEHOLDER }
 
 // 缓存的编辑器视图
 let currentEditorView: any = null
-
-export const COMMENT_PLACEHOLDER = '%%% comment ...'
 
 /**
  * 验证编辑器实例是否仍然有效
@@ -34,10 +35,6 @@ function isElementVisible(element: Element | null): boolean {
   return element.offsetParent !== null
 }
 
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
 /**
  * 构造支持“换行块”和“注释块占位符”的混合正则：
  * - 搜索字符串里的每个换行，匹配时视为一个由空格/制表符与至少一个换行组成的块
@@ -45,44 +42,7 @@ function escapeRegex(str: string): string {
  */
 function buildHybridRegex(search: string): RegExp | null {
   if (!search) return null
-
-  // 定义子正则组件
-  const newlineBlock = '(?:[ \\t]*\\r?\\n[ \\t]*)+'
-  // 匹配连续的注释行块，允许中间有换行，但不消耗块之后的换行符（以便后续匹配能衔接）
-  // 逻辑：(注释行+换行)* (最后一行注释但不含换行)
-  // 注释行定义：[ \t]*%.*
-  const commentBlockRegex = '(?:(?:[ \\t]*%.*(?:\\r?\\n|$))*(?:[ \\t]*%.*(?=\\r?\\n|$)))'
-
-  // 1. Split search by COMMENT_PLACEHOLDER
-  const parts = search.split(COMMENT_PLACEHOLDER)
-  
-  // 2. Process each part
-  const regexParts = parts.map((part, index) => {
-    if (!part) return ''
-    
-    // 普通文本部分：转义正则特殊字符，并将换行符替换为宽松匹配
-    const subParts = part.split(/\r?\n/).map(escapeRegex)
-    let processedPart = subParts.join(newlineBlock)
-    
-    // 关键修正：如果占位符前后紧挨着换行符，需要处理正则衔接问题。
-    // 在 LaTeX 中，`Line A\n% Comment\nLine B`
-    // 如果 Search 是 `Line A\n` + `PH` + `\nLine B`
-    // 对应的正则流是 `A` `NL` `PH` `NL` `B`
-    // 我们设计的 PH 正则不消耗末尾换行，所以它匹配 `% Comment` (lookahead \n)
-    // 剩下的输入流是 `\nLine B`。
-    // 接下来的 `NL` 正则匹配 `\n`。
-    // 接下来的 `B` 正则匹配 `B`。
-    // 这种衔接是完美的，无需额外去除前后的换行符。
-    
-    return processedPart
-  })
-
-  // 3. Join parts with comment block regex
-  // 注意：如果是空字符串部分（例如 search 以占位符开头/结尾），regexParts 里会有空字符串，
-  // join 后可能会出现连续的 regex，这是合法的。
-  const finalPattern = regexParts.join(commentBlockRegex)
-  
-  return new RegExp(finalPattern, 'g')
+  return buildFlexibleRegex(search)
 }
 
 /**
