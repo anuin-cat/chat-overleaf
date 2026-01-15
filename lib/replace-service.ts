@@ -3,7 +3,7 @@
  * 负责解析 LLM 输出中的替换指令，校验格式，并提供辅助工具。
  */
 
-export type CommandType = 'replace' | 'insert'
+export type CommandType = 'replace' | 'insert' | 'create'
 
 export interface ReplaceCommand {
   id: string
@@ -35,6 +35,8 @@ const REPLACE_BLOCK_OLD_FORMAT = /<<<REPLACE>>>\s*FILE:\s*(.+?)\s*SEARCH:\s*([\s
 const REPLACE_BLOCK_REGEX_MODE = /<<<REPLACE_REGEX>>>\s*FILE:\s*(.+?)\s*PATTERN:\s*(.+?)\s*REPLACE:\s*([\s\S]*?)\s*<<<END>>>/g
 // 统一插入模式：支持 AFTER/BEFORE 可选（可只写一个，甚至可省略空块）
 const INSERT_BLOCK = /<<<INSERT>>>\s*FILE:\s*(.+?)\s*(?:<<<AFTER>>>([\s\S]*?))?(?:<<<BEFORE>>>([\s\S]*?))?<<<CONTENT>>>([\s\S]*?)<<<END>>>/g
+// 创建文件模式：用于新建文件并写入内容
+const CREATE_FILE_BLOCK = /<<<CREATE_FILE>>>\s*FILE:\s*(.+?)\s*<<<CONTENT>>>([\s\S]*?)<<<END>>>/g
 // 包裹指令的代码块（剥离只含替换指令的 ``` 块）
 const CODE_FENCE_WITH_COMMANDS = /```[^\n]*\n([\s\S]*?)```/g
 
@@ -59,7 +61,8 @@ function isOnlyReplaceBlocks(body: string): boolean {
     new RegExp(REPLACE_BLOCK_NEW_FORMAT.source, 'g'),
     new RegExp(REPLACE_BLOCK_OLD_FORMAT.source, 'g'),
     new RegExp(REPLACE_BLOCK_REGEX_MODE.source, 'g'),
-    new RegExp(INSERT_BLOCK.source, 'g')
+    new RegExp(INSERT_BLOCK.source, 'g'),
+    new RegExp(CREATE_FILE_BLOCK.source, 'g')
   ].forEach(regex => {
     stripped = stripped.replace(regex, '')
   })
@@ -259,6 +262,46 @@ function parseAndAddInsertCommand(
 }
 
 /**
+ * 解析并添加单个创建文件块
+ */
+function parseAndAddCreateCommand(
+  file: string,
+  content: string,
+  commands: ReplaceCommand[],
+  processedIds: Set<string>
+): { id: string; command: ReplaceCommand } {
+  const trimmedFile = file.trim()
+  const trimmedContent = content.trim()
+  const id = generateStableId(trimmedFile, 'create' + trimmedContent.substring(0, 50))
+
+  if (processedIds.has(id)) {
+    return { id, command: commands.find(c => c.id === id)! }
+  }
+  processedIds.add(id)
+
+  let validation: { valid: boolean; error?: string } = { valid: true }
+  if (!trimmedFile) {
+    validation = { valid: false, error: '文件路径不能为空' }
+  } else if (!trimmedContent) {
+    validation = { valid: false, error: '文件内容不能为空' }
+  }
+
+  const command: ReplaceCommand = {
+    id,
+    file: trimmedFile,
+    search: '',
+    replace: trimmedContent,
+    isRegex: false,
+    commandType: 'create',
+    status: validation.valid ? 'pending' : 'error',
+    errorMessage: validation.error
+  }
+
+  commands.push(command)
+  return { id, command }
+}
+
+/**
  * 解析 LLM 输出中的替换/插入指令
  * 支持格式：REPLACE、INSERT（统一插入格式）
  */
@@ -307,6 +350,16 @@ export function parseReplaceCommands(content: string): ParseResult {
     cleanContent = cleanContent.replace(fullMatch, `[[REPLACE_BLOCK:${id}]]`)
   }
   
+  // 5. 解析创建文件块 <<<CREATE_FILE>>> ... <<<CONTENT>>>
+  CREATE_FILE_BLOCK.lastIndex = 0
+  while ((match = CREATE_FILE_BLOCK.exec(sanitizedContent)) !== null) {
+    const fullMatch = match[0]
+    const file = match[1]
+    const content = match[2] || ''
+    const { id } = parseAndAddCreateCommand(file, content, commands, processedIds)
+    cleanContent = cleanContent.replace(fullMatch, `[[REPLACE_BLOCK:${id}]]`)
+  }
+  
   return { commands, cleanContent }
 }
 
@@ -318,11 +371,13 @@ export function hasReplaceCommands(content: string): boolean {
   REPLACE_BLOCK_OLD_FORMAT.lastIndex = 0
   REPLACE_BLOCK_REGEX_MODE.lastIndex = 0
   INSERT_BLOCK.lastIndex = 0
+  CREATE_FILE_BLOCK.lastIndex = 0
   return (
     REPLACE_BLOCK_NEW_FORMAT.test(content) || 
     REPLACE_BLOCK_OLD_FORMAT.test(content) || 
     REPLACE_BLOCK_REGEX_MODE.test(content) ||
-    INSERT_BLOCK.test(content)
+    INSERT_BLOCK.test(content) ||
+    CREATE_FILE_BLOCK.test(content)
   )
 }
 

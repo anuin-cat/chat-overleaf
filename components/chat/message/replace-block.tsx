@@ -3,7 +3,7 @@
  * 显示文件替换预览，支持用户接受或拒绝
  */
 import { useState, useEffect, useMemo } from 'react'
-import { Check, X, FileCode, AlertCircle, Loader2, MousePointerClick } from 'lucide-react'
+import { Check, X, FileCode, AlertCircle, Loader2, MousePointerClick, FilePlus } from 'lucide-react'
 import { Button } from '~components/ui/button'
 import type { ReplaceCommand } from '~lib/replace-service'
 import { validateMatchCount } from '~lib/replace-service'
@@ -127,6 +127,7 @@ export const ReplaceBlock = ({
   onSmartPreview,
   isApplying = false
 }: ReplaceBlockProps) => {
+  const isCreateCommand = command.commandType === 'create'
   const [matchInfo, setMatchInfo] = useState<{
     valid: boolean
     matchCount: number
@@ -135,14 +136,43 @@ export const ReplaceBlock = ({
   
   // 验证匹配
   useEffect(() => {
-    if (fileContent && command.status === 'pending') {
+    if (fileContent && command.status === 'pending' && !isCreateCommand) {
       const result = validateMatchCount(fileContent, command.search, command.isRegex)
       setMatchInfo(result)
     }
-  }, [fileContent, command.search, command.isRegex, command.status])
+  }, [fileContent, command.search, command.isRegex, command.status, isCreateCommand])
   
   // 状态图标和样式
   const getStatusDisplay = () => {
+    if (isCreateCommand) {
+      switch (command.status) {
+        case 'pending':
+          return {
+            icon: null,
+            bgColor: 'bg-purple-50 border-purple-200',
+            textColor: 'text-purple-700'
+          }
+        case 'accepted':
+        case 'applied':
+          return {
+            icon: <Check className="w-4 h-4 text-green-600" />,
+            bgColor: 'bg-purple-50 border-purple-200',
+            textColor: 'text-purple-700'
+          }
+        case 'rejected':
+          return {
+            icon: <X className="w-4 h-4 text-gray-400" />,
+            bgColor: 'bg-gray-50 border-gray-200',
+            textColor: 'text-gray-500'
+          }
+        case 'error':
+          return {
+            icon: <AlertCircle className="w-4 h-4 text-red-500" />,
+            bgColor: 'bg-red-50 border-red-200',
+            textColor: 'text-red-600'
+          }
+      }
+    }
     switch (command.status) {
       case 'pending':
         return {
@@ -174,16 +204,23 @@ export const ReplaceBlock = ({
   
   const statusDisplay = getStatusDisplay()
   const isEditable = command.status === 'pending'
-  const canUndoApply = (command.status === 'applied' || command.status === 'accepted') && !!onUndoApply
+  const canUndoApply = (command.status === 'applied' || command.status === 'accepted') && !!onUndoApply && !isCreateCommand
   const canUndoReject = command.status === 'rejected' && !!onUndoReject
-  const hasValidMatch = matchInfo?.valid ?? true
+  const hasValidMatch = isCreateCommand ? true : (matchInfo?.valid ?? true)
   
   // 计算差异，用于高亮显示
   const diffData = useMemo(() => {
+    if (isCreateCommand) {
+      return {
+        diff: { commonPrefix: '', commonSuffix: '', oldDiff: '', newDiff: '' },
+        oldSegments: [],
+        newSegments: []
+      }
+    }
     const diff = computeDiff(command.search, command.replace || '')
     const { oldSegments, newSegments } = computeWordDiff(diff.oldDiff, diff.newDiff)
     return { diff, oldSegments, newSegments }
-  }, [command.search, command.replace])
+  }, [command.search, command.replace, isCreateCommand])
   
   // 渲染带有差异高亮的文本
   const renderDiffText = (
@@ -220,8 +257,17 @@ export const ReplaceBlock = ({
       {/* 头部：文件名和状态 - 紧凑版 */}
       <div className={`px-2 py-1 flex items-center justify-between ${statusDisplay.bgColor}`}>
         <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
-          <FileCode className="w-3 h-3 text-gray-500 flex-shrink-0" />
+          {isCreateCommand ? (
+            <FilePlus className="w-3 h-3 text-purple-600 flex-shrink-0" />
+          ) : (
+            <FileCode className="w-3 h-3 text-gray-500 flex-shrink-0" />
+          )}
           <span className="text-xs font-medium text-gray-700 truncate">{command.file}</span>
+          {isCreateCommand && (
+            <span className="text-[10px] px-1 py-0.5 bg-purple-100 text-purple-700 rounded flex-shrink-0">
+              新建
+            </span>
+          )}
           {command.commandType === 'insert' && (
             <span className="text-[10px] px-1 py-0.5 bg-blue-100 text-blue-600 rounded flex-shrink-0">
               插入
@@ -232,7 +278,7 @@ export const ReplaceBlock = ({
               正则
             </span>
           )}
-          {matchInfo && (
+          {matchInfo && !isCreateCommand && (
             <span className={`text-[10px] flex-shrink-0 ${matchInfo.valid ? 'text-green-600' : 'text-red-500'}`}>
               ({matchInfo.matchCount}处)
             </span>
@@ -247,7 +293,7 @@ export const ReplaceBlock = ({
         </div>
         {/* 操作按钮组 - 右上角 */}
         <div className="flex items-center gap-0.5 flex-shrink-0">
-          {isEditable && onSmartPreview && (
+          {isEditable && onSmartPreview && !isCreateCommand && (
             <Button
               variant="ghost"
               size="sm"
@@ -274,17 +320,19 @@ export const ReplaceBlock = ({
               <Button
                 variant="default"
                 size="sm"
-                className="text-[10px] bg-green-600 hover:bg-green-700 text-white h-5 px-1.5"
+                className={`text-[10px] text-white h-5 px-1.5 ${
+                  isCreateCommand ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-600 hover:bg-green-700'
+                }`}
                 onClick={() => onAccept(command)}
                 disabled={isApplying || !hasValidMatch || command.status === 'error'}
-                title="接受"
+                title={isCreateCommand ? "创建" : "接受"}
               >
                 {isApplying ? (
                   <Loader2 className="w-3 h-3 animate-spin" />
                 ) : (
                   <>
                     <Check className="w-3 h-3 mr-0.5" />
-                    接受
+                    {isCreateCommand ? '创建' : '接受'}
                   </>
                 )}
               </Button>
@@ -295,8 +343,18 @@ export const ReplaceBlock = ({
       
       {/* 替换/插入内容预览 */}
       <div className="px-2 py-1 bg-white/50 space-y-0.5">
-        {/* 对于插入操作，显示锚点和插入内容 */}
-        {command.commandType === 'insert' ? (
+        {/* 创建文件：显示内容 */}
+        {isCreateCommand ? (
+          <div className="flex items-start gap-1">
+            <span className="w-1 h-1 rounded-full bg-purple-400 mt-1.5 flex-shrink-0"></span>
+            <div className="flex-1">
+              <span className="text-[10px] text-purple-600 mr-1">文件内容</span>
+              <pre className="text-[11px] text-purple-700 px-1 py-0.5 rounded overflow-x-auto whitespace-pre-wrap break-all font-mono border border-purple-100 leading-tight bg-purple-50/50">
+                {command.replace || '(空)'}
+              </pre>
+            </div>
+          </div>
+        ) : command.commandType === 'insert' ? (
           <>
             {/* AFTER 锚点 */}
             {command.insertAnchor?.after && (
@@ -395,7 +453,7 @@ export const ReplaceBlock = ({
             {statusDisplay.icon}
             <span>
               {command.status === 'applied' || command.status === 'accepted'
-                ? '已应用，支持撤销恢复为候选'
+                ? (isCreateCommand ? '已创建' : '已应用，支持撤销恢复为候选')
                 : command.status === 'rejected'
                   ? '已拒绝，支持撤销恢复为候选'
                   : '已处理'}

@@ -524,6 +524,59 @@ export function replaceInEditor(
 }
 
 /**
+ * 直接设置编辑器内容（覆盖整个文档）
+ */
+export function setEditorContent(content: string): { success: boolean; error?: string } {
+  try {
+    const editorView = getCodeMirrorEditor()
+    if (!editorView) {
+      return { success: false, error: '未找到编辑器' }
+    }
+
+    const doc = editorView.state.doc
+    const length = doc.length
+    editorView.dispatch({
+      changes: { from: 0, to: length, insert: content }
+    })
+    scrollToPosition(0, editorView)
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : '设置内容失败' }
+  }
+}
+
+/**
+ * 在文档末尾追加内容（保留已有内容）
+ */
+export function appendEditorContent(content: string): { success: boolean; error?: string } {
+  try {
+    const editorView = getCodeMirrorEditor()
+    if (!editorView) {
+      return { success: false, error: '未找到编辑器' }
+    }
+
+    const doc = editorView.state.doc
+    const length = doc.length
+    let insertText = content
+
+    if (length > 0) {
+      const lastChar = doc.sliceString(length - 1, length)
+      if (lastChar !== '\n' && !content.startsWith('\n')) {
+        insertText = `\n${content}`
+      }
+    }
+
+    editorView.dispatch({
+      changes: { from: length, to: length, insert: insertText }
+    })
+    scrollToPosition(doc.length + insertText.length, editorView)
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : '追加内容失败' }
+  }
+}
+
+/**
  * 在编辑器中高亮匹配内容
  */
 export function highlightInEditor(

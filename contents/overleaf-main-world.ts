@@ -1,5 +1,5 @@
 import type { PlasmoCSConfig } from "plasmo"
-import { getFileTreeItems, clickFileTreeItem, waitForFileLoad, getCurrentFileName, isActiveTreeItemFile, expandAllFolders, collapseFolders, expandPathFolders } from "./overleaf-filetree"
+import { getFileTreeItems, clickFileTreeItem, waitForFileLoad, getCurrentFileName, isActiveTreeItemFile, expandAllFolders, collapseFolders, expandPathFolders, getFolderIdByPath, getFileIdByPath } from "./overleaf-filetree"
 import { 
   getCodeMirrorEditor, 
   replaceInEditor, 
@@ -11,6 +11,8 @@ import {
   removeAllHoverHighlights,
   removeRegionHighlight,
   refreshHighlights,
+  setEditorContent,
+  appendEditorContent,
   COMMENT_PLACEHOLDER
 } from "./overleaf-inline-diff"
 import iconUrl from "data-base64:~assets/icon.svg"
@@ -572,12 +574,54 @@ window.addEventListener('message', async (event) => {
     }, '*')
     return
   }
+
+  if (event.data.type === 'GET_FOLDER_ID_BY_PATH') {
+    const folderId = await getFolderIdByPath(event.data.folderPath || '')
+    window.postMessage({
+      type: 'GET_FOLDER_ID_BY_PATH_RESPONSE',
+      requestId: event.data.requestId,
+      data: { success: !!folderId, folderId }
+    }, '*')
+    return
+  }
+
+  if (event.data.type === 'GET_FILE_ID_BY_PATH') {
+    const fileId = await getFileIdByPath(event.data.filePath || '')
+    window.postMessage({
+      type: 'GET_FILE_ID_BY_PATH_RESPONSE',
+      requestId: event.data.requestId,
+      data: { success: !!fileId, fileId }
+    }, '*')
+    return
+  }
   
   if (event.data.type === 'REPLACE_IN_EDITOR') {
     const { search, replace, isRegex, commandType, insertAnchor } = event.data
     const result = replaceInEditor(search, replace, isRegex, commandType || 'replace', insertAnchor)
     window.postMessage({
       type: 'REPLACE_IN_EDITOR_RESPONSE',
+      requestId: event.data.requestId,
+      data: result
+    }, '*')
+    return
+  }
+
+  if (event.data.type === 'SET_EDITOR_CONTENT') {
+    const { content } = event.data
+    const result = setEditorContent(typeof content === 'string' ? content : '')
+    window.postMessage({
+      type: 'SET_EDITOR_CONTENT_RESPONSE',
+      requestId: event.data.requestId,
+      data: result
+    }, '*')
+    return
+  }
+
+  if (event.data.type === 'APPEND_EDITOR_CONTENT') {
+    const { content } = event.data
+    const result = appendEditorContent(typeof content === 'string' ? content : '')
+    window.postMessage({
+      type: 'APPEND_EDITOR_CONTENT_RESPONSE',
       requestId: event.data.requestId,
       data: result
     }, '*')

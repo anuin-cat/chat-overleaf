@@ -7,7 +7,7 @@ import type { PlasmoCSConfig } from "plasmo"
 import type { InlineDiff, WordDiffSegment } from './types'
 import { injectInlineDiffStyles } from './styles'
 import { computeDiff, computeWordDiff, escapeHtml, renderNewDiffHtml } from './diff-algorithm'
-import { getCodeMirrorEditor, findMatchPositions, replaceInEditor } from './editor-utils'
+import { getCodeMirrorEditor, findMatchPositions, replaceInEditor, setEditorContent } from './editor-utils'
 
 export const config: PlasmoCSConfig = {
   matches: ["https://www.overleaf.com/*", "https://*.overleaf.com/*"]
@@ -296,6 +296,8 @@ export {
   getCodeMirrorEditor, 
   findMatchPositions, 
   replaceInEditor, 
+  setEditorContent,
+  appendEditorContent,
   highlightInEditor, 
   scrollToPosition,
   COMMENT_PLACEHOLDER

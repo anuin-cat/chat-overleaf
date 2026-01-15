@@ -271,6 +271,74 @@ export async function expandPathFolders(filePath: string, delayMs = 150): Promis
   return true
 }
 
+function normalizeTreePath(input: string): string {
+  return input.replace(/^\/+/, '').replace(/\/+$/, '').trim()
+}
+
+/**
+ * 通过文件夹路径获取 folderId（从 DOM 文件树读取）
+ */
+export async function getFolderIdByPath(folderPath: string): Promise<string | null> {
+  const normalized = normalizeTreePath(folderPath)
+  if (!normalized) return null
+
+  // 优先尝试 Overleaf 内部 fileTreeManager（如可用）
+  const fileTreeManager = (window as any)?._ide?.fileTreeManager || (window as any)?.fileTreeManager
+  if (fileTreeManager?.findEntityByPath) {
+    const entity = fileTreeManager.findEntityByPath(normalized)
+    const directId = entity?._id || entity?.id
+    if (directId) return directId
+  }
+
+  // 展开父路径，确保节点可见
+  await expandPathFolders(`${normalized}/__placeholder__.tex`)
+
+  const items = document.querySelectorAll('.file-tree-inner li[role="treeitem"]')
+  for (const item of Array.from(items)) {
+    const entityDiv = item.querySelector('.entity')
+    const fileType = entityDiv?.getAttribute('data-file-type') || ''
+    if (fileType !== 'folder') continue
+
+    const path = normalizeTreePath(buildTreeItemPath(item) || '')
+    if (path === normalized) {
+      return entityDiv?.getAttribute('data-file-id') || null
+    }
+  }
+
+  return null
+}
+
+/**
+ * 通过文件路径获取 fileId（从 DOM 文件树读取）
+ */
+export async function getFileIdByPath(filePath: string): Promise<string | null> {
+  const normalized = normalizeTreePath(filePath)
+  if (!normalized) return null
+
+  const fileTreeManager = (window as any)?._ide?.fileTreeManager || (window as any)?.fileTreeManager
+  if (fileTreeManager?.findEntityByPath) {
+    const entity = fileTreeManager.findEntityByPath(normalized)
+    const directId = entity?._id || entity?.id
+    if (directId) return directId
+  }
+
+  await expandPathFolders(normalized)
+
+  const items = document.querySelectorAll('.file-tree-inner li[role="treeitem"]')
+  for (const item of Array.from(items)) {
+    const entityDiv = item.querySelector('.entity')
+    const fileType = entityDiv?.getAttribute('data-file-type') || ''
+    if (fileType === 'folder') continue
+
+    const path = normalizeTreePath(buildTreeItemPath(item) || '')
+    if (path === normalized) {
+      return entityDiv?.getAttribute('data-file-id') || null
+    }
+  }
+
+  return null
+}
+
 /**
  * 获取文件树中的所有文件项
  */

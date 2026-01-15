@@ -3,6 +3,7 @@
  */
 import { useState, useCallback, useEffect } from 'react'
 import { parseReplaceCommands, type ReplaceCommand, type ParseResult } from '~lib/replace-service'
+import { createDoc, createFolder } from '~contents/api'
 
 interface UseReplaceHandlerProps {
   extractedFiles: Array<{ name: string; content: string }>
@@ -84,6 +85,15 @@ function sendMessageToMainWorld<T>(
   })
 }
 
+function normalizePath(input: string): string {
+  return input.replace(/^\/+/, '').replace(/\/+$/, '').trim()
+}
+
+function isAlreadyExistsError(message?: string): boolean {
+  if (!message) return false
+  return /already exists|已存在|exists/i.test(message)
+}
+
 export const useReplaceHandler = ({ 
   extractedFiles 
 }: UseReplaceHandlerProps): UseReplaceHandlerReturn => {
@@ -158,12 +168,145 @@ export const useReplaceHandler = ({
       }
     }
   }, [])
+
+  const getFolderIdByPath = useCallback(async (folderPath: string): Promise<string | null> => {
+    try {
+      const result = await sendMessageToMainWorld<{ success: boolean; folderId?: string }>(
+        'GET_FOLDER_ID_BY_PATH',
+        { folderPath }
+      )
+      return result.folderId || null
+    } catch (error) {
+      console.warn('Error getting folder id by path:', error)
+      return null
+    }
+  }, [])
+
+  const getFileIdByPath = useCallback(async (filePath: string): Promise<string | null> => {
+    try {
+      const result = await sendMessageToMainWorld<{ success: boolean; fileId?: string }>(
+        'GET_FILE_ID_BY_PATH',
+        { filePath }
+      )
+      return result.fileId || null
+    } catch (error) {
+      console.warn('Error getting file id by path:', error)
+      return null
+    }
+  }, [])
+
+  const createFileWithFolders = useCallback(async (command: ReplaceCommand): Promise<{ success: boolean; error?: string }> => {
+    const targetPath = normalizePath(command.file)
+    if (!targetPath) {
+      updateCommandStatus(command.id, 'error', '文件路径不能为空')
+      return { success: false, error: '文件路径不能为空' }
+    }
+
+    const parts = targetPath.split('/').filter(Boolean)
+    const fileName = parts.pop()
+    if (!fileName) {
+      updateCommandStatus(command.id, 'error', '文件路径无效')
+      return { success: false, error: '文件路径无效' }
+    }
+
+    const existingFileId = await getFileIdByPath(targetPath)
+    if (existingFileId) {
+      const errorMessage = '文件已存在，请先在编辑器打开该文件以更新文件树'
+      updateCommandStatus(command.id, 'error', errorMessage)
+      return { success: false, error: errorMessage }
+    }
+
+    let currentParentId: string | undefined = undefined
+    let currentPath = ''
+    for (const part of parts) {
+      currentPath = currentPath ? `${currentPath}/${part}` : part
+      const existingFolderId = await getFolderIdByPath(currentPath)
+      if (existingFolderId) {
+        currentParentId = existingFolderId
+        continue
+      }
+
+      const createResult = await createFolder(part, currentParentId)
+      if (!createResult.success || !createResult.data) {
+        if (isAlreadyExistsError(createResult.error)) {
+          const refreshedId = await getFolderIdByPath(currentPath)
+          if (refreshedId) {
+            currentParentId = refreshedId
+            continue
+          }
+        }
+        const errorMessage = createResult.error || '创建文件夹失败'
+        updateCommandStatus(command.id, 'error', errorMessage)
+        return { success: false, error: errorMessage }
+      }
+      currentParentId = createResult.data._id
+    }
+
+    const docResult = await createDoc(fileName, currentParentId, command.replace)
+    if (!docResult.success) {
+      const errorMessage = isAlreadyExistsError(docResult.error)
+        ? '文件已存在，请先在编辑器打开该文件以更新文件树'
+        : (docResult.error || '创建文件失败')
+      updateCommandStatus(command.id, 'error', errorMessage)
+      return { success: false, error: errorMessage }
+    }
+
+    let opened = false
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const navResult = await navigateToFile(command.file)
+      if (navResult.success) {
+        opened = true
+        break
+      }
+      await new Promise(resolve => setTimeout(resolve, 600))
+    }
+
+    if (!opened) {
+      const errorMessage = '文件已创建，但未能自动打开，请手动打开后再执行写入'
+      updateCommandStatus(command.id, 'error', errorMessage)
+      return { success: false, error: errorMessage }
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 500))
+    const setResult = await sendMessageToMainWorld<{ success: boolean; error?: string }>(
+      'APPEND_EDITOR_CONTENT',
+      { content: command.replace }
+    )
+    if (!setResult.success) {
+      const errorMessage = setResult.error || '写入文件内容失败'
+      updateCommandStatus(command.id, 'error', errorMessage)
+      return { success: false, error: errorMessage }
+    }
+
+    updateCommandStatus(command.id, 'applied')
+    return { success: true }
+  }, [getFileIdByPath, getFolderIdByPath, navigateToFile, updateCommandStatus])
+
+  // 检查文件是否当前打开
+  const checkCurrentFile = useCallback(async (filePath: string): Promise<{ 
+    isCurrentFile: boolean
+    currentFile: string 
+  }> => {
+    try {
+      const result = await sendMessageToMainWorld<{ isCurrentFile: boolean; currentFile: string }>(
+        'CHECK_CURRENT_FILE',
+        { filePath }
+      )
+      return result
+    } catch (error) {
+      console.error('Error checking current file:', error)
+      return { isCurrentFile: false, currentFile: '' }
+    }
+  }, [])
   
   // 执行替换
   const applyReplace = useCallback(async (command: ReplaceCommand): Promise<{ success: boolean; error?: string }> => {
     setApplyingCommandId(command.id)
     
     try {
+      if (command.commandType === 'create') {
+        return await createFileWithFolders(command)
+      }
       // 若当前已打开目标文件，则无需等待；否则先导航并等待加载
       const fileStatus = await checkCurrentFile(command.file)
       if (!fileStatus.isCurrentFile) {
@@ -234,24 +377,7 @@ export const useReplaceHandler = ({
     } finally {
       setApplyingCommandId(null)
     }
-  }, [navigateToFile, updateCommandStatus])
-  
-  // 检查文件是否当前打开
-  const checkCurrentFile = useCallback(async (filePath: string): Promise<{ 
-    isCurrentFile: boolean
-    currentFile: string 
-  }> => {
-    try {
-      const result = await sendMessageToMainWorld<{ isCurrentFile: boolean; currentFile: string }>(
-        'CHECK_CURRENT_FILE',
-        { filePath }
-      )
-      return result
-    } catch (error) {
-      console.error('Error checking current file:', error)
-      return { isCurrentFile: false, currentFile: '' }
-    }
-  }, [])
+  }, [checkCurrentFile, createFileWithFolders, navigateToFile, updateCommandStatus])
   
   // 智能预览：导航到文件并显示悬浮高亮（统一 UI）
   const smartPreview = useCallback(async (command: ReplaceCommand): Promise<{
@@ -313,7 +439,7 @@ export const useReplaceHandler = ({
     const shouldScroll = options?.shouldScroll ?? false
     try {
       // 只处理 pending 状态的命令
-      const pendingCommands = commands.filter(cmd => cmd.status === 'pending')
+      const pendingCommands = commands.filter(cmd => cmd.status === 'pending' && cmd.commandType !== 'create')
       if (pendingCommands.length === 0) {
         return { success: true, count: 0 }
       }
@@ -426,7 +552,9 @@ export const useReplaceHandler = ({
   const undoReject = useCallback(async (command: ReplaceCommand): Promise<{ success: boolean; error?: string }> => {
     try {
       updateCommandStatus(command.id, 'pending')
-      await reactivateHighlight(command)
+      if (command.commandType !== 'create') {
+        await reactivateHighlight(command)
+      }
       return { success: true }
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : '撤销失败'
