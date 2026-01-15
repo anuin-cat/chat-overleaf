@@ -9,6 +9,31 @@ let currentEditorView: any = null
 
 export const COMMENT_PLACEHOLDER = '%%% comment ...'
 
+/**
+ * 验证编辑器实例是否仍然有效
+ */
+function isEditorViewValid(editorView: any): boolean {
+  try {
+    if (!editorView?.state?.doc) return false
+    // 检查编辑器的 DOM 元素是否还在页面中（项目切换后会自动失效）
+    if (editorView.dom && !document.contains(editorView.dom)) {
+      return false
+    }
+    const content = editorView.state.doc.toString()
+    return typeof content === 'string'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 判断元素是否可见
+ */
+function isElementVisible(element: Element | null): boolean {
+  if (!element || !(element instanceof HTMLElement)) return false
+  return element.offsetParent !== null
+}
+
 type NormalizedSpan = {
   type: 'raw' | 'comment'
   originalStart: number
@@ -222,31 +247,78 @@ function expandPlaceholders(replaceText: string, originalSlice: string): string 
 }
 
 /**
+ * 从 DOM 元素中提取 EditorView 实例
+ * 支持多种属性名（cmTile 是新版，cmView 是旧版）
+ */
+function extractEditorView(element: any): any | null {
+  // 新版 Overleaf 使用 cmTile
+  if (element?.cmTile?.view && isEditorViewValid(element.cmTile.view)) {
+    return element.cmTile.view
+  }
+  // 旧版 Overleaf 使用 cmView
+  if (element?.cmView?.view && isEditorViewValid(element.cmView.view)) {
+    return element.cmView.view
+  }
+  // 直接挂载在元素上
+  if (element?.view && isEditorViewValid(element.view)) {
+    return element.view
+  }
+  if (element?._view && isEditorViewValid(element._view)) {
+    return element._view
+  }
+  return null
+}
+
+/**
  * 获取 CodeMirror 编辑器实例
  */
 export function getCodeMirrorEditor(): any | null {
-  // 优先返回缓存的 view
-  if (currentEditorView?.state?.doc) {
+  // 优先验证并返回缓存的 view（必须验证有效性，因为导航到新项目后实例会失效）
+  if (currentEditorView && isEditorViewValid(currentEditorView)) {
     return currentEditorView
   }
   
+  // 缓存失效，清除
+  currentEditorView = null
+  
   try {
-    const editors = document.querySelectorAll('.cm-editor')
+    const candidates: Array<{ view: any; host: Element | null }> = []
 
-    for (let i = 0; i < editors.length; i++) {
-      const editorElement = editors[i]
-      const cmContent = editorElement.querySelector('.cm-content') as any
+    // 方法 1: 直接从 .cm-content 获取（最可靠）
+    const contents = Array.from(document.querySelectorAll('.cm-content')) as any[]
+    for (const contentEl of contents) {
+      const view = extractEditorView(contentEl)
+      if (view) {
+        candidates.push({ view, host: contentEl.closest('.cm-editor') || contentEl })
+      }
+    }
 
-      if (cmContent?.cmView?.view) {
-        const editorView = cmContent.cmView.view
-        if (editorView.state?.doc) {
-          const content = editorView.state.doc.toString()
-          if (content.includes('\\documentclass') || content.includes('\\begin') || content.length > 200) {
-            currentEditorView = editorView
-            return editorView
-          }
+    // 方法 2: 从 .cm-editor 获取
+    if (candidates.length === 0) {
+      const editors = Array.from(document.querySelectorAll('.cm-editor'))
+      for (const editorElement of editors) {
+        // 先检查编辑器元素本身
+        const viewFromEditor = extractEditorView(editorElement)
+        if (viewFromEditor) {
+          candidates.push({ view: viewFromEditor, host: editorElement })
+          continue
+        }
+        // 再检查其子元素 .cm-content
+        const cmContent = editorElement.querySelector('.cm-content')
+        const viewFromContent = extractEditorView(cmContent)
+        if (viewFromContent) {
+          candidates.push({ view: viewFromContent, host: editorElement })
         }
       }
+    }
+
+    if (candidates.length > 0) {
+      // 优先选择可见的编辑器
+      const visible = candidates.find(item => isElementVisible(item.host))
+      const picked = visible?.view ?? candidates[0].view
+      currentEditorView = picked
+      console.log('[ChatOverleaf] Editor found successfully')
+      return picked
     }
 
     return null

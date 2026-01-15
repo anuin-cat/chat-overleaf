@@ -248,7 +248,6 @@ async function getAllFilesContent(): Promise<AllFilesInfo> {
 let currentEditorContent = ''
 let currentFileName = ''
 let contentChangeTimeout: NodeJS.Timeout | null = null
-let lastFileNameNotified = ''
 let refreshTimeout: NodeJS.Timeout | null = null
 let resizeObserver: ResizeObserver | null = null
 let contentObserver: MutationObserver | null = null
@@ -338,52 +337,65 @@ function checkContentChange() {
  * 监听编辑器选择变化
  */
 function setupSelectionListener() {
-  try {
-    const editorView = getCodeMirrorEditor()
-    if (!editorView) {
-      console.log('[ChatOverleaf] No editor found, retrying in 2 seconds...')
-      setTimeout(setupSelectionListener, 2000)
-      return
-    }
-
-    console.log('[ChatOverleaf] Setting up selection listener')
-    let lastSelection = ''
-
-    const checkSelection = () => {
-      const selectedInfo = getSelectedText()
-      if (selectedInfo.success) {
-        if (selectedInfo.text !== lastSelection) {
-          lastSelection = selectedInfo.text
-          window.postMessage({
-            type: 'OVERLEAF_SELECTION_CHANGED',
-            data: {
-              text: selectedInfo.text,
-              fileName: selectedInfo.fileName,
-              folderPath: selectedInfo.folderPath || '',
-              hasSelection: selectedInfo.text.length > 0
-            }
-          }, '*')
+  let retryCount = 0
+  const maxRetries = 30
+  
+  const trySetup = () => {
+    try {
+      const editorView = getCodeMirrorEditor()
+      if (!editorView) {
+        retryCount++
+        if (retryCount <= maxRetries) {
+          console.log(`[ChatOverleaf] No editor found, retrying in 2 seconds... (attempt ${retryCount}/${maxRetries})`)
+          setTimeout(trySetup, 2000)
+        } else {
+          console.log('[ChatOverleaf] Max retries reached, will try again on user interaction')
         }
-        if (selectedInfo.text.length > 0) {
-          ensureReviewShortcutButton(selectedInfo)
+        return
+      }
+
+      console.log('[ChatOverleaf] Editor found, setting up selection listener')
+      let lastSelection = ''
+
+      const checkSelection = () => {
+        const selectedInfo = getSelectedText()
+        if (selectedInfo.success) {
+          if (selectedInfo.text !== lastSelection) {
+            lastSelection = selectedInfo.text
+            window.postMessage({
+              type: 'OVERLEAF_SELECTION_CHANGED',
+              data: {
+                text: selectedInfo.text,
+                fileName: selectedInfo.fileName,
+                folderPath: selectedInfo.folderPath || '',
+                hasSelection: selectedInfo.text.length > 0
+              }
+            }, '*')
+          }
+          if (selectedInfo.text.length > 0) {
+            ensureReviewShortcutButton(selectedInfo)
+          }
         }
       }
+
+      document.addEventListener('mouseup', () => setTimeout(checkSelection, 10))
+      document.addEventListener('keyup', () => {
+        setTimeout(checkSelection, 10)
+        setTimeout(checkContentChange, 10)
+      })
+
+      setInterval(() => {
+        checkSelection()
+        checkContentChange()
+      }, 300)
+
+    } catch (error) {
+      console.error('Error setting up selection listener:', error)
+      setTimeout(trySetup, 2000)
     }
-
-    document.addEventListener('mouseup', () => setTimeout(checkSelection, 10))
-    document.addEventListener('keyup', () => {
-      setTimeout(checkSelection, 10)
-      setTimeout(checkContentChange, 10)
-    })
-
-    setInterval(() => {
-      checkSelection()
-      checkContentChange()
-    }, 300)
-
-  } catch (error) {
-    console.error('Error setting up selection listener:', error)
   }
+  
+  trySetup()
 }
 
 /**
