@@ -2,6 +2,12 @@
  * Overleaf API 统一导出
  */
 
+import type { PlasmoCSConfig } from 'plasmo'
+
+export const config: PlasmoCSConfig = {
+  matches: ['https://www.overleaf.com/*', 'https://*.overleaf.com/*']
+}
+
 // 导出类型
 export type {
   EntityType,
