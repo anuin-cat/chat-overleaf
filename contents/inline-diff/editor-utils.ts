@@ -34,139 +34,55 @@ function isElementVisible(element: Element | null): boolean {
   return element.offsetParent !== null
 }
 
-type NormalizedSpan = {
-  type: 'raw' | 'comment'
-  originalStart: number
-  originalEnd: number
-  normStart: number
-  normEnd: number
-  originalText: string
-}
-
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 /**
- * 将内容规范化用于匹配：
- * - 把连续的纯注释行（可含前导空格）折叠为一行 COMMENT_PLACEHOLDER
- * - 保留其余文本和空格/换行
- * 同时记录规范化区间与原始区间的映射。
- */
-function normalizeForMatching(content: string): { normalized: string; spans: NormalizedSpan[] } {
-  const spans: NormalizedSpan[] = []
-  let normalized = ''
-  let normPos = 0
-
-  const lineRegex = /(.*?)(\r?\n|$)/g
-  let match: RegExpExecArray | null
-  let commentBuffer: { start: number; end: number; text: string; lastNL: string } | null = null
-
-  const flushComment = () => {
-    if (!commentBuffer) return
-    const hasTrailingNL = commentBuffer.lastNL !== ''
-    const placeholderLine = COMMENT_PLACEHOLDER + (hasTrailingNL ? commentBuffer.lastNL : '')
-    const normStart = normPos
-    normalized += placeholderLine
-    normPos = normalized.length
-    spans.push({
-      type: 'comment',
-      originalStart: commentBuffer.start,
-      originalEnd: commentBuffer.end,
-      normStart,
-      normEnd: normPos,
-      originalText: commentBuffer.text
-    })
-    commentBuffer = null
-  }
-
-  while ((match = lineRegex.exec(content)) !== null) {
-    const line = match[1]
-    const newline = match[2]
-    if (line === '' && newline === '' && match.index >= content.length) break
-    const lineStart = match.index
-    const lineEnd = lineStart + line.length + newline.length
-    const isCommentLine = line.trimStart().startsWith('%')
-
-    if (isCommentLine) {
-      if (!commentBuffer) {
-        commentBuffer = { start: lineStart, end: lineEnd, text: line + newline, lastNL: newline }
-      } else {
-        commentBuffer.end = lineEnd
-        commentBuffer.text += line + newline
-        commentBuffer.lastNL = newline
-      }
-    } else {
-      flushComment()
-      const normStart = normPos
-      normalized += line + newline
-      normPos = normalized.length
-      spans.push({
-        type: 'raw',
-        originalStart: lineStart,
-        originalEnd: lineEnd,
-        normStart,
-        normEnd: normPos,
-        originalText: line + newline
-      })
-    }
-
-    if (newline === '') break
-  }
-
-  flushComment()
-
-  return { normalized, spans }
-}
-
-/**
- * 将规范化后的匹配区间映射回原文区间
- */
-function mapNormalizedRangeToOriginal(
-  spans: NormalizedSpan[],
-  normStart: number,
-  normEnd: number
-): { from: number; to: number } {
-  let originalStart: number | null = null
-  let originalEnd: number | null = null
-
-  for (const span of spans) {
-    if (span.normEnd <= normStart || span.normStart >= normEnd) continue
-
-    if (span.type === 'comment') {
-      originalStart = originalStart === null ? span.originalStart : Math.min(originalStart, span.originalStart)
-      originalEnd = originalEnd === null ? span.originalEnd : Math.max(originalEnd, span.originalEnd)
-      continue
-    }
-
-    const overlapStart = Math.max(span.normStart, normStart)
-    const overlapEnd = Math.min(span.normEnd, normEnd)
-    const relativeStart = overlapStart - span.normStart
-    const relativeEnd = overlapEnd - span.normStart
-    const spanStart = span.originalStart + relativeStart
-    const spanEnd = span.originalStart + relativeEnd
-
-    originalStart = originalStart === null ? spanStart : Math.min(originalStart, spanStart)
-    originalEnd = originalEnd === null ? spanEnd : Math.max(originalEnd, spanEnd)
-  }
-
-  return {
-    from: originalStart ?? 0,
-    to: originalEnd ?? 0
-  }
-}
-
-/**
- * 构造支持“换行块”的正则：
+ * 构造支持“换行块”和“注释块占位符”的混合正则：
  * - 搜索字符串里的每个换行，匹配时视为一个由空格/制表符与至少一个换行组成的块
+ * - 搜索字符串里的 COMMENT_PLACEHOLDER，匹配连续的注释行块
  */
-function buildFlexibleRegex(search: string): RegExp | null {
+function buildHybridRegex(search: string): RegExp | null {
   if (!search) return null
-  const parts = search.split(/\r?\n/)
-  const escaped = parts.map(escapeRegex)
+
+  // 定义子正则组件
   const newlineBlock = '(?:[ \\t]*\\r?\\n[ \\t]*)+'
-  const pattern = escaped.join(newlineBlock)
-  return new RegExp(pattern, 'g')
+  // 匹配连续的注释行块，允许中间有换行，但不消耗块之后的换行符（以便后续匹配能衔接）
+  // 逻辑：(注释行+换行)* (最后一行注释但不含换行)
+  // 注释行定义：[ \t]*%.*
+  const commentBlockRegex = '(?:(?:[ \\t]*%.*(?:\\r?\\n|$))*(?:[ \\t]*%.*(?=\\r?\\n|$)))'
+
+  // 1. Split search by COMMENT_PLACEHOLDER
+  const parts = search.split(COMMENT_PLACEHOLDER)
+  
+  // 2. Process each part
+  const regexParts = parts.map((part, index) => {
+    if (!part) return ''
+    
+    // 普通文本部分：转义正则特殊字符，并将换行符替换为宽松匹配
+    const subParts = part.split(/\r?\n/).map(escapeRegex)
+    let processedPart = subParts.join(newlineBlock)
+    
+    // 关键修正：如果占位符前后紧挨着换行符，需要处理正则衔接问题。
+    // 在 LaTeX 中，`Line A\n% Comment\nLine B`
+    // 如果 Search 是 `Line A\n` + `PH` + `\nLine B`
+    // 对应的正则流是 `A` `NL` `PH` `NL` `B`
+    // 我们设计的 PH 正则不消耗末尾换行，所以它匹配 `% Comment` (lookahead \n)
+    // 剩下的输入流是 `\nLine B`。
+    // 接下来的 `NL` 正则匹配 `\n`。
+    // 接下来的 `B` 正则匹配 `B`。
+    // 这种衔接是完美的，无需额外去除前后的换行符。
+    
+    return processedPart
+  })
+
+  // 3. Join parts with comment block regex
+  // 注意：如果是空字符串部分（例如 search 以占位符开头/结尾），regexParts 里会有空字符串，
+  // join 后可能会出现连续的 regex，这是合法的。
+  const finalPattern = regexParts.join(commentBlockRegex)
+  
+  return new RegExp(finalPattern, 'g')
 }
 
 /**
@@ -354,23 +270,20 @@ export function findMatchPositions(
     return positions
   }
 
-  const { normalized, spans } = normalizeForMatching(content)
-  const flexibleRegex = buildFlexibleRegex(search)
-  if (!flexibleRegex) return positions
+  // 使用混合正则匹配：支持普通文本（宽松换行）和占位符（宽松注释块）
+  // 这种方式不依赖 normalizeForMatching，因此能完美支持混合场景
+  const hybridRegex = buildHybridRegex(search)
+  if (!hybridRegex) return positions
 
   let match: RegExpExecArray | null
-  while ((match = flexibleRegex.exec(normalized)) !== null) {
-    const normStart = match.index
-    const normEnd = match.index + match[0].length
-    const { from, to } = mapNormalizedRangeToOriginal(spans, normStart, normEnd)
+  while ((match = hybridRegex.exec(content)) !== null) {
     positions.push({
-      from,
-      to,
-      text: content.slice(from, to)
+      from: match.index,
+      to: match.index + match[0].length,
+      text: match[0]
     })
-
     if (match[0].length === 0) {
-      flexibleRegex.lastIndex += 1
+      hybridRegex.lastIndex += 1
     }
   }
 
@@ -606,4 +519,3 @@ export function highlightInEditor(
     return { success: false, positions: [] }
   }
 }
-
