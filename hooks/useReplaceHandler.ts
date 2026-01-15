@@ -211,9 +211,53 @@ export const useReplaceHandler = ({
 
     const existingFileId = await getFileIdByPath(targetPath)
     if (existingFileId) {
-      const errorMessage = '文件已存在，请先在编辑器打开该文件以更新文件树'
-      updateCommandStatus(command.id, 'error', errorMessage)
-      return { success: false, error: errorMessage }
+      const navResult = await navigateToFile(command.file)
+      if (!navResult.success) {
+        const errorMessage = navResult.error || '文件已存在，但无法打开进行检查'
+        updateCommandStatus(command.id, 'error', errorMessage)
+        return { success: false, error: errorMessage }
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 500))
+      const contentResult = await sendMessageToMainWorld<{
+        success: boolean
+        content?: string
+        fileName?: string
+        error?: string
+      }>('GET_OVERLEAF_CONTENT', { mode: 'current' })
+
+      if (!contentResult.success) {
+        const errorMessage = contentResult.error || '读取文件内容失败'
+        updateCommandStatus(command.id, 'error', errorMessage)
+        return { success: false, error: errorMessage }
+      }
+
+      const normalizedCurrent = normalizePath(contentResult.fileName || '')
+      if (normalizedCurrent && normalizedCurrent !== targetPath) {
+        const errorMessage = '文件已存在，但当前打开文件不匹配，无法安全写入'
+        updateCommandStatus(command.id, 'error', errorMessage)
+        return { success: false, error: errorMessage }
+      }
+
+      const currentContent = contentResult.content || ''
+      if (currentContent.trim().length > 0) {
+        const errorMessage = '插入失败：文件已存在且已有内容，请手动复制或重新提问'
+        updateCommandStatus(command.id, 'error', errorMessage)
+        return { success: false, error: errorMessage }
+      }
+
+      const appendResult = await sendMessageToMainWorld<{ success: boolean; error?: string }>(
+        'APPEND_EDITOR_CONTENT',
+        { content: command.replace }
+      )
+      if (!appendResult.success) {
+        const errorMessage = appendResult.error || '写入文件内容失败'
+        updateCommandStatus(command.id, 'error', errorMessage)
+        return { success: false, error: errorMessage }
+      }
+
+      updateCommandStatus(command.id, 'applied')
+      return { success: true }
     }
 
     let currentParentId: string | undefined = undefined
