@@ -260,7 +260,6 @@ export const useFileExtraction = (
       newSet.delete(fileName)
       return newSet
     })
-    info(`已删除文件: ${fileName}`, { title: '删除文件' })
   }
 
   // 清空所有文件
