@@ -52,11 +52,12 @@ function generateRequestId(): string {
 function sendMessageToMainWorld<T>(
   type: string, 
   data: Record<string, unknown>,
-  timeout = 10000
+  timeout = 10000,
+  responseTypeOverride?: string
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     const requestId = generateRequestId()
-    const responseType = `${type}_RESPONSE`
+    const responseType = responseTypeOverride || `${type}_RESPONSE`
     
     console.log(`[ChatOverleaf Hook] Sending message: ${type}`, { requestId, data })
     
@@ -224,7 +225,7 @@ export const useReplaceHandler = ({
         content?: string
         fileName?: string
         error?: string
-      }>('GET_OVERLEAF_CONTENT', { mode: 'current' })
+      }>('GET_OVERLEAF_CONTENT', { mode: 'current' }, 10000, 'OVERLEAF_CONTENT_RESPONSE')
 
       if (!contentResult.success) {
         const errorMessage = contentResult.error || '读取文件内容失败'
