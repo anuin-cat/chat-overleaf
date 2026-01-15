@@ -197,15 +197,15 @@ export const useMessageHandler = ({
         if (msg.selectedText && msg.selectedText.text && msg.content.trim()) {
           // 有选中内容和用户问题的情况
           textContent = `[用户选中内容]\n${msg.selectedText.text}`
-          if (msg.selectedText.fileName || msg.selectedText.folderPath) {
-            textContent += `\n\n[选中文件路径]\n${msg.selectedText.folderPath || msg.selectedText.fileName || ''}`
+          if (msg.selectedText.fileName) {
+            textContent += `\n\n[选中文件路径]\n${msg.selectedText.fileName}`
           }
           textContent += `\n\n[基于选中内容的问题]\n${msg.content}`
         } else if (msg.selectedText && msg.selectedText.text) {
           // 只有选中内容没有问题的情况
           textContent = `[用户选中内容]\n${msg.selectedText.text}`
-          if (msg.selectedText.fileName || msg.selectedText.folderPath) {
-            textContent += `\n\n[选中文件路径]\n${msg.selectedText.folderPath || msg.selectedText.fileName || ''}`
+          if (msg.selectedText.fileName) {
+            textContent += `\n\n[选中文件路径]\n${msg.selectedText.fileName}`
           }
         } else if (msg.content.trim()) {
           // 只有问题没有选中内容的情况
@@ -268,15 +268,15 @@ export const useMessageHandler = ({
     if (selectedText && selectedText.text && inputValue.trim()) {
       // 有选中内容和用户问题的情况 - 使用特殊标记强调这是当前消息的选中内容
       currentTextContent = `[当前消息的用户选中内容]\n${selectedText.text}`
-      if (selectedText.fileName || selectedText.folderPath) {
-        currentTextContent += `\n\n[选中文件路径]\n${selectedText.folderPath || selectedText.fileName || ''}`
+      if (selectedText.fileName) {
+        currentTextContent += `\n\n[选中文件路径]\n${selectedText.fileName}`
       }
       currentTextContent += `\n\n[当前消息的用户问题]\n${inputValue}`
     } else if (selectedText && selectedText.text) {
       // 只有选中内容没有问题的情况
       currentTextContent = `[当前消息的用户选中内容]\n${selectedText.text}`
-      if (selectedText.fileName || selectedText.folderPath) {
-        currentTextContent += `\n\n[选中文件路径]\n${selectedText.folderPath || selectedText.fileName || ''}`
+      if (selectedText.fileName) {
+        currentTextContent += `\n\n[选中文件路径]\n${selectedText.fileName}`
       }
     } else if (inputValue.trim()) {
       // 只有问题没有选中内容的情况

@@ -242,7 +242,7 @@ export const useReplaceHandler = ({
 
       const currentContent = contentResult.content || ''
       if (currentContent.trim().length > 0) {
-        const errorMessage = '插入失败：文件已存在且已有内容，请手动复制或重新提问'
+        const errorMessage = '插入失败：文件已存在且已有内容，文件树未更新的情况下插入有风险，请更新后重新操作'
         updateCommandStatus(command.id, 'error', errorMessage)
         return { success: false, error: errorMessage }
       }

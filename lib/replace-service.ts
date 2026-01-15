@@ -33,8 +33,8 @@ const REPLACE_BLOCK_NEW_FORMAT = /<<<REPLACE>>>\s*FILE:\s*(.+?)\s*<<<SEARCH>>>([
 const REPLACE_BLOCK_OLD_FORMAT = /<<<REPLACE>>>\s*FILE:\s*(.+?)\s*SEARCH:\s*([\s\S]*?)\s*REPLACE:\s*([\s\S]*?)\s*<<<END>>>/g
 // 正则替换模式
 const REPLACE_BLOCK_REGEX_MODE = /<<<REPLACE_REGEX>>>\s*FILE:\s*(.+?)\s*PATTERN:\s*(.+?)\s*REPLACE:\s*([\s\S]*?)\s*<<<END>>>/g
-// 统一插入模式：支持 AFTER/BEFORE 可选（可只写一个，甚至可省略空块）
-const INSERT_BLOCK = /<<<INSERT>>>\s*FILE:\s*(.+?)\s*(?:<<<AFTER>>>([\s\S]*?))?(?:<<<BEFORE>>>([\s\S]*?))?<<<CONTENT>>>([\s\S]*?)<<<END>>>/g
+// 统一插入模式（块匹配）：先匹配整个块，再内部解析字段，以支持字段乱序
+const INSERT_BLOCK_PATTERN = /<<<INSERT>>>([\s\S]*?)<<<END>>>/g
 // 创建文件模式：用于新建文件并写入内容
 const CREATE_FILE_BLOCK = /<<<CREATE_FILE>>>\s*FILE:\s*(.+?)\s*<<<CONTENT>>>([\s\S]*?)<<<END>>>/g
 // 包裹指令的代码块（剥离只含替换指令的 ``` 块）
@@ -61,7 +61,7 @@ function isOnlyReplaceBlocks(body: string): boolean {
     new RegExp(REPLACE_BLOCK_NEW_FORMAT.source, 'g'),
     new RegExp(REPLACE_BLOCK_OLD_FORMAT.source, 'g'),
     new RegExp(REPLACE_BLOCK_REGEX_MODE.source, 'g'),
-    new RegExp(INSERT_BLOCK.source, 'g'),
+    new RegExp(INSERT_BLOCK_PATTERN.source, 'g'),
     new RegExp(CREATE_FILE_BLOCK.source, 'g')
   ].forEach(regex => {
     stripped = stripped.replace(regex, '')
@@ -302,6 +302,18 @@ function parseAndAddCreateCommand(
 }
 
 /**
+ * 从文本中提取指定标签的内容（Tag-Value 模式）
+ * 匹配 tag 开始，直到遇到下一个 <<< 标签或字符串结束
+ */
+function extractTagContent(text: string, tag: string): string | null {
+  // 转义 tag 中的特殊字符（这里主要是 <）
+  const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`${escapedTag}\\s*([\\s\\S]*?)(?=\\s*<<<|$)`)
+  const match = text.match(regex)
+  return match ? match[1] : null
+}
+
+/**
  * 解析 LLM 输出中的替换/插入指令
  * 支持格式：REPLACE、INSERT（统一插入格式）
  */
@@ -338,16 +350,32 @@ export function parseReplaceCommands(content: string): ParseResult {
     cleanContent = cleanContent.replace(fullMatch, `[[REPLACE_BLOCK:${id}]]`)
   }
   
-  // 4. 解析统一插入块 <<<INSERT>>> ... <<<AFTER>>> ... <<<BEFORE>>> ... <<<CONTENT>>>
-  INSERT_BLOCK.lastIndex = 0
-  while ((match = INSERT_BLOCK.exec(sanitizedContent)) !== null) {
+  // 4. 解析统一插入块 <<<INSERT>>> ... (乱序字段) ... <<<END>>>
+  INSERT_BLOCK_PATTERN.lastIndex = 0
+  while ((match = INSERT_BLOCK_PATTERN.exec(sanitizedContent)) !== null) {
     const fullMatch = match[0]
-    const file = match[1]
-    const afterAnchor = match[2] || ''
-    const beforeAnchor = match[3] || ''
-    const insertContent = match[4] || ''
-    const { id } = parseAndAddInsertCommand(file, afterAnchor, beforeAnchor, insertContent, commands, processedIds)
-    cleanContent = cleanContent.replace(fullMatch, `[[REPLACE_BLOCK:${id}]]`)
+    const body = match[1]
+    
+    // 提取字段（不依赖顺序）
+    const fileMatch = body.match(/FILE:\s*(.+?)(?=\s*<<<|$)/)
+    
+    // 无论是否解析成功，都从 content 中移除该块，避免重复显示
+    // 但如果解析失败（如缺少 FILE），这里暂时不生成 Command（或者可以生成一个 Error Command）
+    // 为了用户体验，我们只处理格式正确的块，格式错误的由用户自行发现（或者后续可以改进为显示错误块）
+    if (fileMatch) {
+      const file = fileMatch[1]
+      const afterAnchor = extractTagContent(body, '<<<AFTER>>>') || ''
+      const beforeAnchor = extractTagContent(body, '<<<BEFORE>>>') || ''
+      const insertContent = extractTagContent(body, '<<<CONTENT>>>') || ''
+      
+      const { id } = parseAndAddInsertCommand(file, afterAnchor, beforeAnchor, insertContent, commands, processedIds)
+      cleanContent = cleanContent.replace(fullMatch, `[[REPLACE_BLOCK:${id}]]`)
+    } else {
+      // 格式严重错误（缺 FILE），虽然正则匹配到了块，但无法处理。
+      // 可以选择保留原文或移除。为了避免死循环或重复，最好还是移除或标记。
+      // 这里选择保留原文（不替换为 ID），这样用户能看到原始文本。
+      // 但上面的 regex.lastIndex 已经前进了，所以不会死循环。
+    }
   }
   
   // 5. 解析创建文件块 <<<CREATE_FILE>>> ... <<<CONTENT>>>
@@ -370,13 +398,13 @@ export function hasReplaceCommands(content: string): boolean {
   REPLACE_BLOCK_NEW_FORMAT.lastIndex = 0
   REPLACE_BLOCK_OLD_FORMAT.lastIndex = 0
   REPLACE_BLOCK_REGEX_MODE.lastIndex = 0
-  INSERT_BLOCK.lastIndex = 0
+  INSERT_BLOCK_PATTERN.lastIndex = 0
   CREATE_FILE_BLOCK.lastIndex = 0
   return (
     REPLACE_BLOCK_NEW_FORMAT.test(content) || 
     REPLACE_BLOCK_OLD_FORMAT.test(content) || 
     REPLACE_BLOCK_REGEX_MODE.test(content) ||
-    INSERT_BLOCK.test(content) ||
+    INSERT_BLOCK_PATTERN.test(content) ||
     CREATE_FILE_BLOCK.test(content)
   )
 }
