@@ -237,7 +237,11 @@ function parseAndAddReplaceCommand(
 ): { id: string; command: ReplaceCommand } {
   const trimmedFile = file.trim()
   const trimmedSearch = search.trim()
-  const id = generateStableId(trimmedFile, trimmedSearch + 'replace')
+  const trimmedReplace = replace.trim()
+  const id = generateStableId(
+    trimmedFile,
+    `${isRegex ? 'regex' : 'text'}:${trimmedSearch}:replace:${trimmedReplace}`
+  )
   
   if (processedIds.has(id)) {
     return { id, command: commands.find(c => c.id === id)! }
@@ -255,7 +259,7 @@ function parseAndAddReplaceCommand(
     id,
     file: trimmedFile,
     search: trimmedSearch,
-    replace: replace.trim(),
+    replace: trimmedReplace,
     isRegex,
     commandType: 'replace',
     status: validation.valid ? 'pending' : 'error',

@@ -95,6 +95,21 @@ function isAlreadyExistsError(message?: string): boolean {
   return /already exists|已存在|exists/i.test(message)
 }
 
+function areCommandsEquivalent(a: ReplaceCommand, b: ReplaceCommand): boolean {
+  if (a.file !== b.file) return false
+  if (a.search !== b.search) return false
+  if (a.replace !== b.replace) return false
+  if (a.isRegex !== b.isRegex) return false
+  if (a.commandType !== b.commandType) return false
+  const aAfter = a.insertAnchor?.after ?? ''
+  const bAfter = b.insertAnchor?.after ?? ''
+  if (aAfter !== bAfter) return false
+  const aBefore = a.insertAnchor?.before ?? ''
+  const bBefore = b.insertAnchor?.before ?? ''
+  if (aBefore !== bBefore) return false
+  return true
+}
+
 export const useReplaceHandler = ({ 
   extractedFiles 
 }: UseReplaceHandlerProps): UseReplaceHandlerReturn => {
@@ -111,8 +126,14 @@ export const useReplaceHandler = ({
         let hasNewCommand = false
         const newMap = new Map(prev)
         result.commands.forEach(cmd => {
-          // 只添加新的命令，不覆盖已存在的
-          if (!newMap.has(cmd.id)) {
+          const existing = newMap.get(cmd.id)
+          if (!existing) {
+            newMap.set(cmd.id, cmd)
+            hasNewCommand = true
+            return
+          }
+          const shouldReplace = !areCommandsEquivalent(existing, cmd)
+          if (shouldReplace) {
             newMap.set(cmd.id, cmd)
             hasNewCommand = true
           }

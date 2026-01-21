@@ -435,6 +435,30 @@ function isFileMatch(targetFile: string, currentFile: string): boolean {
   return false
 }
 
+function isSameHighlightRegion(
+  region: HighlightRegion,
+  cmd: {
+    search: string
+    replace: string
+    isRegex: boolean
+    commandType?: CommandType
+    insertAnchor?: InsertAnchor
+  }
+): boolean {
+  if (region.search !== cmd.search) return false
+  if (region.replace !== cmd.replace) return false
+  if (region.isRegex !== cmd.isRegex) return false
+  const cmdType = cmd.commandType || 'replace'
+  if (region.commandType !== cmdType) return false
+  const regionAfter = region.insertAnchor?.after ?? ''
+  const cmdAfter = cmd.insertAnchor?.after ?? ''
+  if (regionAfter !== cmdAfter) return false
+  const regionBefore = region.insertAnchor?.before ?? ''
+  const cmdBefore = cmd.insertAnchor?.before ?? ''
+  if (regionBefore !== cmdBefore) return false
+  return true
+}
+
 /**
  * 批量添加高亮区域
  */
@@ -491,6 +515,9 @@ export function addHighlightRegions(
     
     const positions = findMatchPositions(content, searchText, cmd.isRegex)
     if (positions.length === 0) {
+      if (highlightRegions.has(cmd.id)) {
+        removeRegionHighlight(cmd.id)
+      }
       console.log('[ChatOverleaf] No match found for:', searchText.substring(0, 50))
       continue
     }
@@ -503,9 +530,13 @@ export function addHighlightRegions(
     }
     
     // 检查区域是否已存在
-    if (highlightRegions.has(cmd.id)) {
-      console.log('[ChatOverleaf] Region already exists, will scroll to it:', cmd.id)
-      continue
+    const existingRegion = highlightRegions.get(cmd.id)
+    if (existingRegion) {
+      if (isSameHighlightRegion(existingRegion, cmd)) {
+        console.log('[ChatOverleaf] Region already exists, will scroll to it:', cmd.id)
+        continue
+      }
+      removeRegionHighlight(cmd.id)
     }
     
     const region: HighlightRegion = {
@@ -626,4 +657,3 @@ export function refreshHighlights(): void {
     }
   })
 }
-
