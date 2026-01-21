@@ -7,6 +7,7 @@ import { createDoc, createFolder } from '~contents/api'
 
 interface UseReplaceHandlerProps {
   extractedFiles: Array<{ name: string; content: string }>
+  refreshCurrentFile?: () => Promise<{ name: string; content: string; length: number } | null>
 }
 
 interface UseReplaceHandlerReturn {
@@ -111,7 +112,8 @@ function areCommandsEquivalent(a: ReplaceCommand, b: ReplaceCommand): boolean {
 }
 
 export const useReplaceHandler = ({ 
-  extractedFiles 
+  extractedFiles,
+  refreshCurrentFile
 }: UseReplaceHandlerProps): UseReplaceHandlerReturn => {
   const [replaceCommands, setReplaceCommands] = useState<Map<string, ReplaceCommand>>(new Map())
   const [applyingCommandId, setApplyingCommandId] = useState<string | null>(null)
@@ -371,7 +373,11 @@ export const useReplaceHandler = ({
     
     try {
       if (command.commandType === 'create') {
-        return await createFileWithFolders(command)
+        const result = await createFileWithFolders(command)
+        if (result.success) {
+          await refreshCurrentFile?.()
+        }
+        return result
       }
       // 若当前已打开目标文件，则无需等待；否则先导航并等待加载
       const fileStatus = await checkCurrentFile(command.file)
@@ -431,6 +437,7 @@ export const useReplaceHandler = ({
       
       if (replaceResult.success) {
         updateCommandStatus(command.id, 'applied')
+        await refreshCurrentFile?.()
         return { success: true }
       } else {
         updateCommandStatus(command.id, 'error', replaceResult.error)
@@ -443,7 +450,7 @@ export const useReplaceHandler = ({
     } finally {
       setApplyingCommandId(null)
     }
-  }, [checkCurrentFile, createFileWithFolders, navigateToFile, updateCommandStatus])
+  }, [checkCurrentFile, createFileWithFolders, navigateToFile, refreshCurrentFile, updateCommandStatus])
   
   // 智能预览：导航到文件并显示悬浮高亮（统一 UI）
   const smartPreview = useCallback(async (command: ReplaceCommand): Promise<{

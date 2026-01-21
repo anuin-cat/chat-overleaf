@@ -102,7 +102,8 @@ export const SidebarChat = forwardRef<SidebarChatHandle, SidebarChatProps>(({ on
     clearAllFiles,
     selectFile,
     selectAllFiles,
-    toggleFileList: originalToggleFileList
+    toggleFileList: originalToggleFileList,
+    refreshCurrentFile
   } = useFileExtraction(selectedFiles, setSelectedFiles)
 
   // 使用聊天历史 hook
@@ -135,7 +136,7 @@ export const SidebarChat = forwardRef<SidebarChatHandle, SidebarChatProps>(({ on
     reactivateHighlight,
     removeHighlight,
     removeAllHoverHighlights
-  } = useReplaceHandler({ extractedFiles })
+  } = useReplaceHandler({ extractedFiles, refreshCurrentFile })
 
   const processedMessageIdsRef = useRef<Set<string>>(new Set())
   const chatInputRef = useRef<ChatInputHandle | null>(null)
@@ -722,6 +723,7 @@ export const SidebarChat = forwardRef<SidebarChatHandle, SidebarChatProps>(({ on
         currentChatName={currentChatName}
         onChatNameChange={setCurrentChatName}
         onChatIdChange={setCurrentChatId}
+        refreshCurrentFile={refreshCurrentFile}
       />
     </div>
 

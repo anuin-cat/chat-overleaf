@@ -39,6 +39,7 @@ interface UseMessageHandlerProps {
   currentChatId?: string
   currentChatName?: string
   onChatNameChange?: (name: string) => void
+  refreshCurrentFile?: () => Promise<ExtractedFile | null>
 }
 
 export interface SelectedSnippet {
@@ -55,7 +56,8 @@ export const useMessageHandler = ({
   llmService,
   currentChatId,
   currentChatName,
-  onChatNameChange
+  onChatNameChange,
+  refreshCurrentFile
 }: UseMessageHandlerProps) => {
   const [isStreaming, setIsStreaming] = useState(false)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
@@ -165,20 +167,43 @@ export const useMessageHandler = ({
     // 准备聊天历史
     const chatHistory: ChatMessage[] = []
 
+    // 0. 发送前强制刷新当前文件（避免使用过期内容）
+    let effectiveExtractedFiles = extractedFiles
+    if (refreshCurrentFile) {
+      try {
+        const refreshed = await refreshCurrentFile()
+        if (refreshed) {
+          let existingIndex = extractedFiles.findIndex(file => file.name === refreshed.name)
+          if (existingIndex < 0) {
+            const baseName = refreshed.name.split('/').pop()
+            if (baseName) {
+              existingIndex = extractedFiles.findIndex(file => file.name.split('/').pop() === baseName)
+            }
+          }
+          if (existingIndex >= 0) {
+            const updated = [...extractedFiles]
+            updated[existingIndex] = {
+              ...updated[existingIndex],
+              content: refreshed.content,
+              length: refreshed.length
+            }
+            effectiveExtractedFiles = updated
+          } else {
+            effectiveExtractedFiles = [...extractedFiles, refreshed]
+          }
+        }
+      } catch (error) {
+        console.warn('[ChatOverleaf] Failed to refresh current file before send:', error)
+      }
+    }
+
     // 1. 添加系统提示，帮助LLM理解消息格式和文件编辑功能
     chatHistory.push({
       role: 'system',
       content: SYSTEM_PROMPT
     })
 
-    // 2. 处理选中的文件内容
-    const selectedFilesData = extractedFiles.filter(file => selectedFiles.has(file.name))
-    if (selectedFilesData.length > 0) {
-      const fileMessages = await FileContentProcessor.processFilesForModel(selectedFilesData)
-      chatHistory.push(...fileMessages)
-    }
-    
-    // 3. 添加最近的对话历史（最多10条）
+    // 2. 添加最近的对话历史（最多10条）
     const recentMessages = messages.slice(-10).filter(msg => !msg.isStreaming)
     recentMessages.forEach(msg => {
       if (msg.isUser) {
@@ -249,11 +274,11 @@ export const useMessageHandler = ({
 
     // 生成最新文件列表提示（随用户消息一起发送，避免污染前缀缓存）
     const fileListPromptText =
-      extractedFiles.length > 0
-        ? buildFileTreePrompt(extractedFiles).text
+      effectiveExtractedFiles.length > 0
+        ? buildFileTreePrompt(effectiveExtractedFiles).text
         : ''
 
-    // 4. 添加当前用户消息（合并选中文本、用户消息和图片）
+    // 3. 添加当前用户消息（合并选中文本、用户消息和图片）
     const currentMessageContent: Array<{
       type: 'text' | 'image_url'
       text?: string
@@ -303,12 +328,19 @@ export const useMessageHandler = ({
       })
     }
 
-    // 4.1 先推送文件列表提示（作为 user 角色，声明系统自动提供；放在最新用户消息前，避免前缀缓存失效）
+    // 3.1 先推送文件列表提示（作为 user 角色，声明系统自动提供；放在最新用户消息前，避免前缀缓存失效）
     if (fileListPromptText) {
       chatHistory.push({
         role: 'user',
         content: `[系统自动提供的文件列表参考信息]\n${fileListPromptText}\n（此块为系统生成的最新文件/文件夹及 token 信息，若需访问请使用 @ 选择文件或文件夹，或通过顶部文件列表勾选。）`
       })
+    }
+
+    // 3.2 将最新文件内容紧挨着文件列表提示推送，强调为实时内容
+    const selectedFilesData = effectiveExtractedFiles.filter(file => selectedFiles.has(file.name))
+    if (selectedFilesData.length > 0) {
+      const fileMessages = await FileContentProcessor.processFilesForModel(selectedFilesData)
+      chatHistory.push(...fileMessages)
     }
 
     chatHistory.push({

@@ -47,6 +47,7 @@ interface ChatInputProps {
   currentChatName?: string
   onChatNameChange?: (name: string) => void
   onChatIdChange?: (id: string) => void
+  refreshCurrentFile?: () => Promise<ExtractedFile | null>
 }
 
 export interface ChatInputHandle {
@@ -66,7 +67,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
   currentChatId,
   currentChatName,
   onChatNameChange,
-  onChatIdChange
+  onChatIdChange,
+  refreshCurrentFile
 }: ChatInputProps, ref) => {
   // 使用消息处理 hook
   const { isStreaming, handleSendMessage, handleStopStreaming } = useMessageHandler({
@@ -77,7 +79,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
     llmService,
     currentChatId,
     currentChatName,
-    onChatNameChange
+    onChatNameChange,
+    refreshCurrentFile
   })
 
   // 使用图片处理 hook

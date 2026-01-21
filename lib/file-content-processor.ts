@@ -39,7 +39,7 @@ export class FileContentProcessor {
 
     messages.push({
       role: 'system',
-      content: `以下是用户提供的文件内容作为上下文：\n\n${selectedFileContents}`
+      content: `[系统自动提供的最新文件内容]\n${selectedFileContents}\n（此块为系统生成的最新文件内容，请以此为准，历史选中/划线内容可能已过期）`
     })
 
     return messages

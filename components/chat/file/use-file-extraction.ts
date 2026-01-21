@@ -227,6 +227,39 @@ export const useFileExtraction = (
     }
   }
 
+  // 静默刷新当前文件内容（不触发提示，不自动选中）
+  const refreshCurrentFile = useCallback(async (): Promise<FileInfo | null> => {
+    try {
+      const result = await FileExtractionService.extractContent('current')
+      if (result.success && result.files.length > 0) {
+        const file = result.files[0]
+        setExtractedFiles(prev => {
+          let existingIndex = prev.findIndex(item => item.name === file.name)
+          if (existingIndex < 0) {
+            const baseName = file.name.split('/').pop()
+            if (baseName) {
+              existingIndex = prev.findIndex(item => item.name.split('/').pop() === baseName)
+            }
+          }
+          if (existingIndex >= 0) {
+            const updated = [...prev]
+            updated[existingIndex] = {
+              ...updated[existingIndex],
+              content: file.content,
+              length: file.length
+            }
+            return updated
+          }
+          return [...prev, file]
+        })
+        return file
+      }
+    } catch (err) {
+      console.error('[file-cache] refresh current file failed:', err)
+    }
+    return null
+  }, [])
+
 
 
   // 提取所有文件
@@ -350,6 +383,7 @@ export const useFileExtraction = (
     selectFile,
     selectAllFiles,
     autoSelectFile,
-    toggleFileList
+    toggleFileList,
+    refreshCurrentFile
   }
 }
