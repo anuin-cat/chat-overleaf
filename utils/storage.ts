@@ -184,10 +184,10 @@ const cleanupChatHistory = async (): Promise<void> => {
     }
 
     if (Array.isArray(histories) && histories.length > 0) {
-      // 按最后更新时间排序，保留最新的20条记录
+      // 按最后更新时间排序，保留最新的 166 条记录
       const sortedHistories = histories
         .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime())
-        .slice(0, 20)
+        .slice(0, 166)
 
       console.log(`Cleaned up chat history: ${histories.length} -> ${sortedHistories.length}`)
 

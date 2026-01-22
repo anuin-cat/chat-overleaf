@@ -374,6 +374,7 @@ export const useFileExtraction = (
     extractedFiles,
     selectedFiles,
     showFileList,
+    projectId,
 
     // 操作
     extractAll,

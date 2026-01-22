@@ -39,10 +39,15 @@ export interface ChatHistory {
   messageCount: number // 消息数量（气泡数量）
   lastUpdated: Date // 最后更新时间
   createdAt: Date // 创建时间
+  projectId?: string // 所属项目（兼容旧数据可缺省）
 }
 
 const CHAT_HISTORY_KEY = "chat_history"
-const MAX_HISTORY_COUNT = 20  // 减少最大历史记录数量以节省存储空间
+const MAX_HISTORY_COUNT = 166  // 增加最大历史记录数量
+
+interface UseChatHistoryOptions {
+  projectId?: string | null
+}
 
 // 生成历史记录名称（使用用户第一条消息的前20个字符）
 const generateHistoryName = (messages: Message[]): string => {
@@ -61,7 +66,7 @@ const isOnlyInitialMessage = (messages: Message[]): boolean => {
          messages[0].content.includes("你好！我是你的 Overleaf 助手")
 }
 
-export const useChatHistory = () => {
+export const useChatHistory = ({ projectId }: UseChatHistoryOptions = {}) => {
   const [chatHistories, setChatHistories] = useState<ChatHistory[]>([])
   const [showHistoryList, setShowHistoryList] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -93,16 +98,20 @@ export const useChatHistory = () => {
           }))
         }
       })
+      // 按项目过滤：当前项目 + 无 projectId（旧数据兼容）
+      const filtered = projectId
+        ? parsedHistories.filter(history => !history.projectId || history.projectId === projectId)
+        : parsedHistories
       // 按最后更新时间降序排列
-      parsedHistories.sort((a, b) => b.lastUpdated.getTime() - a.lastUpdated.getTime())
-      setChatHistories(parsedHistories)
+      filtered.sort((a, b) => b.lastUpdated.getTime() - a.lastUpdated.getTime())
+      setChatHistories(filtered)
     } catch (error) {
       console.error("Failed to load chat histories:", error)
       setChatHistories([])
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [projectId])
 
   // 保存聊天历史
   const saveChatHistory = useCallback(async (messages: Message[], customName?: string, historyId?: string) => {
@@ -138,7 +147,8 @@ export const useChatHistory = () => {
         messages: cleanMessages,
         messageCount,
         lastUpdated: now,
-        createdAt: now
+        createdAt: now,
+        projectId: projectId || undefined
       }
 
       // 如果存在相同ID的历史记录，检查内容是否有变化
@@ -172,7 +182,7 @@ export const useChatHistory = () => {
         updatedHistories = [newHistory, ...currentHistories]
       }
 
-      // 限制最多50条记录
+      // 限制最多 166 条记录
       if (updatedHistories.length > MAX_HISTORY_COUNT) {
         updatedHistories.splice(MAX_HISTORY_COUNT)
       }

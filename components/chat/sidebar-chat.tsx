@@ -96,6 +96,7 @@ export const SidebarChat = forwardRef<SidebarChatHandle, SidebarChatProps>(({ on
     selectedFiles: syncedSelectedFiles,
     showFileList,
     isExtracting,
+    projectId,
     extractAll,
     copyFile,
     deleteFile,
@@ -118,7 +119,7 @@ export const SidebarChat = forwardRef<SidebarChatHandle, SidebarChatProps>(({ on
     toggleHistoryList,
     createBranchChat,
     isOnlyInitialMessage
-  } = useChatHistory()
+  } = useChatHistory({ projectId })
 
   // 使用替换处理 hook
   const {
