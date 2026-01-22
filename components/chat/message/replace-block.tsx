@@ -68,38 +68,161 @@ function computeWordDiff(oldDiff: string, newDiff: string): {
   const oldTokens = tokenize(oldDiff)
   const newTokens = tokenize(newDiff)
   
-  // LCS 算法
-  const lcsMatrix: number[][] = []
-  for (let i = 0; i <= oldTokens.length; i++) {
-    lcsMatrix[i] = []
-    for (let j = 0; j <= newTokens.length; j++) {
-      if (i === 0 || j === 0) {
-        lcsMatrix[i][j] = 0
-      } else if (oldTokens[i - 1] === newTokens[j - 1]) {
-        lcsMatrix[i][j] = lcsMatrix[i - 1][j - 1] + 1
+  const oldMarked = new Array(oldTokens.length).fill(false)
+  const newMarked = new Array(newTokens.length).fill(false)
+
+  const markWithLcs = (
+    oldStart: number,
+    oldEnd: number,
+    newStart: number,
+    newEnd: number
+  ) => {
+    const oldLen = oldEnd - oldStart
+    const newLen = newEnd - newStart
+    if (oldLen <= 0 || newLen <= 0) return
+
+    const lcsMatrix: number[][] = []
+    for (let i = 0; i <= oldLen; i++) {
+      lcsMatrix[i] = []
+      for (let j = 0; j <= newLen; j++) {
+        if (i === 0 || j === 0) {
+          lcsMatrix[i][j] = 0
+        } else if (oldTokens[oldStart + i - 1] === newTokens[newStart + j - 1]) {
+          lcsMatrix[i][j] = lcsMatrix[i - 1][j - 1] + 1
+        } else {
+          lcsMatrix[i][j] = Math.max(lcsMatrix[i - 1][j], lcsMatrix[i][j - 1])
+        }
+      }
+    }
+
+    let i = oldLen
+    let j = newLen
+    while (i > 0 && j > 0) {
+      const oldToken = oldTokens[oldStart + i - 1]
+      const newToken = newTokens[newStart + j - 1]
+      if (oldToken === newToken) {
+        oldMarked[oldStart + i - 1] = true
+        newMarked[newStart + j - 1] = true
+        i--
+        j--
+      } else if (lcsMatrix[i - 1][j] > lcsMatrix[i][j - 1]) {
+        i--
+      } else if (lcsMatrix[i - 1][j] < lcsMatrix[i][j - 1]) {
+        j--
       } else {
-        lcsMatrix[i][j] = Math.max(lcsMatrix[i - 1][j], lcsMatrix[i][j - 1])
+        // 平局时优先缩短跨度，避免错位
+        const oldPrev = oldTokens[oldStart + i - 1]
+        const newPrev = newTokens[newStart + j - 1]
+        const oldInNew = newTokens.lastIndexOf(oldPrev, newStart + j - 2)
+        const newInOld = oldTokens.lastIndexOf(newPrev, oldStart + i - 2)
+        if (oldInNew === -1 && newInOld === -1) {
+          i--
+        } else if (oldInNew === -1) {
+          j--
+        } else if (newInOld === -1) {
+          i--
+        } else {
+          const distOld = oldStart + i - 1 - newInOld
+          const distNew = newStart + j - 1 - oldInNew
+          if (distOld <= distNew) {
+            i--
+          } else {
+            j--
+          }
+        }
       }
     }
   }
-  
-  let i = oldTokens.length
-  let j = newTokens.length
-  const oldMarked = new Array(oldTokens.length).fill(false)
-  const newMarked = new Array(newTokens.length).fill(false)
-  
-  while (i > 0 && j > 0) {
-    if (oldTokens[i - 1] === newTokens[j - 1]) {
-      oldMarked[i - 1] = true
-      newMarked[j - 1] = true
-      i--
-      j--
-    } else if (lcsMatrix[i - 1][j] > lcsMatrix[i][j - 1]) {
-      i--
-    } else {
-      j--
+
+  const getPatienceAnchors = (
+    oldStart: number,
+    oldEnd: number,
+    newStart: number,
+    newEnd: number
+  ) => {
+    const oldCount = new Map<string, number>()
+    const newCount = new Map<string, number>()
+    for (let i = oldStart; i < oldEnd; i++) {
+      const token = oldTokens[i]
+      oldCount.set(token, (oldCount.get(token) || 0) + 1)
     }
+    for (let j = newStart; j < newEnd; j++) {
+      const token = newTokens[j]
+      newCount.set(token, (newCount.get(token) || 0) + 1)
+    }
+
+    const newUniqueIndex = new Map<string, number>()
+    for (let j = newStart; j < newEnd; j++) {
+      const token = newTokens[j]
+      if (newCount.get(token) === 1) {
+        newUniqueIndex.set(token, j)
+      }
+    }
+
+    const pairs: Array<{ oldIndex: number; newIndex: number }> = []
+    for (let i = oldStart; i < oldEnd; i++) {
+      const token = oldTokens[i]
+      const newIndex = newUniqueIndex.get(token)
+      if (oldCount.get(token) === 1 && newIndex !== undefined) {
+        pairs.push({ oldIndex: i, newIndex })
+      }
+    }
+
+    pairs.sort((a, b) => a.oldIndex - b.oldIndex)
+    if (pairs.length === 0) return []
+
+    const dp = new Array(pairs.length).fill(1)
+    const prev = new Array(pairs.length).fill(-1)
+    let bestIdx = 0
+
+    for (let i = 0; i < pairs.length; i++) {
+      for (let j = 0; j < i; j++) {
+        if (pairs[j].newIndex < pairs[i].newIndex && dp[j] + 1 > dp[i]) {
+          dp[i] = dp[j] + 1
+          prev[i] = j
+        }
+      }
+      if (dp[i] > dp[bestIdx]) {
+        bestIdx = i
+      }
+    }
+
+    const anchors: Array<{ oldIndex: number; newIndex: number }> = []
+    let k = bestIdx
+    while (k !== -1) {
+      anchors.push(pairs[k])
+      k = prev[k]
+    }
+    anchors.reverse()
+    return anchors
   }
+
+  const markMatches = (
+    oldStart: number,
+    oldEnd: number,
+    newStart: number,
+    newEnd: number
+  ) => {
+    if (oldStart >= oldEnd || newStart >= newEnd) return
+    const anchors = getPatienceAnchors(oldStart, oldEnd, newStart, newEnd)
+    if (anchors.length === 0) {
+      markWithLcs(oldStart, oldEnd, newStart, newEnd)
+      return
+    }
+
+    let prevOld = oldStart
+    let prevNew = newStart
+    for (const anchor of anchors) {
+      markMatches(prevOld, anchor.oldIndex, prevNew, anchor.newIndex)
+      oldMarked[anchor.oldIndex] = true
+      newMarked[anchor.newIndex] = true
+      prevOld = anchor.oldIndex + 1
+      prevNew = anchor.newIndex + 1
+    }
+    markMatches(prevOld, oldEnd, prevNew, newEnd)
+  }
+
+  markMatches(0, oldTokens.length, 0, newTokens.length)
   
   const oldSegments: WordDiffSegment[] = oldTokens.map((text, k) => ({
     text,
