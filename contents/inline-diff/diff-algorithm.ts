@@ -46,7 +46,15 @@ export function computeDiff(oldText: string, newText: string): DiffResult {
  * 将文本分割成单词和非单词部分
  */
 export function tokenize(text: string): string[] {
-  return text.match(/\S+|\s+/g) || []
+  if (!text) return []
+  // 更细粒度的分词：CJK 单字、单词/数字、标点、空白分别成块
+  const regex = /(\r\n|\r|\n)|(\s+)|(\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Hangul})|([\p{L}\p{M}\p{N}_]+)|(\p{Extended_Pictographic})|([^\s])/gu
+  const tokens: string[] = []
+  let match: RegExpExecArray | null
+  while ((match = regex.exec(text)) !== null) {
+    tokens.push(match[0])
+  }
+  return tokens
 }
 
 /**
