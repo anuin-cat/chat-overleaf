@@ -75,12 +75,101 @@ export const AddModelDialog = ({ provider, onClose }: AddModelDialogProps) => {
 
     // 模型ID输入时进行模糊搜索
     if (field === 'modelId') {
-      const searchTerm = value.toLowerCase()
-      const filtered = availableModels.filter(model =>
-        model.id.toLowerCase().includes(searchTerm) ||
-        model.name.toLowerCase().includes(searchTerm)
-      )
-      setFilteredModels(filtered)
+      const searchTerm = value.toLowerCase().trim()
+
+      const splitTokens = (input: string) =>
+        input
+          .toLowerCase()
+          .split(/[\s\-_./]+/)
+          .map(token => token.trim())
+          .filter(Boolean)
+
+      const stripSeparators = (input: string) =>
+        input.toLowerCase().replace(/[\s\-_./]+/g, '')
+
+      const bigramCounts = (input: string) => {
+        const counts = new Map<string, number>()
+        if (input.length === 0) return counts
+        if (input.length === 1) {
+          counts.set(input, 1)
+          return counts
+        }
+        for (let i = 0; i < input.length - 1; i++) {
+          const gram = input.slice(i, i + 2)
+          counts.set(gram, (counts.get(gram) || 0) + 1)
+        }
+        return counts
+      }
+
+      const diceSimilarity = (a: string, b: string) => {
+        if (!a || !b) return 0
+        if (a === b) return 1
+        const aCounts = bigramCounts(a)
+        const bCounts = bigramCounts(b)
+        let intersection = 0
+        let aTotal = 0
+        let bTotal = 0
+        for (const count of aCounts.values()) aTotal += count
+        for (const count of bCounts.values()) bTotal += count
+        for (const [gram, aCount] of aCounts.entries()) {
+          const bCount = bCounts.get(gram) || 0
+          intersection += Math.min(aCount, bCount)
+        }
+        const total = aTotal + bTotal
+        return total === 0 ? 0 : (2 * intersection) / total
+      }
+
+      if (!searchTerm) {
+        setFilteredModels(availableModels)
+        setShowDropdown(true)
+        return
+      }
+
+      const queryTokens = splitTokens(searchTerm)
+      const queryCompact = stripSeparators(searchTerm)
+
+      const scored = availableModels.map(model => {
+        const id = model.id.toLowerCase()
+        const name = model.name.toLowerCase()
+        const idTokens = splitTokens(id)
+        const nameTokens = splitTokens(name)
+        const idCompact = stripSeparators(id)
+        const nameCompact = stripSeparators(name)
+
+        const tokenScore = (tokens: string[], target: string, targetTokens: string[]) => {
+          let score = 0
+          for (const token of queryTokens) {
+            if (!token) continue
+            if (target.includes(token)) {
+              score += 120 + token.length * 2
+              continue
+            }
+            let best = 0
+            for (const t of targetTokens) {
+              if (!t) continue
+              const sim = diceSimilarity(token, t)
+              if (sim > best) best = sim
+            }
+            // fallback: compare token to whole target
+            best = Math.max(best, diceSimilarity(token, target))
+            score += Math.round(best * 60)
+          }
+          // overall compact similarity
+          score += Math.round(diceSimilarity(queryCompact, stripSeparators(target)) * 120)
+          return score
+        }
+
+        const idScore = tokenScore(queryTokens, id, idTokens)
+        const nameScore = tokenScore(queryTokens, name, nameTokens)
+        return { model, score: Math.max(idScore, nameScore) }
+      })
+
+      scored.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score
+        return a.model.id.localeCompare(b.model.id)
+      })
+
+      setFilteredModels(scored.map(item => item.model))
       setShowDropdown(true)
     }
   }
