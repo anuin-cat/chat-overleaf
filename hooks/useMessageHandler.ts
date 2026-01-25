@@ -2,7 +2,8 @@ import { useState } from "react"
 import { LLMService, type ChatMessage } from "~lib/llm-service"
 import { FileContentProcessor } from "~lib/file-content-processor"
 import { SYSTEM_PROMPT } from "~lib/system-prompt"
-import { buildFileTreePrompt } from "~components/chat/file/file-tree-utils"
+import { buildEntityTreePrompt } from "~components/chat/file/file-tree-utils"
+import { getEntities } from "~contents/api"
 import { useSettings } from "./useSettings"
 import { useModels } from "./useModels"
 import { useToast } from "~components/ui/sonner"
@@ -272,11 +273,21 @@ export const useMessageHandler = ({
       }
     })
 
-    // 生成最新文件列表提示（随用户消息一起发送，避免污染前缀缓存）
-    const fileListPromptText =
-      effectiveExtractedFiles.length > 0
-        ? buildFileTreePrompt(effectiveExtractedFiles).text
-        : ''
+    // 生成最新文件列表提示（每次发送前实时获取实体树）
+    let entityTreePromptText = ''
+    try {
+      const entityResult = await getEntities()
+      if (entityResult.success && entityResult.data) {
+        entityTreePromptText = buildEntityTreePrompt(
+          entityResult.data.entities || [],
+          entityResult.data.project_id
+        ).text
+      } else {
+        console.warn('[ChatOverleaf] Failed to fetch entity tree:', entityResult.error)
+      }
+    } catch (error) {
+      console.warn('[ChatOverleaf] Failed to fetch entity tree:', error)
+    }
 
     // 3. 添加当前用户消息（合并选中文本、用户消息和图片）
     const currentMessageContent: Array<{
@@ -329,10 +340,10 @@ export const useMessageHandler = ({
     }
 
     // 3.1 先推送文件列表提示（作为 user 角色，声明系统自动提供；放在最新用户消息前，避免前缀缓存失效）
-    if (fileListPromptText) {
+    if (entityTreePromptText) {
       chatHistory.push({
         role: 'user',
-        content: `[系统自动提供的文件列表参考信息]\n${fileListPromptText}\n（此块为系统生成的最新文件/文件夹及 token 信息，若需访问请使用 @ 选择文件或文件夹，或通过顶部文件列表勾选。）`
+        content: `[系统自动提供的真实项目文件列表]\n${entityTreePromptText}\n（此块为系统通过 getEntities API 实时获取的项目实体树，真实路径以此为准。）`
       })
     }
 
@@ -430,3 +441,4 @@ export const useMessageHandler = ({
     handleStopStreaming
   }
 }
+

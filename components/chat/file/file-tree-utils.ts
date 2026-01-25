@@ -1,4 +1,5 @@
 import type { FileInfo } from "./file-extraction-service"
+import type { OverleafEntity } from "~contents/api"
 
 /**
  * 树节点类型
@@ -91,6 +92,103 @@ export const buildFileTreePrompt = (files: FileInfo[]): { text: string; tokenCou
     }
   }
 
+  walk(tree, 0)
+
+  const text = lines.join('\n')
+  const tokenCount = Math.max(1, Math.ceil(estimateTokenWeight(text)))
+  return { text, tokenCount }
+}
+
+const normalizeEntityPath = (path: string): string => path.replace(/^\/+|\/+$/g, '')
+
+interface EntityTreeNode {
+  name: string
+  path: string
+  isFolder: boolean
+  children: EntityTreeNode[]
+}
+
+const buildEntityTree = (entities: OverleafEntity[]): EntityTreeNode[] => {
+  const root: EntityTreeNode[] = []
+  for (const entity of entities) {
+    const normalizedPath = normalizeEntityPath(entity.path || '')
+    if (!normalizedPath) continue
+    const parts = normalizedPath.split('/').filter(Boolean)
+    let currentLevel = root
+    let currentPath = ''
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i]
+      const isLast = i === parts.length - 1
+      currentPath = currentPath ? `${currentPath}/${part}` : part
+      const isFolder = isLast ? entity.type === 'folder' : true
+      let node = currentLevel.find(item => item.name === part)
+      if (!node) {
+        node = {
+          name: part,
+          path: currentPath,
+          isFolder,
+          children: []
+        }
+        currentLevel.push(node)
+      } else if (isFolder && !node.isFolder) {
+        node.isFolder = true
+      }
+      if (!isLast) {
+        currentLevel = node.children
+      }
+    }
+  }
+
+  const sortNodes = (nodes: EntityTreeNode[]): void => {
+    nodes.sort((a, b) => {
+      if (a.isFolder && !b.isFolder) return -1
+      if (!a.isFolder && b.isFolder) return 1
+      return a.name.localeCompare(b.name)
+    })
+    for (const node of nodes) {
+      if (node.isFolder && node.children.length > 0) {
+        sortNodes(node.children)
+      }
+    }
+  }
+
+  sortNodes(root)
+  return root
+}
+
+/**
+ * 构建实体树提示文本（来自 getEntities API 的实时项目文件列表）
+ */
+export const buildEntityTreePrompt = (
+  entities: OverleafEntity[],
+  projectId?: string
+): { text: string; tokenCount: number } => {
+  const lines: string[] = []
+  lines.push('真实项目文件列表（来自 getEntities API 实时实体树，紧凑格式）：')
+  if (projectId) {
+    lines.push(`project_id: ${projectId}`)
+  }
+  lines.push('尤其注意：用户上下文可能过时；如实体树与上下文/历史引用冲突，请先提醒用户更新当前引用的文件列表，再继续操作。')
+  lines.push('路径以层级拼接为准，必要时提醒用户通过 @ 精确选择文件/文件夹。')
+  if (!entities || entities.length === 0) {
+    lines.push('实体树为空。')
+    const text = lines.join('\n')
+    const tokenCount = Math.max(1, Math.ceil(estimateTokenWeight(text)))
+    return { text, tokenCount }
+  }
+
+  lines.push('实体树：')
+  const tree = buildEntityTree(entities)
+  const walk = (nodes: EntityTreeNode[], depth: number) => {
+    const indent = '  '.repeat(depth)
+    for (const node of nodes) {
+      const name = node.isFolder ? `${node.name}/` : node.name
+      lines.push(`${indent}- ${name}`)
+      if (node.isFolder && node.children.length > 0) {
+        walk(node.children, depth + 1)
+      }
+    }
+  }
   walk(tree, 0)
 
   const text = lines.join('\n')

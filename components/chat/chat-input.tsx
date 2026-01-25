@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { Button } from "../ui/button"
 import { Textarea } from "../ui/textarea"
 import { ScrollArea } from "../ui/scroll-area"
@@ -13,7 +13,8 @@ import { useMessageHandler } from "~hooks/useMessageHandler"
 import { useImageHandler } from "~hooks/useImageHandler"
 import { useInputHandler } from "~hooks/useInputHandler"
 import { generateId } from "~utils/helpers"
-import { buildFileTree, getAllFilesInFolder, type TreeNode, estimateTokenWeight, buildFileTreePrompt } from "./file/file-tree-utils"
+import { buildFileTree, getAllFilesInFolder, type TreeNode, estimateTokenWeight, buildEntityTreePrompt } from "./file/file-tree-utils"
+import { getEntities } from "~contents/api"
 
 interface Message {
   id: string
@@ -133,7 +134,26 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
     return buildFileTree(extractedFiles)
   }, [extractedFiles])
 
-  const fileListPrompt = useMemo(() => buildFileTreePrompt(extractedFiles), [extractedFiles])
+  const [entityTreePromptTokenCount, setEntityTreePromptTokenCount] = useState(0)
+
+  const refreshEntityTreePromptTokens = useCallback(async () => {
+    try {
+      const entityResult = await getEntities()
+      if (entityResult.success && entityResult.data) {
+        const prompt = buildEntityTreePrompt(
+          entityResult.data.entities || [],
+          entityResult.data.project_id
+        )
+        setEntityTreePromptTokenCount(prompt.tokenCount || 0)
+      }
+    } catch (error) {
+      console.warn('[ChatOverleaf] Failed to fetch entity tree tokens:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    void refreshEntityTreePromptTokens()
+  }, [refreshEntityTreePromptTokens])
 
   // 递归收集所有文件夹节点
   const allFolders = useMemo(() => {
@@ -224,9 +244,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
   // 计算 system prompt 的 token 数
   const estimatedSystemPromptTokens = useMemo(() => {
     const base = Math.max(1, Math.ceil(estimateTokenWeight(SYSTEM_PROMPT)))
-    const extra = fileListPrompt.tokenCount || 0
+    const extra = entityTreePromptTokenCount || 0
     return base + extra
-  }, [fileListPrompt.tokenCount])
+  }, [entityTreePromptTokenCount])
 
   // 计算总 token 数
   const totalTokens = estimatedFileTokens + estimatedHistoryTokens + estimatedSystemPromptTokens
@@ -416,6 +436,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
 
   // 发送消息的包装函数
   const onSendMessage = () => {
+    void refreshEntityTreePromptTokens()
     const messageSelectedText = hasSelection ? {
       text: selectedText.text,
       fileName: selectedText.fileName,
