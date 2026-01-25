@@ -37,10 +37,14 @@ function createInteractiveOverlay(
   top: number,
   width: number,
   height: number,
-  isWord: boolean = false
+  isWord: boolean = false,
+  extraClass?: string
 ): HTMLElement {
   const overlay = document.createElement('div')
   overlay.className = isWord ? 'co-hover-highlight-word' : 'co-hover-highlight-bg'
+  if (extraClass) {
+    overlay.classList.add(extraClass)
+  }
   overlay.id = `co-hover-${id}-${index}`
   overlay.dataset.highlightId = id
   overlay.style.left = `${Math.max(0, left)}px`
@@ -48,6 +52,24 @@ function createInteractiveOverlay(
   overlay.style.width = `${Math.max(4, width)}px`
   overlay.style.height = `${height}px`
   return overlay
+}
+
+function createInsertMarkerOverlay(
+  id: string,
+  pos: number,
+  editorView: any,
+  scroller: HTMLElement,
+  scrollerRect: DOMRect,
+  overlays: HTMLElement[]
+): void {
+  const coords = editorView.coordsAtPos(pos)
+  if (!coords) return
+  const left = coords.left - scrollerRect.left
+  const top = coords.top - scrollerRect.top + scroller.scrollTop
+  const height = coords.bottom - coords.top
+  const overlay = createInteractiveOverlay(id, 'insert-0', left, top, 6, height, false, 'co-insert-mode')
+  scroller.appendChild(overlay)
+  overlays.push(overlay)
 }
 
 /**
@@ -85,17 +107,25 @@ function createRegionOverlays(
     : replace
   const diff = computeDiff(matchedText, replacementText)
   const { oldSegments } = computeWordDiff(diff.oldDiff, diff.newDiff)
+  const isImplicitInsert = region.commandType === 'replace' &&
+    diff.oldDiff.length === 0 &&
+    diff.newDiff.length > 0
+  const isInsertMode = region.commandType === 'insert' || isImplicitInsert
   
   // 高亮范围（只高亮差异部分）
   const highlightFrom = from + diff.commonPrefix.length
   const highlightTo = to - diff.commonSuffix.length
   
   if (highlightFrom >= highlightTo) {
-    // 无差异，高亮整个区域
-    createBackgroundOverlaysForRegion(id, from, to, editorView, scroller, scrollerRect, overlays)
+    // 无差异或插入：插入模式显示插入标记，否则高亮整个区域
+    if (isInsertMode) {
+      createInsertMarkerOverlay(id, highlightFrom, editorView, scroller, scrollerRect, overlays)
+    } else {
+      createBackgroundOverlaysForRegion(id, from, to, editorView, scroller, scrollerRect, overlays)
+    }
   } else {
     // 1. 创建淡色背景
-    createBackgroundOverlaysForRegion(id, highlightFrom, highlightTo, editorView, scroller, scrollerRect, overlays)
+    createBackgroundOverlaysForRegion(id, highlightFrom, highlightTo, editorView, scroller, scrollerRect, overlays, isInsertMode)
     // 2. 创建深色单词高亮
     if (oldSegments.length > 0) {
       createWordOverlaysForRegion(id, highlightFrom, oldSegments, editorView, scroller, scrollerRect, overlays)
@@ -115,7 +145,8 @@ function createBackgroundOverlaysForRegion(
   editorView: any,
   scroller: HTMLElement,
   scrollerRect: DOMRect,
-  overlays: HTMLElement[]
+  overlays: HTMLElement[],
+  isInsertMode: boolean = false
 ): void {
   const startCoords = editorView.coordsAtPos(from)
   const endCoords = editorView.coordsAtPos(to)
@@ -130,7 +161,7 @@ function createBackgroundOverlaysForRegion(
     const height = startCoords.bottom - startCoords.top
     const width = endCoords.right - startCoords.left
     
-    const overlay = createInteractiveOverlay(id, 'bg-0', left, top, width, height, false)
+    const overlay = createInteractiveOverlay(id, 'bg-0', left, top, width, height, false, isInsertMode ? 'co-insert-mode' : undefined)
     scroller.appendChild(overlay)
     overlays.push(overlay)
   } else {
@@ -171,7 +202,7 @@ function createBackgroundOverlaysForRegion(
       }
       
       const top = lineStartCoords.top - scrollerRect.top + scroller.scrollTop
-      const overlay = createInteractiveOverlay(id, `bg-${lineIndex}`, left, top, width, lineHeight, false)
+      const overlay = createInteractiveOverlay(id, `bg-${lineIndex}`, left, top, width, lineHeight, false, isInsertMode ? 'co-insert-mode' : undefined)
       scroller.appendChild(overlay)
       overlays.push(overlay)
       
@@ -251,16 +282,19 @@ function showPopover(region: HighlightRegion, scroller: HTMLElement, editorView:
     // 插入操作：直接显示要插入的内容
     displayContent = `<span class="co-insert-label">插入:</span> ${escapeHtml(region.replace)}`
   } else {
-    // 替换操作：计算差异
+    // 替换操作：计算差异，识别“仅插入”场景
     const matchedText = editorView.state.doc.sliceString(region.from, region.to)
     const replacementText = region.isRegex 
       ? matchedText.replace(new RegExp(region.search), region.replace)
       : region.replace
     const diff = computeDiff(matchedText, replacementText)
     const { newSegments } = computeWordDiff(diff.oldDiff, diff.newDiff)
+    const isImplicitInsert = diff.oldDiff.length === 0 && diff.newDiff.length > 0
     
     if (diff.oldDiff.length === 0 && diff.newDiff.length === 0) {
       displayContent = escapeHtml(replacementText)
+    } else if (isImplicitInsert) {
+      displayContent = `<span class="co-insert-label">插入:</span> ${escapeHtml(diff.newDiff)}`
     } else {
       displayContent = renderNewDiffHtml(newSegments)
     }

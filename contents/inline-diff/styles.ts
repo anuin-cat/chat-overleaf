@@ -50,6 +50,10 @@ export function injectInlineDiffStyles() {
       box-sizing: border-box;
     }
     
+    .co-replace-highlight-overlay.co-insert-mode {
+      background: rgba(147, 197, 253, 0.38);
+    }
+    
     /* 被修改/删除的单词 - 深色背景 */
     .co-replace-highlight-word {
       position: absolute;

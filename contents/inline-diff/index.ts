@@ -36,12 +36,32 @@ function createHighlightOverlay(
   to: number,
   editorView: any,
   scroller: HTMLElement,
-  oldSegments?: WordDiffSegment[]
+  oldSegments?: WordDiffSegment[],
+  isInsertMode: boolean = false
 ): HighlightBounds | null {
   // 移除之前的高亮覆盖层
   removeHighlightOverlay(id)
   
-  if (from >= to) return null // 没有差异部分需要高亮
+  if (from >= to) {
+    if (!isInsertMode) return null
+    try {
+      const scrollerRect = scroller.getBoundingClientRect()
+      const overlays: HTMLElement[] = []
+      const coords = editorView.coordsAtPos(from)
+      if (!coords) return null
+      const left = coords.left - scrollerRect.left
+      const top = coords.top - scrollerRect.top + scroller.scrollTop
+      const height = coords.bottom - coords.top
+      const overlay = createSingleOverlay(id, 'insert-0', left, top, 6, height, false, 'co-insert-mode')
+      scroller.appendChild(overlay)
+      overlays.push(overlay)
+      highlightOverlays.set(id, overlays)
+      return { minLeft: left, maxBottom: top + height }
+    } catch (error) {
+      console.error('[ChatOverleaf] Error creating insert marker:', error)
+      return null
+    }
+  }
   
   try {
     const scrollerRect = scroller.getBoundingClientRect()
@@ -60,7 +80,7 @@ function createHighlightOverlay(
     scroller.style.position = 'relative'
     
     // 1. 创建整体淡色背景覆盖层
-    const bgBounds = createBackgroundOverlays(id, from, to, editorView, scroller, scrollerRect, overlays)
+    const bgBounds = createBackgroundOverlays(id, from, to, editorView, scroller, scrollerRect, overlays, isInsertMode)
     if (bgBounds) {
       minLeft = bgBounds.minLeft
       maxBottom = bgBounds.maxBottom
@@ -91,7 +111,8 @@ function createBackgroundOverlays(
   editorView: any,
   scroller: HTMLElement,
   scrollerRect: DOMRect,
-  overlays: HTMLElement[]
+  overlays: HTMLElement[],
+  isInsertMode: boolean = false
 ): HighlightBounds | null {
   const startCoords = editorView.coordsAtPos(from)
   const endCoords = editorView.coordsAtPos(to)
@@ -108,7 +129,7 @@ function createBackgroundOverlays(
     const top = startCoords.top - scrollerRect.top + scroller.scrollTop
     const height = startCoords.bottom - startCoords.top
     
-    const overlay = createSingleOverlay(id, 'bg-0', left, top, endCoords.right - startCoords.left, height, false)
+    const overlay = createSingleOverlay(id, 'bg-0', left, top, endCoords.right - startCoords.left, height, false, isInsertMode ? 'co-insert-mode' : undefined)
     scroller.appendChild(overlay)
     overlays.push(overlay)
     
@@ -152,7 +173,7 @@ function createBackgroundOverlays(
       }
       
       const top = lineStartCoords.top - scrollerRect.top + scroller.scrollTop
-      const overlay = createSingleOverlay(id, `bg-${lineIndex}`, left, top, width, lineHeight, false)
+      const overlay = createSingleOverlay(id, `bg-${lineIndex}`, left, top, width, lineHeight, false, isInsertMode ? 'co-insert-mode' : undefined)
       scroller.appendChild(overlay)
       overlays.push(overlay)
       
@@ -263,10 +284,14 @@ function createSingleOverlay(
   top: number,
   width: number,
   height: number,
-  isWord: boolean = false
+  isWord: boolean = false,
+  extraClass?: string
 ): HTMLElement {
   const overlay = document.createElement('div')
   overlay.className = isWord ? 'co-replace-highlight-word' : 'co-replace-highlight-overlay'
+  if (extraClass) {
+    overlay.classList.add(extraClass)
+  }
   overlay.id = `co-highlight-${id}-${index}`
   overlay.style.left = `${Math.max(0, left)}px`
   overlay.style.top = `${top}px`
@@ -339,6 +364,7 @@ function showInlineDiffWithDOM(
     ? matchedText.replace(new RegExp(search), replace)
     : replace
   const diff = computeDiff(matchedText, replacementText)
+  const isImplicitInsert = diff.oldDiff.length === 0 && diff.newDiff.length > 0
   
   // 只高亮差异部分（跳过首尾相同部分）
   const highlightFrom = firstMatch.from + diff.commonPrefix.length
@@ -374,13 +400,16 @@ function showInlineDiffWithDOM(
       const { oldSegments, newSegments } = computeWordDiff(diff.oldDiff, diff.newDiff)
       
       // 创建持久高亮覆盖层（包含单词级别高亮），并获取边界信息
-      const bounds = createHighlightOverlay(id, highlightFrom, highlightTo, editorView, scroller, oldSegments)
+  const bounds = createHighlightOverlay(id, highlightFrom, highlightTo, editorView, scroller, oldSegments, isImplicitInsert)
       
       // 生成弹出框中显示的内容（只显示差异部分，高亮变化的单词）
       let displayContent: string
       if (diff.oldDiff.length === 0 && diff.newDiff.length === 0) {
         // 完全相同，直接显示
         displayContent = escapeHtml(replacementText)
+      } else if (isImplicitInsert) {
+        // 仅插入：用插入标签展示新增内容
+        displayContent = `<span class="co-insert-label">插入:</span> ${escapeHtml(diff.newDiff)}`
       } else {
         // 有差异，只显示差异部分并高亮变化的单词
         displayContent = renderNewDiffHtml(newSegments)

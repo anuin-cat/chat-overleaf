@@ -383,6 +383,11 @@ export const ReplaceBlock = ({
   // 是否只显示差异部分
   const hasDiff = diffData.diff.oldDiff.length > 0 || diffData.diff.newDiff.length > 0
   const showCompact = hasDiff && (diffData.diff.commonPrefix.length > 10 || diffData.diff.commonSuffix.length > 10)
+  const isImplicitInsert = !isCreateCommand &&
+    command.commandType === 'replace' &&
+    diffData.diff.oldDiff.length === 0 &&
+    diffData.diff.newDiff.length > 0
+  const isInsertLike = command.commandType === 'insert' || isImplicitInsert
   
   return (
     <div className={`my-1.5 rounded-md border ${statusDisplay.bgColor} overflow-hidden text-xs`}>
@@ -400,7 +405,7 @@ export const ReplaceBlock = ({
               新建
             </span>
           )}
-          {command.commandType === 'insert' && (
+          {isInsertLike && (
             <span className="text-[10px] px-1 py-0.5 bg-blue-100 text-blue-600 rounded flex-shrink-0">
               插入
             </span>
@@ -486,10 +491,10 @@ export const ReplaceBlock = ({
               </pre>
             </div>
           </div>
-        ) : command.commandType === 'insert' ? (
+        ) : isInsertLike ? (
           <>
             {/* AFTER 锚点 */}
-            {command.insertAnchor?.after && (
+            {command.commandType === 'insert' && command.insertAnchor?.after && (
               <div className="flex items-start gap-1">
                 <span className="w-1 h-1 rounded-full bg-blue-400 mt-1.5 flex-shrink-0"></span>
                 <div className="flex-1">
@@ -500,18 +505,30 @@ export const ReplaceBlock = ({
                 </div>
               </div>
             )}
+            {/* 由 diff 推断的插入：显示定位文本 */}
+            {isImplicitInsert && (
+              <div className="flex items-start gap-1">
+                <span className="w-1 h-1 rounded-full bg-blue-400 mt-1.5 flex-shrink-0"></span>
+                <div className="flex-1">
+                  <span className="text-[10px] text-blue-500 mr-1">定位文本</span>
+                  <pre className="text-[11px] text-blue-700 px-1 py-0.5 rounded overflow-x-auto whitespace-pre-wrap break-all font-mono border border-blue-100 leading-tight bg-blue-50/50">
+                    {command.search || '(空)'}
+                  </pre>
+                </div>
+              </div>
+            )}
             {/* 插入内容 */}
             <div className="flex items-start gap-1">
               <span className="w-1 h-1 rounded-full bg-green-400 mt-1.5 flex-shrink-0"></span>
               <div className="flex-1">
                 <span className="text-[10px] text-green-500 mr-1">插入内容</span>
                 <pre className="text-[11px] text-green-700 px-1 py-0.5 rounded overflow-x-auto whitespace-pre-wrap break-all font-mono border border-green-100 leading-tight bg-green-50/50">
-                  {command.replace || '(空)'}
+                  {isImplicitInsert ? (diffData.diff.newDiff || command.replace || '(空)') : (command.replace || '(空)')}
                 </pre>
               </div>
             </div>
             {/* BEFORE 锚点 */}
-            {command.insertAnchor?.before && (
+            {command.commandType === 'insert' && command.insertAnchor?.before && (
               <div className="flex items-start gap-1">
                 <span className="w-1 h-1 rounded-full bg-blue-400 mt-1.5 flex-shrink-0"></span>
                 <div className="flex-1">
