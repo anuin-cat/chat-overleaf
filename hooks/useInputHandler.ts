@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from "react"
 export const useInputHandler = () => {
   const [inputValue, setInputValue] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  // 跟踪输入法是否处于编辑状态（composition）
+  const isComposingRef = useRef(false)
 
   // 自适应高度函数
   const adjustTextareaHeight = () => {
@@ -34,6 +36,18 @@ export const useInputHandler = () => {
     setInputValue(e.target.value)
   }
 
+  // 处理输入法组合开始
+  const handleCompositionStart = () => {
+    isComposingRef.current = true
+  }
+
+  // 处理输入法组合结束
+  const handleCompositionEnd = (e: React.CompositionEvent<HTMLTextAreaElement>) => {
+    isComposingRef.current = false
+    // 更新输入值，确保拼音被正确输入到输入框
+    setInputValue(e.currentTarget.value)
+  }
+
   // 处理键盘事件
   const handleKeyDown = (
     e: React.KeyboardEvent,
@@ -42,6 +56,11 @@ export const useInputHandler = () => {
     isStreaming: boolean
   ) => {
     if (e.key === "Enter" && !e.shiftKey) {
+      // 如果输入法正在编辑中，不处理回车事件，让输入法自己处理
+      // 这样按回车会将拼音输入到输入框，而不是发送消息
+      if (isComposingRef.current) {
+        return
+      }
       e.preventDefault()
       if (isStreaming) {
         onStop()
@@ -63,6 +82,8 @@ export const useInputHandler = () => {
     textareaRef,
     handleInputChange,
     handleKeyDown,
+    handleCompositionStart,
+    handleCompositionEnd,
     clearInput,
     adjustTextareaHeight,
     setInputValue

@@ -103,6 +103,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
     textareaRef,
     handleInputChange,
     handleKeyDown,
+    handleCompositionStart,
+    handleCompositionEnd,
     clearInput,
     adjustTextareaHeight,
     setInputValue
@@ -490,6 +492,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
             value={inputValue}
             onChange={handleTextareaChange}
             onKeyDown={handleTextareaKeyDown}
+            onCompositionStart={handleCompositionStart}
+            onCompositionEnd={handleCompositionEnd}
             onPaste={handlePaste}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
