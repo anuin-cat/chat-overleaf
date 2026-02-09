@@ -41,6 +41,110 @@ const markedInstance = new Marked({
   strict: false, // 不严格模式，允许一些便利功能
 } as any))
 
+// 规范化数学分隔符，兼容 \[...\] 以及不规范的 $$ 块写法
+const normalizeMathDelimiters = (text: string): string => {
+  if (!text) return text
+
+  const lines = text.split(/\r?\n/)
+  const normalizedLines: string[] = []
+
+  let inFencedCodeBlock = false
+  let fenceMarker = ''
+  let inMathBlock: 'dollar' | 'bracket' | null = null
+
+  const isDollarDelimiter = (line: string) => /^\s*\$\$\s*$/.test(line)
+  const isBracketOpen = (line: string) => /^\s*\\\[\s*$/.test(line)
+  const isBracketClose = (line: string) => /^\s*\\\]\s*$/.test(line)
+
+  const appendBlankLineBeforeMathIfNeeded = () => {
+    if (normalizedLines.length > 0 && normalizedLines[normalizedLines.length - 1].trim() !== '') {
+      normalizedLines.push('')
+    }
+  }
+
+  const appendBlankLineAfterMathIfNeeded = (nextLine?: string) => {
+    if (nextLine !== undefined && nextLine.trim() !== '') {
+      normalizedLines.push('')
+    }
+  }
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]
+    const trimmedLine = line.trim()
+
+    const fenceMatch = trimmedLine.match(/^(`{3,}|~{3,})/)
+    if (fenceMatch) {
+      const marker = fenceMatch[1]
+      if (!inFencedCodeBlock) {
+        inFencedCodeBlock = true
+        fenceMarker = marker
+      } else if (trimmedLine.startsWith(fenceMarker)) {
+        inFencedCodeBlock = false
+        fenceMarker = ''
+      }
+      normalizedLines.push(line)
+      continue
+    }
+
+    if (inFencedCodeBlock) {
+      normalizedLines.push(line)
+      continue
+    }
+
+    if (!inMathBlock) {
+      const singleLineBracketMatch = line.match(/^\s*\\\[\s*(.+?)\s*\\\]\s*$/)
+      if (singleLineBracketMatch) {
+        appendBlankLineBeforeMathIfNeeded()
+        normalizedLines.push('$$')
+        normalizedLines.push(singleLineBracketMatch[1])
+        normalizedLines.push('$$')
+        appendBlankLineAfterMathIfNeeded(lines[i + 1])
+        continue
+      }
+    }
+
+    if (inMathBlock === 'dollar') {
+      if (isDollarDelimiter(line)) {
+        normalizedLines.push('$$')
+        inMathBlock = null
+        appendBlankLineAfterMathIfNeeded(lines[i + 1])
+      } else {
+        normalizedLines.push(line)
+      }
+      continue
+    }
+
+    if (inMathBlock === 'bracket') {
+      if (isBracketClose(line)) {
+        normalizedLines.push('$$')
+        inMathBlock = null
+        appendBlankLineAfterMathIfNeeded(lines[i + 1])
+      } else {
+        normalizedLines.push(line)
+      }
+      continue
+    }
+
+    if (isDollarDelimiter(line)) {
+      appendBlankLineBeforeMathIfNeeded()
+      normalizedLines.push('$$')
+      inMathBlock = 'dollar'
+      continue
+    }
+
+    if (isBracketOpen(line)) {
+      appendBlankLineBeforeMathIfNeeded()
+      normalizedLines.push('$$')
+      inMathBlock = 'bracket'
+      continue
+    }
+
+    normalizedLines.push(line)
+  }
+
+  return normalizedLines.join('\n')
+}
+
 export const MarkdownMessage = ({ 
   content, 
   isUser, 
@@ -217,7 +321,8 @@ export const MarkdownMessage = ({
 
   const renderMarkdown = (text: string) => {
     try {
-      const html = markedInstance.parse(text)
+      const normalizedText = normalizeMathDelimiters(text)
+      const html = markedInstance.parse(normalizedText)
       return { __html: html }
     } catch (error) {
       console.error('Markdown parsing error:', error)
